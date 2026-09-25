@@ -148,11 +148,11 @@ Microsoft 365 acquisition now includes:
 - delegated read-only Graph authentication with local token cache;
 - Inbox metadata/body collection;
 - bounded pagination;
-- attachment metadata/content collection and local attachment download support.
+- attachment metadata/content collection support.
 
 Incremental sync:
-- schema v3 adds `sync_state`;
-- Brightspace activity feed, per-course announcement collection, and Microsoft 365 Inbox use persisted cursors/last-success timestamps;
+- schema v3 introduced `sync_state`;
+- Brightspace activity feed and per-course announcement collection use persisted last-success cursors;
 - successful runs advance cursors; failed course/source runs do not;
 - unchanged source objects are hash-deduplicated.
 
@@ -167,17 +167,50 @@ Collector audit finding:
 - CI exposed a real bug where requesting `content_structure` did not collect `content_root` because the nested helper incorrectly rechecked the alias name against the include set;
 - the collector now fetches and persists `content_root` directly under the `content_structure` request, and nested module discovery again has the full root + TOC input.
 
-Final CI snapshot for this source-collection slice: **48 passed** on Python 3.12 with Ruff correctness checks passing; the corresponding Python 3.11 matrix job also completed successfully.
+CI snapshot for this slice: **48 passed** on Python 3.12 with Ruff correctness checks passing; the corresponding Python 3.11 matrix job also completed successfully.
+
+## Source collection v4 — durable incremental operation
+
+Status: implemented; final CI verification for the integrated slice is required before considering this section closed.
+
+Schema v4 adds:
+- `source_health` for freshness/failure state;
+- `file_manifest` for persistent binary-download state;
+- migration coverage from earlier AcademicOS schemas.
+
+Microsoft Graph improvements:
+- Inbox delta queries are now the preferred incremental mode;
+- the opaque Graph `@odata.deltaLink` is persisted as the durable cursor;
+- page chains must reach a deltaLink before the saved cursor advances;
+- removals are persisted locally as tombstone source changes;
+- timestamp filtering remains available with `mail.use_delta = false` as a compatibility fallback.
+
+File mirroring improvements:
+- Brightspace content files and assignment attachments use stable manifest keys;
+- remote metadata is hashed into a fingerprint before binary download;
+- unchanged remote fingerprint + present local file allows the binary request to be skipped;
+- downloaded payloads record SHA256, byte size, ETag/Last-Modified when present, and check/download timestamps.
+
+Collection-health improvements:
+- account/course/mail collectors store last attempt, last success, last error, consecutive failures, changed/unchanged counts, and download counts;
+- a new `academicos-health` command reports `OK`, `STALE`, or `ERROR` states;
+- failed runs do not get presented as successful freshness.
+
+Windows unattended operation:
+- `academicos-schedule install --minutes 30` constructs a current-user Windows Task Scheduler job;
+- `academicos-schedule status` and `academicos-schedule remove` manage it;
+- the task runs the same local Python environment and does not install a Windows service;
+- interval values below 15 minutes are rejected.
 
 See `SOURCE_COLLECTION.md` for the acquisition architecture and privacy boundary.
 
 ## Current limitations / next audit targets
 
-- Source collectors are implemented, but Brightspace and Microsoft 365 still need end-to-end validation against the user's real uOttawa accounts on Windows.
-- The Windows Task Scheduler installer/registration flow is not yet implemented; the sync command itself is suitable for scheduled execution.
+- Brightspace and Microsoft 365 still require end-to-end validation against the user's real uOttawa accounts on Windows.
 - Some Brightspace endpoints can vary by institution/course permissions; per-endpoint isolation is implemented, but real uOttawa response shapes should be captured and hardened.
-- File mirroring currently compares local bytes to downloaded bytes; a persistent remote metadata/hash manifest could reduce unnecessary binary transfers further.
-- Microsoft Graph Inbox collection uses a timestamp filter rather than Graph delta queries; delta-link support would be a stronger long-term incremental mechanism.
+- The current Brightspace remote fingerprint depends on metadata returned in TOC/assignment objects. If uOttawa fails to update those metadata fields when binary content changes, a conditional-GET/ETag strategy should be added for that endpoint.
+- Microsoft 365 attachment binary mirroring is not yet wired into the delta-sync path; attachment metadata is collected and the downloader exists, but delta-aware attachment download selection remains a follow-up.
+- Source health is available through CLI and SQLite but is not yet shown in the local Dashboard/Morning Brief.
 - Free-text `class_moved` extraction is deliberately not automated yet because time/date movement language needs safer disambiguation; the Candidate acceptance engine itself supports moved events.
 - Deadline-change CandidateEvents do not yet deterministically identify/materialize the correct Task.
 - Accepted CandidateEvent rollback/supersession is not implemented yet.
