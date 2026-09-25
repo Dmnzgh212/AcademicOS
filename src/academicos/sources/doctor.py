@@ -13,7 +13,6 @@ from pathlib import Path
 from typing import Any, Callable
 
 from academicos.sources.brightspace.auth import (
-    BrightspaceAuthError,
     capture_browser_token,
     get_or_refresh_token,
     load_saved_token,
@@ -21,7 +20,7 @@ from academicos.sources.brightspace.auth import (
 )
 from academicos.sources.brightspace.client import BrightspaceClient
 from academicos.sources.brightspace.discovery import discover_course_mappings
-from academicos.sources.mail.auth import MailAuthError, acquire_graph_token
+from academicos.sources.mail.auth import acquire_graph_token
 from academicos.sources.mail.graph import GraphMailClient
 from academicos.sources.sync import load_sync_config
 from academicos.storage.db import connect_db, initialize_db, schema_version
@@ -182,7 +181,7 @@ def _probe_brightspace(
 
     sample = discovery.mappings[0]
     org_id = sample.org_unit_id
-    code = sample.local_code
+    code = sample.code
     probes: tuple[tuple[str, Callable[[], Any]], ...] = (
         ("news", lambda: client.news(org_id)),
         ("assignments", lambda: client.assignments(org_id)),
@@ -196,13 +195,11 @@ def _probe_brightspace(
         try:
             payload = operation()
             if isinstance(payload, (list, tuple, dict)):
-                count = len(payload)
-                detail = f"course={code}; response_items={count}"
+                detail = f"course={code}; response_items={len(payload)}"
             else:
                 detail = f"course={code}; response_type={type(payload).__name__}"
             checks.append(_check(f"brightspace.endpoint.{label}", "PASS", detail))
         except Exception as exc:
-            # Institution/course permissions can legitimately disable an endpoint.
             checks.append(
                 _check(
                     f"brightspace.endpoint.{label}",
@@ -253,7 +250,7 @@ def _probe_mail(
                 f"account={account}; inbox_probe_items={len(messages)}",
             )
         )
-    except (MailAuthError, Exception) as exc:
+    except Exception as exc:
         checks.append(_check("mail.live", "FAIL", f"{type(exc).__name__}: {exc}"))
 
 
