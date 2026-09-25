@@ -71,7 +71,7 @@ def _writeable_directory(path: Path) -> tuple[bool, str]:
         path.mkdir(parents=True, exist_ok=True)
         with tempfile.NamedTemporaryFile(dir=path, prefix="academicos-doctor-", delete=True):
             pass
-        return True, str(path.resolve())
+        return True, str(path)
     except OSError as exc:
         return False, f"{type(exc).__name__}: {exc}"
 
@@ -85,7 +85,7 @@ def _open_database(path: Path) -> tuple[sqlite3.Connection | None, DoctorCheck]:
         return conn, _check(
             "database",
             "PASS",
-            f"schema=v{version}; imported_courses={courses}; path={path.resolve()}",
+            f"schema=v{version}; imported_courses={courses}; path={path}",
         )
     except Exception as exc:
         return None, _check("database", "FAIL", f"{type(exc).__name__}: {exc}")
@@ -151,12 +151,11 @@ def _probe_brightspace(
         )
         identity = client.whoami()
         enrollments = client.my_enrollments(active_only=True)
-        user_id = identity.get("Identifier") or identity.get("UserId") or "available"
         checks.append(
             _check(
                 "brightspace.live.account",
-                "PASS",
-                f"whoami={user_id}; active_enrollments={len(enrollments)}",
+                "PASS" if identity else "WARN",
+                f"identity_ok={bool(identity)}; active_enrollments={len(enrollments)}",
             )
         )
     except Exception as exc:
@@ -242,12 +241,11 @@ def _probe_mail(
         client = GraphMailClient(access_token=token)
         identity = client.me()
         messages = client.inbox_messages(top=1, max_pages=1)
-        account = identity.get("userPrincipalName") or identity.get("mail") or "available"
         checks.append(
             _check(
                 "mail.live",
-                "PASS",
-                f"account={account}; inbox_probe_items={len(messages)}",
+                "PASS" if identity else "WARN",
+                f"identity_ok={bool(identity)}; inbox_probe_items={len(messages)}",
             )
         )
     except Exception as exc:
@@ -281,7 +279,7 @@ def run_doctor(
 
     try:
         config = load_sync_config(config_path)
-        checks.append(_check("config", "PASS", str(config_path.resolve())))
+        checks.append(_check("config", "PASS", str(config_path)))
     except Exception as exc:
         checks.append(_check("config", "FAIL", f"{type(exc).__name__}: {exc}"))
         return DoctorReport(
