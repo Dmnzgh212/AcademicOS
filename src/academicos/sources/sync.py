@@ -4,6 +4,7 @@ import os
 import sqlite3
 import tomllib
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -18,9 +19,11 @@ from academicos.sources.brightspace.collector import (
     download_course_files,
     persist_dataset,
 )
+from academicos.sources.brightspace.discovery import discover_course_mappings
 from academicos.sources.mail.auth import acquire_graph_token
 from academicos.sources.mail.collector import collect_inbox
 from academicos.sources.mail.graph import GraphMailClient
+from academicos.sources.state import get_cursor, set_sync_state
 from academicos.storage.db import connect_db, initialize_db
 
 
@@ -81,6 +84,69 @@ def _brightspace_token(config: dict[str, Any], *, interactive: bool) -> str:
     return get_or_refresh_token(host=host, auth_dir=auth_dir)
 
 
+def _course_specs(
+    conn: sqlite3.Connection,
+    brightspace: dict[str, Any],
+    enrollments: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], dict[str, str]]:
+    """Return configured courses, filling missing org_ids from Brightspace discovery.
+
+    If no explicit course list is configured, all unambiguous local timetable courses
+    discovered in active Brightspace enrollments are collected automatically.
+    """
+    configured = brightspace.get("courses", [])
+    configured = configured if isinstance(configured, list) else []
+    discovery = discover_course_mappings(conn, enrollments)
+    by_local_id = {mapping.local_course_id: mapping for mapping in discovery.mappings}
+    errors: dict[str, str] = {}
+
+    if not configured:
+        rows = conn.execute("SELECT id, code, section FROM courses").fetchall()
+        specs: list[dict[str, Any]] = []
+        for row in rows:
+            mapping = by_local_id.get(row["id"])
+            if mapping is None:
+                continue
+            specs.append(
+                {
+                    "code": row["code"],
+                    "section": row["section"],
+                    "org_id": mapping.org_unit_id,
+                    "download_files": bool(brightspace.get("download_files", False)),
+                }
+            )
+        for label in discovery.unmatched_local:
+            errors[f"discovery:{label}"] = "no matching active Brightspace course offering"
+        for label, options in discovery.ambiguous_local.items():
+            errors[f"discovery:{label}"] = "ambiguous Brightspace offerings: " + "; ".join(options)
+        return specs, errors
+
+    specs = []
+    for raw in configured:
+        if not isinstance(raw, dict) or not raw.get("code"):
+            continue
+        spec = dict(raw)
+        if spec.get("org_id"):
+            specs.append(spec)
+            continue
+        try:
+            local_id = _resolve_course_id(
+                conn,
+                str(spec["code"]),
+                str(spec["section"]) if spec.get("section") else None,
+            )
+        except ValueError as exc:
+            errors[f"discovery:{spec['code']}"] = str(exc)
+            continue
+        mapping = by_local_id.get(local_id)
+        if mapping is None:
+            errors[f"discovery:{spec['code']}"] = "no unambiguous Brightspace course mapping"
+            continue
+        spec["org_id"] = mapping.org_unit_id
+        specs.append(spec)
+    return specs, errors
+
+
 def sync_all(
     *,
     config_path: Path,
@@ -106,10 +172,14 @@ def sync_all(
                     le_version=str(brightspace.get("le_version", "1.75")),
                     lp_version=str(brightspace.get("lp_version", "1.51")),
                 )
+
+                enrollments = client.my_enrollments(active_only=True)
+                feed_state_key = "brightspace:activity_feed"
+                feed_since = get_cursor(conn, feed_state_key)
                 account_sets = {
                     "whoami": client.whoami(),
-                    "enrollments": client.my_enrollments(active_only=True),
-                    "activity_feed": client.user_feed(),
+                    "enrollments": enrollments,
+                    "activity_feed": client.user_feed(since=feed_since),
                 }
                 for name, payload in account_sets.items():
                     result = persist_dataset(
@@ -121,23 +191,30 @@ def sync_all(
                     )
                     report.changed += result["changed"]
                     report.unchanged += result["unchanged"]
+                set_sync_state(
+                    conn,
+                    feed_state_key,
+                    cursor=datetime.now(UTC).isoformat(),
+                    metadata={"dataset": "activity_feed"},
+                )
 
-                courses = brightspace.get("courses", [])
-                for course in courses if isinstance(courses, list) else []:
-                    if not isinstance(course, dict):
-                        continue
+                courses, discovery_errors = _course_specs(conn, brightspace, enrollments)
+                report.errors.update(discovery_errors)
+                for course in courses:
                     code = str(course["code"])
                     section = str(course["section"]) if course.get("section") else None
                     org_id = str(course["org_id"])
                     source_name = f"brightspace:{code}{'-' + section if section else ''}"
+                    state_key = f"brightspace:{org_id}:course"
                     try:
                         course_id = _resolve_course_id(conn, code, section)
+                        since = course.get("since") or get_cursor(conn, state_key)
                         course_report = collect_course_data(
                             conn,
                             client,
                             course_id=course_id,
                             org_unit_id=org_id,
-                            since=course.get("since"),
+                            since=str(since) if since else None,
                             timezone_name=str(app_config.get("timezone", "America/Toronto")),
                         )
                         report.changed += course_report.changed
@@ -145,7 +222,7 @@ def sync_all(
                         for endpoint, error in course_report.errors.items():
                             report.errors[f"{source_name}:{endpoint}"] = error
 
-                        if bool(course.get("download_files", False)):
+                        if bool(course.get("download_files", brightspace.get("download_files", False))):
                             label = code + (f"-{section}" if section else "")
                             files = download_course_files(
                                 client,
@@ -157,6 +234,12 @@ def sync_all(
                                 report.errors[f"{source_name}:files"] = (
                                     f"{files['failed']} file(s) could not be downloaded"
                                 )
+                        set_sync_state(
+                            conn,
+                            state_key,
+                            cursor=datetime.now(UTC).isoformat(),
+                            metadata={"code": code, "section": section, "org_id": org_id},
+                        )
                         report.sources_ok.append(source_name)
                     except Exception as exc:
                         report.errors[source_name] = f"{type(exc).__name__}: {exc}"
@@ -182,14 +265,22 @@ def sync_all(
                     course_id=None,
                     org_unit_id=None,
                 )
+                mail_state_key = "mail:m365:inbox"
+                mail_since = mail.get("since") or get_cursor(conn, mail_state_key)
                 inbox = collect_inbox(
                     conn,
                     mail_client,
-                    since=mail.get("since"),
+                    since=str(mail_since) if mail_since else None,
                     max_pages=int(mail.get("max_pages", 20)),
                 )
                 report.changed += identity["changed"] + inbox.changed
                 report.unchanged += identity["unchanged"] + inbox.unchanged
+                set_sync_state(
+                    conn,
+                    mail_state_key,
+                    cursor=datetime.now(UTC).isoformat(),
+                    metadata={"provider": "microsoft_graph"},
+                )
                 report.sources_ok.append("mail:m365")
             except Exception as exc:
                 report.errors["mail:m365"] = f"{type(exc).__name__}: {exc}"
