@@ -10,9 +10,8 @@ import requests
 class BrightspaceClient:
     """Read-only Brightspace Valence client used by AcademicOS collectors.
 
-    The client intentionally exposes GET-only academic-data operations. Authentication
-    refresh is handled separately by ``brightspace.auth`` so scheduled collection cannot
-    accidentally gain write capabilities.
+    Academic-data methods in this client are GET-only. Authentication refresh is
+    isolated in ``brightspace.auth`` so scheduled collection cannot mutate courses.
     """
 
     MAX_RETRIES = 3
@@ -54,7 +53,6 @@ class BrightspaceClient:
             if attempt < self.MAX_RETRIES - 1:
                 retry_after = float(response.headers.get("Retry-After", "5"))
                 self.sleep(retry_after)
-
         assert response is not None
         response.raise_for_status()
         return response
@@ -92,6 +90,29 @@ class BrightspaceClient:
             page_params["bookmark"] = paging.get("Bookmark", "")
         return items
 
+    def paginate_pages(
+        self,
+        path: str,
+        *,
+        page_size: int = 50,
+        params: dict[str, Any] | None = None,
+    ) -> list[dict]:
+        items: list[dict] = []
+        page_params = dict(params or {})
+        page_params["pageSize"] = page_size
+        page = 1
+        while True:
+            page_params["pageNumber"] = page
+            data = self._get(path, page_params)
+            batch = data if isinstance(data, list) else []
+            if not batch:
+                break
+            items.extend(item for item in batch if isinstance(item, dict))
+            if len(batch) < page_size:
+                break
+            page += 1
+        return items
+
     def whoami(self) -> dict:
         data = self._get(self.lp("/users/whoami"))
         return data if isinstance(data, dict) else {}
@@ -111,11 +132,30 @@ class BrightspaceClient:
         data = self._get(self.le(f"/{org_id}/dropbox/folders/"))
         return data if isinstance(data, list) else []
 
+    def my_submissions(self, org_id: str | int, folder_id: str | int) -> list[dict]:
+        data = self._get(
+            self.le(f"/{org_id}/dropbox/folders/{folder_id}/submissions/mysubmissions/")
+        )
+        return data if isinstance(data, list) else []
+
     def quizzes(self, org_id: str | int) -> list[dict]:
         data = self._get(self.le(f"/{org_id}/quizzes/"))
         if isinstance(data, dict) and isinstance(data.get("Objects"), list):
             return data["Objects"]
         return data if isinstance(data, list) else []
+
+    def quiz_attempts(self, org_id: str | int, quiz_id: str | int) -> list[dict]:
+        data = self._get(self.le(f"/{org_id}/quizzes/{quiz_id}/attempts/"))
+        if isinstance(data, dict) and isinstance(data.get("Objects"), list):
+            return data["Objects"]
+        return data if isinstance(data, list) else []
+
+    def content_root(self, org_id: str | int) -> list[dict]:
+        data = self._get(self.le(f"/{org_id}/content/root/"))
+        return data if isinstance(data, list) else []
+
+    def content_module(self, org_id: str | int, module_id: str | int):
+        return self._get(self.le(f"/{org_id}/content/modules/{module_id}/structure/"))
 
     def content_toc(self, org_id: str | int):
         return self._get(self.le(f"/{org_id}/content/toc"))
@@ -123,8 +163,36 @@ class BrightspaceClient:
     def grades(self, org_id: str | int):
         return self._get(self.le(f"/{org_id}/grades/values/myGradeValues/"))
 
+    def grade_objects(self, org_id: str | int):
+        return self._get(self.le(f"/{org_id}/grades/"))
+
     def final_grade(self, org_id: str | int):
         return self._get(self.le(f"/{org_id}/grades/final/values/myGradeValue"))
+
+    def discussion_forums(self, org_id: str | int) -> list[dict]:
+        data = self._get(self.le(f"/{org_id}/discussions/forums/"))
+        return data if isinstance(data, list) else []
+
+    def discussion_topics(self, org_id: str | int, forum_id: str | int) -> list[dict]:
+        data = self._get(self.le(f"/{org_id}/discussions/forums/{forum_id}/topics/"))
+        return data if isinstance(data, list) else []
+
+    def discussion_posts(
+        self,
+        org_id: str | int,
+        forum_id: str | int,
+        topic_id: str | int,
+    ) -> list[dict]:
+        return self.paginate_pages(
+            self.le(f"/{org_id}/discussions/forums/{forum_id}/topics/{topic_id}/posts/")
+        )
+
+    def checklists(self, org_id: str | int) -> list[dict]:
+        data = self._get(self.le(f"/{org_id}/checklists/"))
+        return data if isinstance(data, list) else []
+
+    def course_overview(self, org_id: str | int):
+        return self._get(self.le(f"/{org_id}/overview"))
 
     def calendar_events(
         self,
