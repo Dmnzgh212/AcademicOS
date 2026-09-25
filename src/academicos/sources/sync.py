@@ -21,6 +21,7 @@ from academicos.sources.health import mark_failure, mark_success
 from academicos.sources.mail.auth import acquire_graph_token
 from academicos.sources.mail.collector import collect_inbox
 from academicos.sources.mail.delta import collect_inbox_delta
+from academicos.sources.mail.downloads import download_delta_attachments
 from academicos.sources.mail.graph import GraphMailClient
 from academicos.sources.state import get_cursor, set_sync_state
 from academicos.storage.db import connect_db, initialize_db
@@ -278,6 +279,7 @@ def _sync_mail(
     report: SyncReport,
     *,
     mail: dict[str, Any],
+    data_dir: Path,
     interactive_mail_auth: bool,
 ) -> None:
     health_key = "mail:m365"
@@ -300,6 +302,7 @@ def _sync_mail(
         state_key = "mail:m365:inbox"
         cursor = get_cursor(conn, state_key)
         use_delta = bool(mail.get("use_delta", True))
+        downloaded = 0
 
         if use_delta:
             delta_cursor = cursor if cursor and cursor.startswith("https://") else None
@@ -314,6 +317,19 @@ def _sync_mail(
                     "Microsoft Graph delta sync did not reach a durable deltaLink; "
                     "increase mail.max_pages before advancing the cursor"
                 )
+            if bool(mail.get("download_attachments", False)) and inbox.attachment_message_ids:
+                attachment_result = download_delta_attachments(
+                    conn,
+                    mail_client,
+                    message_ids=inbox.attachment_message_ids,
+                    out_dir=data_dir / "mail" / "attachments",
+                )
+                downloaded = attachment_result["downloaded"]
+                report.downloaded_files += downloaded
+                if attachment_result["failed"]:
+                    report.errors["mail:m365:attachments"] = (
+                        f"{attachment_result['failed']} attachment(s) could not be downloaded"
+                    )
             set_sync_state(
                 conn,
                 state_key,
@@ -326,7 +342,11 @@ def _sync_mail(
             )
             mail_changed = inbox.changed
             mail_unchanged = inbox.unchanged
-            metadata = {"mode": "delta", "removed": inbox.removed}
+            metadata = {
+                "mode": "delta",
+                "removed": inbox.removed,
+                "attachment_messages": len(inbox.attachment_message_ids),
+            }
         else:
             since = mail.get("since") or cursor
             inbox = collect_inbox(
@@ -352,6 +372,7 @@ def _sync_mail(
             health_key,
             changed=identity["changed"] + mail_changed,
             unchanged=identity["unchanged"] + mail_unchanged,
+            downloaded_files=downloaded,
             metadata=metadata,
         )
         report.sources_ok.append(health_key)
@@ -392,6 +413,7 @@ def sync_all(
                 conn,
                 report,
                 mail=mail,
+                data_dir=data_dir,
                 interactive_mail_auth=interactive_mail_auth,
             )
 
