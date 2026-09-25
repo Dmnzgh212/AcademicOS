@@ -18,7 +18,7 @@ from academicos.sources.brightspace.collector import (
     download_course_files,
     persist_dataset,
 )
-from academicos.sources.mail.auth import MailAuthError, acquire_graph_token
+from academicos.sources.mail.auth import acquire_graph_token
 from academicos.sources.mail.collector import collect_inbox
 from academicos.sources.mail.graph import GraphMailClient
 from academicos.storage.db import connect_db, initialize_db
