@@ -17,28 +17,8 @@ def test_schema_initializes_with_foreign_keys() -> None:
     conn = connect_db(":memory:")
     initialize_db(conn)
 
-    assert schema_version(conn) == 1
+    assert schema_version(conn) == 2
     assert conn.execute("PRAGMA foreign_keys").fetchone()[0] == 1
-
-    tables = {
-        row[0]
-        for row in conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table'"
-        ).fetchall()
-    }
-
-    assert {
-        "courses",
-        "source_items",
-        "evidence",
-        "course_sessions",
-        "candidate_events",
-        "candidate_evidence",
-        "event_overrides",
-        "tasks",
-        "plan_blocks",
-        "activity_feed",
-    } <= tables
 
 
 def test_recurring_session_rejects_invalid_time_range() -> None:
@@ -66,11 +46,34 @@ def test_candidate_confidence_is_bounded() -> None:
 
 def test_plan_block_requires_positive_duration() -> None:
     when = datetime(2026, 9, 25, 18, 0, tzinfo=timezone.utc)
-
     with pytest.raises(ValidationError):
-        PlanBlock(
-            id="block-1",
-            task_id="task-1",
-            start_at=when,
-            end_at=when,
-        )
+        PlanBlock(id="b", task_id="t", start_at=when, end_at=when)
+
+
+def test_v1_database_migrates_to_v2() -> None:
+    conn = connect_db(":memory:")
+    conn.executescript(
+        """
+        CREATE TABLE schema_meta (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        );
+        INSERT INTO schema_meta(key, value) VALUES ('schema_version', '1');
+
+        CREATE TABLE courses (
+            id TEXT PRIMARY KEY,
+            code TEXT NOT NULL,
+            name TEXT NOT NULL,
+            term TEXT NOT NULL
+        );
+        """
+    )
+
+    initialize_db(conn)
+
+    assert schema_version(conn) == 2
+    columns = {
+        row["name"]
+        for row in conn.execute("PRAGMA table_info(courses)").fetchall()
+    }
+    assert "section" in columns

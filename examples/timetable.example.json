@@ -1,0 +1,24 @@
+{
+  "term": "2026F",
+  "timezone": "America/Toronto",
+  "courses": [
+    {
+      "code": "CEG2136",
+      "name": "Computer Architecture I",
+      "section": "A00",
+      "sessions": [
+        {
+          "session_type": "lecture",
+          "days": ["MO", "TH"],
+          "start_time": "14:30",
+          "end_time": "15:50",
+          "start_date": "2026-09-09",
+          "end_date": "2026-12-04",
+          "location": "SITE",
+          "delivery_mode": "in_person",
+          "group": "A00"
+        }
+      ]
+    }
+  ]
+}

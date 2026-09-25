@@ -5,14 +5,18 @@ CREATE TABLE IF NOT EXISTS schema_meta (
     value TEXT NOT NULL
 );
 
-INSERT OR REPLACE INTO schema_meta(key, value) VALUES ('schema_version', '1');
+INSERT OR REPLACE INTO schema_meta(key, value) VALUES ('schema_version', '2');
 
 CREATE TABLE IF NOT EXISTS courses (
     id TEXT PRIMARY KEY,
     code TEXT NOT NULL,
     name TEXT NOT NULL,
-    term TEXT NOT NULL
+    term TEXT NOT NULL,
+    section TEXT
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_courses_identity
+    ON courses(term, code, COALESCE(section, ''));
 
 CREATE TABLE IF NOT EXISTS source_items (
     id TEXT PRIMARY KEY,
@@ -28,11 +32,8 @@ CREATE TABLE IF NOT EXISTS source_items (
     UNIQUE(source_type, source_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_source_items_course
-    ON source_items(course_id);
-
-CREATE INDEX IF NOT EXISTS idx_source_items_timestamp
-    ON source_items(source_timestamp);
+CREATE INDEX IF NOT EXISTS idx_source_items_course ON source_items(course_id);
+CREATE INDEX IF NOT EXISTS idx_source_items_timestamp ON source_items(source_timestamp);
 
 CREATE TABLE IF NOT EXISTS evidence (
     id TEXT PRIMARY KEY,
@@ -54,8 +55,7 @@ CREATE TABLE IF NOT EXISTS course_sessions (
     delivery_mode TEXT
 );
 
-CREATE INDEX IF NOT EXISTS idx_course_sessions_course
-    ON course_sessions(course_id);
+CREATE INDEX IF NOT EXISTS idx_course_sessions_course ON course_sessions(course_id);
 
 CREATE TABLE IF NOT EXISTS candidate_events (
     id TEXT PRIMARY KEY,
@@ -105,8 +105,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     origin_candidate_event_id TEXT REFERENCES candidate_events(id) ON DELETE SET NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_tasks_course_due
-    ON tasks(course_id, due_at);
+CREATE INDEX IF NOT EXISTS idx_tasks_course_due ON tasks(course_id, due_at);
 
 CREATE TABLE IF NOT EXISTS plan_blocks (
     id TEXT PRIMARY KEY,
@@ -118,8 +117,7 @@ CREATE TABLE IF NOT EXISTS plan_blocks (
     planner_run_id TEXT
 );
 
-CREATE INDEX IF NOT EXISTS idx_plan_blocks_time
-    ON plan_blocks(start_at, end_at);
+CREATE INDEX IF NOT EXISTS idx_plan_blocks_time ON plan_blocks(start_at, end_at);
 
 CREATE TABLE IF NOT EXISTS activity_feed (
     id TEXT PRIMARY KEY,

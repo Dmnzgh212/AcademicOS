@@ -73,6 +73,7 @@ class Course(FrozenModel):
     code: str
     name: str
     term: str
+    section: str | None = None
 
 
 class SourceItem(FrozenModel):
