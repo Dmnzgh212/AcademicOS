@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -16,15 +18,20 @@ class GraphDeltaPage:
 class GraphMailClient:
     """Minimal GET-only Microsoft Graph mail client for uOttawa/M365 mail acquisition."""
 
+    MAX_RETRIES = 4
+    RETRYABLE_STATUS = {429, 502, 503, 504}
+
     def __init__(
         self,
         *,
         access_token: str,
         session: requests.Session | None = None,
         base_url: str = "https://graph.microsoft.com/v1.0",
+        sleep: Callable[[float], None] = time.sleep,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.session = session or requests.Session()
+        self.sleep = sleep
         self.session.headers.update(
             {
                 "Authorization": f"Bearer {access_token}",
@@ -34,7 +41,19 @@ class GraphMailClient:
         )
 
     def _get_url(self, url: str, params: dict[str, Any] | None = None) -> dict:
-        response = self.session.get(url, params=params, timeout=30)
+        response = None
+        for attempt in range(self.MAX_RETRIES):
+            response = self.session.get(url, params=params, timeout=30)
+            if response.status_code not in self.RETRYABLE_STATUS:
+                break
+            if attempt < self.MAX_RETRIES - 1:
+                retry_after = response.headers.get("Retry-After")
+                try:
+                    delay = float(retry_after) if retry_after is not None else float(2**attempt)
+                except ValueError:
+                    delay = float(2**attempt)
+                self.sleep(max(0.0, delay))
+        assert response is not None
         response.raise_for_status()
         data = response.json()
         return data if isinstance(data, dict) else {}
