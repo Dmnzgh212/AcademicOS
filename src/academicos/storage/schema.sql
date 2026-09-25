@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS schema_meta (
     value TEXT NOT NULL
 );
 
-INSERT OR REPLACE INTO schema_meta(key, value) VALUES ('schema_version', '2');
+INSERT OR REPLACE INTO schema_meta(key, value) VALUES ('schema_version', '3');
 
 CREATE TABLE IF NOT EXISTS courses (
     id TEXT PRIMARY KEY,
@@ -34,6 +34,13 @@ CREATE TABLE IF NOT EXISTS source_items (
 
 CREATE INDEX IF NOT EXISTS idx_source_items_course ON source_items(course_id);
 CREATE INDEX IF NOT EXISTS idx_source_items_timestamp ON source_items(source_timestamp);
+
+CREATE TABLE IF NOT EXISTS sync_state (
+    source_key TEXT PRIMARY KEY,
+    cursor TEXT,
+    last_success_at TEXT NOT NULL,
+    metadata_json TEXT NOT NULL DEFAULT '{}'
+);
 
 CREATE TABLE IF NOT EXISTS evidence (
     id TEXT PRIMARY KEY,
