@@ -37,6 +37,7 @@ class FakeClient:
             "Modules": [
                 {
                     "Id": 30,
+                    "Type": 0,
                     "Title": "Week 1",
                     "Topics": [{"Id": 31, "Title": "slides.pdf", "TopicType": 1}],
                 }
@@ -66,6 +67,38 @@ class FakeClient:
 
     def assignment_attachment(self, org_id, folder_id, file_id):
         return FakeResponse(b"zip-data", "starter.zip")
+
+
+class CompleteFakeClient(FakeClient):
+    def my_submissions(self, org_id, folder_id):
+        return [{"Id": 101, "DateSubmitted": "2026-09-24T21:00:00Z"}]
+
+    def quiz_attempts(self, org_id, quiz_id):
+        return [{"AttemptId": 201, "QuizId": quiz_id, "Score": 8}]
+
+    def content_root(self, org_id):
+        return [{"Id": 30, "Type": 0, "Title": "Week 1"}]
+
+    def content_module(self, org_id, module_id):
+        return [{"Id": 31, "Type": 1, "TopicType": 1, "Title": "slides.pdf"}]
+
+    def grade_objects(self, org_id):
+        return [{"Id": 401, "Name": "Assignment 1"}]
+
+    def discussion_forums(self, org_id):
+        return [{"ForumId": 501, "Name": "General"}]
+
+    def discussion_topics(self, org_id, forum_id):
+        return [{"TopicId": 502, "Name": "Questions"}]
+
+    def discussion_posts(self, org_id, forum_id, topic_id):
+        return [{"PostId": 503, "Subject": "Office hours?"}]
+
+    def checklists(self, org_id):
+        return [{"Id": 601, "Name": "Week 1 checklist"}]
+
+    def course_overview(self, org_id):
+        return {"Description": {"Text": "Course overview"}}
 
 
 class PartiallyBlockedClient(FakeClient):
@@ -126,6 +159,47 @@ def test_course_collection_isolates_disabled_endpoints() -> None:
     assert report.datasets["grades"]["changed"] == 1
     assert "quizzes" in report.errors
     assert "403" in report.errors["quizzes"]
+
+
+def test_nested_student_datasets_are_persisted_independently() -> None:
+    conn = make_conn()
+    report = collect_course_data(
+        conn,
+        CompleteFakeClient(),
+        course_id="c1",
+        org_unit_id="123",
+        include={
+            "assignments",
+            "submissions",
+            "quizzes",
+            "quiz_attempts",
+            "content",
+            "content_structure",
+            "grade_objects",
+            "discussions",
+            "checklists",
+            "overview",
+        },
+    )
+
+    expected = {
+        "assignments",
+        "submissions:10",
+        "quizzes",
+        "quiz_attempts:20",
+        "content",
+        "content_root",
+        "content_module:30",
+        "grade_objects",
+        "discussion_forums",
+        "discussion_topics:501",
+        "discussion_posts:501:502",
+        "checklists",
+        "overview",
+    }
+    assert expected.issubset(report.datasets)
+    assert report.errors == {}
+    assert conn.execute("SELECT COUNT(*) FROM source_items").fetchone()[0] >= len(expected)
 
 
 def test_download_course_files_mirrors_content_and_assignment_attachments(tmp_path: Path) -> None:
