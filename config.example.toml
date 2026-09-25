@@ -48,6 +48,9 @@ cache = ".auth/mail/msal_cache.json"
 # Graph deltaLink is preferred because it tracks additions, updates, and removals.
 use_delta = true
 max_pages = 50
+# Only attachments belonging to messages changed in the current delta cycle are checked.
+# Their metadata fingerprints are persisted, so unchanged binaries are skipped.
+download_attachments = false
 
 [ollama]
 base_url = "http://127.0.0.1:11434"
