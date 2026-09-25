@@ -300,7 +300,15 @@ def collect_course_data(
 
     toc = run("content", lambda: client.content_toc(org_unit_id))
     if "content_structure" in wanted:
-        root = run("content_root", lambda: client.content_root(org_unit_id))
+        try:
+            root = client.content_root(org_unit_id)
+            persist("content_root", root)
+        except requests.HTTPError as exc:
+            report.errors["content_root"] = _http_error(exc)
+            root = None
+        except Exception as exc:
+            report.errors["content_root"] = f"{type(exc).__name__}: {exc}"
+            root = None
         module_ids = _module_ids(toc) | _module_ids(root)
         for module_id in sorted(module_ids):
             name = f"content_module:{module_id}"
@@ -325,7 +333,15 @@ def collect_course_data(
     run("overview", lambda: client.course_overview(org_unit_id))
 
     if "discussions" in wanted:
-        forums = run("discussion_forums", lambda: client.discussion_forums(org_unit_id))
+        try:
+            forums = client.discussion_forums(org_unit_id)
+            persist("discussion_forums", forums)
+        except requests.HTTPError as exc:
+            report.errors["discussion_forums"] = _http_error(exc)
+            forums = None
+        except Exception as exc:
+            report.errors["discussion_forums"] = f"{type(exc).__name__}: {exc}"
+            forums = None
         if isinstance(forums, list):
             for forum in forums:
                 forum_id = forum.get("ForumId") or forum.get("Id") if isinstance(forum, dict) else None
