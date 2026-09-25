@@ -21,10 +21,29 @@ Verified locally:
 
 Local test result before push: **13 passed**.
 
+## Calendar v0.1 — candidate acceptance + week slice
+
+Status: implemented and locally tested before repository update.
+
+Verified locally:
+- candidate persistence;
+- manual acceptance;
+- confidence-gated automatic acceptance;
+- rejection state transition;
+- rejected candidates cannot later be accepted accidentally;
+- class cancellation candidate -> event override;
+- class location-change candidate -> event override;
+- same-kind conflicting overrides are blocked instead of last-write-wins;
+- Monday-Sunday Truth Calendar materialization;
+- weekly CLI rendering.
+
+Local cumulative test result before push: **19 passed**.
+
 Known limitations:
-- no automatic announcement/email ingestion yet;
-- no candidate-event acceptance/conflict-resolution engine yet;
-- simultaneous conflicting overrides currently resolve by insertion order;
-- no weekly materialization API yet;
-- no adaptive planning engine yet;
-- no web dashboard implementation yet.
+- no automatic Brightspace announcement ingestion yet;
+- no email ingestion yet;
+- no natural-language candidate extraction yet;
+- deadline/task candidate materialization is not implemented yet;
+- accepted candidate rollback/supersession is not implemented yet;
+- adaptive planning engine is not implemented yet;
+- web dashboard implementation has not started; visual principles are documented in `WEB_UI_PRINCIPLES.md`.

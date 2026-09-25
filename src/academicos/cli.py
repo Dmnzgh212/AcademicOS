@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import json
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 import typer
 
 from academicos.calendar.timetable import import_timetable, load_timetable
-from academicos.calendar.truth import effective_sessions_for_date
+from academicos.calendar.truth import effective_sessions_for_date, effective_sessions_for_range
 from academicos.storage.db import connect_db, initialize_db, schema_version
 
 app = typer.Typer(
@@ -121,16 +121,46 @@ def day(
         conn.close()
 
 
+@app.command("week")
+def week(
+    target: str = typer.Argument(..., help="Any date inside the desired week (YYYY-MM-DD)."),
+    db: Path = typer.Option(DEFAULT_DB, "--db"),
+    timezone_name: str = typer.Option("America/Toronto", "--timezone"),
+) -> None:
+    """Render Monday-Sunday effective Truth Calendar."""
+    chosen = date.fromisoformat(target)
+    monday = chosen - timedelta(days=chosen.weekday())
+    sunday = monday + timedelta(days=6)
+
+    conn = _open_db(db)
+    try:
+        days = effective_sessions_for_range(
+            conn,
+            monday,
+            sunday,
+            timezone_name=timezone_name,
+        )
+        typer.echo(f"Week {monday.isoformat()} → {sunday.isoformat()}")
+        for day_date, sessions in days.items():
+            typer.echo(f"\n{day_date:%A · %Y-%m-%d}")
+            if not sessions:
+                typer.echo("  —")
+                continue
+            for item in sessions:
+                section = f" {item.course_section}" if item.course_section else ""
+                location = f" · {item.location}" if item.location else ""
+                typer.echo(
+                    f"  {item.start_at:%H:%M}–{item.end_at:%H:%M}  "
+                    f"{item.course_code}{section}  {item.session_type.value}{location}"
+                )
+    finally:
+        conn.close()
+
+
 @app.command("sync")
 def sync() -> None:
     """Placeholder for future Brightspace/email synchronization."""
     typer.echo("Source sync is not implemented yet.")
-
-
-@app.command("week")
-def week() -> None:
-    """Placeholder for the weekly calendar view."""
-    typer.echo("Weekly calendar view is not implemented yet.")
 
 
 if __name__ == "__main__":

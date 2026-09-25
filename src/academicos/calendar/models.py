@@ -35,6 +35,7 @@ class EventKind(StrEnum):
     CLASS_CANCELLED = "class_cancelled"
     CLASS_MOVED = "class_moved"
     CLASS_MODE_CHANGED = "class_mode_changed"
+    CLASS_LOCATION_CHANGED = "class_location_changed"
     DEADLINE_CREATED = "deadline_created"
     DEADLINE_CHANGED = "deadline_changed"
     EXAM_ANNOUNCED = "exam_announced"

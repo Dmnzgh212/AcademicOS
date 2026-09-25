@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 from enum import StrEnum
 from zoneinfo import ZoneInfo
 
@@ -204,3 +204,27 @@ def effective_sessions_for_date(
 
     effective.sort(key=lambda item: (item.start_at, item.course_code, item.session_type.value))
     return effective
+
+
+def effective_sessions_for_range(
+    conn: sqlite3.Connection,
+    start_date: date,
+    end_date: date,
+    *,
+    timezone_name: str = "America/Toronto",
+    include_cancelled: bool = False,
+) -> dict[date, list[EffectiveSession]]:
+    if end_date < start_date:
+        raise ValueError("end_date must be on or after start_date")
+
+    result: dict[date, list[EffectiveSession]] = {}
+    current = start_date
+    while current <= end_date:
+        result[current] = effective_sessions_for_date(
+            conn,
+            current,
+            timezone_name=timezone_name,
+            include_cancelled=include_cancelled,
+        )
+        current += timedelta(days=1)
+    return result
