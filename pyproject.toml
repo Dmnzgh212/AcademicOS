@@ -24,6 +24,7 @@ ollama = ["httpx>=0.27"]
 academicos = "academicos.cli:app"
 academicos-collect = "academicos.sources.cli:app"
 academicos-sync = "academicos.sources.sync_cli:app"
+academicos-health = "academicos.sources.health_cli:app"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
