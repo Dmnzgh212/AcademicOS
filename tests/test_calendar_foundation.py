@@ -17,7 +17,7 @@ def test_schema_initializes_with_foreign_keys() -> None:
     conn = connect_db(":memory:")
     initialize_db(conn)
 
-    assert schema_version(conn) == 2
+    assert schema_version(conn) == 3
     assert conn.execute("PRAGMA foreign_keys").fetchone()[0] == 1
 
 
@@ -50,7 +50,7 @@ def test_plan_block_requires_positive_duration() -> None:
         PlanBlock(id="b", task_id="t", start_at=when, end_at=when)
 
 
-def test_v1_database_migrates_to_v2() -> None:
+def test_v1_database_migrates_to_latest_schema() -> None:
     conn = connect_db(":memory:")
     conn.executescript(
         """
@@ -71,9 +71,14 @@ def test_v1_database_migrates_to_v2() -> None:
 
     initialize_db(conn)
 
-    assert schema_version(conn) == 2
+    assert schema_version(conn) == 3
     columns = {
         row["name"]
         for row in conn.execute("PRAGMA table_info(courses)").fetchall()
     }
     assert "section" in columns
+    tables = {
+        row["name"]
+        for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+    }
+    assert "sync_state" in tables
