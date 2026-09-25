@@ -18,6 +18,9 @@ from academicos.sources.brightspace.collector import (
     download_course_files,
     persist_dataset,
 )
+from academicos.sources.mail.auth import MailAuthError, acquire_graph_token
+from academicos.sources.mail.collector import collect_inbox
+from academicos.sources.mail.graph import GraphMailClient
 from academicos.storage.db import connect_db, initialize_db
 
 app = typer.Typer(
@@ -27,6 +30,7 @@ app = typer.Typer(
 
 DEFAULT_DB = Path("data/academicos.db")
 DEFAULT_AUTH_DIR = Path(".auth/brightspace")
+DEFAULT_MAIL_CACHE = Path(".auth/mail/msal_cache.json")
 
 
 def _open_db(path: Path):
@@ -213,6 +217,53 @@ def brightspace_course(
         typer.echo(
             f"Course collection complete · changed={report.changed} · "
             f"unchanged={report.unchanged} · endpoint_errors={len(report.errors)}"
+        )
+    finally:
+        conn.close()
+
+
+@app.command("mail-inbox")
+def mail_inbox(
+    client_id: str = typer.Option(..., "--client-id", help="Azure public-client application ID."),
+    db: Path = typer.Option(DEFAULT_DB, "--db"),
+    cache: Path = typer.Option(DEFAULT_MAIL_CACHE, "--cache"),
+    since: str | None = typer.Option(None, "--since"),
+    max_pages: int = typer.Option(20, "--max-pages", min=1, max=200),
+    interactive: bool = typer.Option(True, "--interactive/--no-interactive"),
+) -> None:
+    """Read the Microsoft 365 Inbox with delegated User.Read + Mail.Read permissions."""
+    try:
+        token = acquire_graph_token(
+            client_id=client_id,
+            cache_path=cache,
+            allow_interactive=interactive,
+            prompt=typer.echo,
+        )
+    except MailAuthError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+    client = GraphMailClient(access_token=token)
+    conn = _open_db(db)
+    try:
+        identity = persist_dataset(
+            conn,
+            dataset="m365_me",
+            payload=client.me(),
+            course_id=None,
+            org_unit_id=None,
+        )
+        report = collect_inbox(
+            conn,
+            client,
+            since=since,
+            max_pages=max_pages,
+        )
+        typer.echo(
+            f"mail identity: changed={identity['changed']} unchanged={identity['unchanged']}"
+        )
+        typer.echo(
+            f"mail inbox: fetched={report.fetched} changed={report.changed} "
+            f"unchanged={report.unchanged} attachment_metadata={report.attachment_metadata}"
         )
     finally:
         conn.close()
