@@ -94,3 +94,7 @@ class GraphMailClient:
         )
         value = data.get("value", [])
         return value if isinstance(value, list) else []
+
+    def message_attachment(self, message_id: str, attachment_id: str) -> dict:
+        """Fetch one attachment object. File attachments include base64 contentBytes."""
+        return self._get(f"/me/messages/{message_id}/attachments/{attachment_id}")
