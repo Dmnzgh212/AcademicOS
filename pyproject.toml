@@ -29,6 +29,7 @@ academicos-schedule = "academicos.sources.scheduler_cli:app"
 academicos-doctor = "academicos.sources.doctor_cli:app"
 academicos-capabilities = "academicos.sources.capabilities_cli:app"
 academicos-coverage = "academicos.sources.coverage_cli:app"
+academicos-audit = "academicos.sources.audit_cli:app"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
