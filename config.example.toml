@@ -27,18 +27,17 @@ auth_dir = ".auth/brightspace"
 token_env = "BRIGHTSPACE_TOKEN"
 le_version = "1.75"
 lp_version = "1.51"
-
-# Add one block per enrolled course after importing the authoritative timetable.
-[[brightspace.courses]]
-code = "CEG2136"
-section = "A00"
-org_id = "REPLACE_WITH_BRIGHTSPACE_ORG_UNIT_ID"
 download_files = true
 
-[[brightspace.courses]]
-code = "CSI2110"
-org_id = "REPLACE_WITH_BRIGHTSPACE_ORG_UNIT_ID"
-download_files = true
+# Default: do not add brightspace.courses blocks. AcademicOS discovers active
+# Brightspace course offerings from your imported timetable + myenrollments.
+# Add a block only when a course is ambiguous or you need a per-course override.
+#
+# [[brightspace.courses]]
+# code = "CEG2136"
+# section = "A00"
+# org_id = "12345"       # optional if auto-discovery can identify it
+# download_files = true
 
 [mail]
 # uOttawa mail is Microsoft 365. Register a public-client app for delegated
