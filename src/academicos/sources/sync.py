@@ -13,8 +13,11 @@ from academicos.sources.brightspace.auth import (
     get_or_refresh_token,
     load_saved_token,
 )
+from academicos.sources.brightspace.capability_collect import (
+    collect_course_data_capability_aware,
+)
 from academicos.sources.brightspace.client import BrightspaceClient
-from academicos.sources.brightspace.collector import collect_course_data, persist_dataset
+from academicos.sources.brightspace.collector import persist_dataset
 from academicos.sources.brightspace.discovery import discover_course_mappings
 from academicos.sources.brightspace.downloads import download_course_files_manifested
 from academicos.sources.health import mark_failure, mark_success
@@ -207,7 +210,7 @@ def _sync_brightspace(
             try:
                 course_id = _resolve_course_id(conn, code, section)
                 since = course.get("since") or get_cursor(conn, state_key)
-                course_report = collect_course_data(
+                course_report = collect_course_data_capability_aware(
                     conn,
                     client,
                     course_id=course_id,
