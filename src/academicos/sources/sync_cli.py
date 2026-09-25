@@ -5,7 +5,8 @@ from pathlib import Path
 import typer
 
 from academicos.sources.lock import SyncAlreadyRunning, sync_lock
-from academicos.sources.sync import load_sync_config, sync_all
+from academicos.sources.run_ledger import run_tracked_sync
+from academicos.sources.sync import load_sync_config
 
 app = typer.Typer(
     help="Run configured AcademicOS read-only source synchronization.",
@@ -30,7 +31,7 @@ def main(
 
     try:
         with sync_lock(lock_path):
-            report = sync_all(
+            report, ledger = run_tracked_sync(
                 config_path=config,
                 db_path=db,
                 interactive_mail_auth=interactive_mail_auth,
@@ -40,8 +41,13 @@ def main(
         raise typer.Exit(code=2) from exc
 
     typer.echo(
-        f"Sync complete · changed={report.changed} unchanged={report.unchanged} "
+        f"Sync complete · status={ledger.status.upper()} "
+        f"changed={report.changed} unchanged={report.unchanged} "
         f"downloaded_files={report.downloaded_files} errors={len(report.errors)}"
+    )
+    typer.echo(
+        f"Run ledger · sources={ledger.source_count} ok={ledger.ok_count} "
+        f"partial={ledger.partial_count} failed={ledger.failed_count}"
     )
     for source in report.sources_ok:
         typer.echo(f"  OK   {source}")
