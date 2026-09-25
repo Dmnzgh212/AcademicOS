@@ -17,7 +17,7 @@ def test_schema_initializes_with_foreign_keys() -> None:
     conn = connect_db(":memory:")
     initialize_db(conn)
 
-    assert schema_version(conn) == 5
+    assert schema_version(conn) == 6
     assert conn.execute("PRAGMA foreign_keys").fetchone()[0] == 1
 
 
@@ -71,7 +71,7 @@ def test_v1_database_migrates_to_latest_schema() -> None:
 
     initialize_db(conn)
 
-    assert schema_version(conn) == 5
+    assert schema_version(conn) == 6
     columns = {
         row["name"]
         for row in conn.execute("PRAGMA table_info(courses)").fetchall()
@@ -85,3 +85,5 @@ def test_v1_database_migrates_to_latest_schema() -> None:
     assert "source_health" in tables
     assert "file_manifest" in tables
     assert "endpoint_capabilities" in tables
+    assert "sync_runs" in tables
+    assert "sync_run_sources" in tables
