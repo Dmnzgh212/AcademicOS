@@ -39,7 +39,7 @@ def test_doctor_local_checks_initialize_database(tmp_path: Path) -> None:
     assert checks["config"].status == "PASS"
     assert checks["data_dir"].status == "PASS"
     assert checks["database"].status == "PASS"
-    assert "schema=v4" in checks["database"].detail
+    assert "schema=v5" in checks["database"].detail
     assert checks["brightspace"].status == "SKIP"
     assert checks["mail"].status == "SKIP"
 
