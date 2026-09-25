@@ -50,8 +50,12 @@ def download_message_attachments(
                 skipped += 1
                 continue
             raw = base64.b64decode(content, validate=True)
-            name = _safe_filename(payload.get("name") or item.get("name"), f"attachment_{attachment_id}")
-            destination = target / f"{re.sub(r'[^A-Za-z0-9._-]', '_', attachment_id)}_{name}"
+            safe_id = re.sub(r"[^A-Za-z0-9._-]", "_", attachment_id)
+            name = _safe_filename(
+                payload.get("name") or item.get("name"),
+                f"attachment_{safe_id}",
+            )
+            destination = target / f"{safe_id}_{name}"
             if destination.exists() and destination.read_bytes() == raw:
                 unchanged += 1
             else:
@@ -66,3 +70,34 @@ def download_message_attachments(
         "skipped": skipped,
         "failed": failed,
     }
+
+
+def download_inbox_attachments(
+    client: GraphMailClient,
+    *,
+    out_dir: Path,
+    since: str | None = None,
+    max_pages: int = 20,
+) -> dict[str, int]:
+    """Mirror attachments for messages in the bounded incremental Inbox window."""
+    totals = {"downloaded": 0, "unchanged": 0, "skipped": 0, "failed": 0}
+    for message in client.inbox_messages(since=since, max_pages=max_pages):
+        if not message.get("hasAttachments"):
+            continue
+        message_id = message.get("id")
+        if not isinstance(message_id, str) or not message_id:
+            continue
+        try:
+            metadata = client.message_attachments(message_id)
+            result = download_message_attachments(
+                client,
+                message_id=message_id,
+                metadata=metadata,
+                out_dir=out_dir,
+            )
+        except Exception:
+            totals["failed"] += 1
+            continue
+        for key in totals:
+            totals[key] += result[key]
+    return totals
