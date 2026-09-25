@@ -26,6 +26,9 @@ _ID_FIELDS = (
     "EventId",
     "CalendarEventId",
     "GradeObjectIdentifier",
+    "PostId",
+    "ForumId",
+    "AttemptId",
 )
 _TEXT_FIELDS = (
     "Title",
@@ -36,6 +39,7 @@ _TEXT_FIELDS = (
     "Html",
     "Body",
     "Instructions",
+    "Feedback",
 )
 _TIMESTAMP_FIELDS = (
     "LastModifiedDate",
@@ -46,6 +50,8 @@ _TIMESTAMP_FIELDS = (
     "StartDate",
     "CreatedDate",
     "PublicationDate",
+    "DateSubmitted",
+    "LastPostDate",
 )
 
 
@@ -95,8 +101,7 @@ def _rich_text(value: object) -> str:
 def _raw_text(payload: dict[str, Any]) -> str | None:
     parts: list[str] = []
     for key in _TEXT_FIELDS:
-        value = payload.get(key)
-        text = _rich_text(value)
+        text = _rich_text(payload.get(key))
         if text and text not in parts:
             parts.append(text)
     return "\n".join(parts) if parts else None
@@ -115,7 +120,6 @@ def _stable_key(dataset: str, payload: dict[str, Any], ordinal: int) -> str:
             identity_parts.append(f"{key}={value}")
     if identity_parts:
         return f"{dataset}:{canonical_hash(identity_parts)[:24]}"
-
     return f"{dataset}:ordinal:{ordinal}"
 
 
@@ -169,6 +173,27 @@ def persist_dataset(
     return {"fetched": len(rows), "changed": changed, "unchanged": unchanged}
 
 
+def _http_error(exc: requests.HTTPError) -> str:
+    status = exc.response.status_code if exc.response is not None else "HTTP"
+    return f"{status}: {exc}"
+
+
+def _module_ids(node: object) -> set[str]:
+    result: set[str] = set()
+    if isinstance(node, list):
+        for child in node:
+            result.update(_module_ids(child))
+    elif isinstance(node, dict):
+        module_id = node.get("ModuleId")
+        if module_id is None and node.get("Type") == 0:
+            module_id = node.get("Id")
+        if module_id is not None:
+            result.add(str(module_id))
+        for key in ("Modules", "Topics"):
+            result.update(_module_ids(node.get(key, [])))
+    return result
+
+
 def collect_course_data(
     conn: sqlite3.Connection,
     client: BrightspaceClient,
@@ -182,42 +207,49 @@ def collect_course_data(
     auto_accept_announcements: bool = False,
     timezone_name: str = "America/Toronto",
 ) -> CollectionReport:
-    """Collect the main read-only Brightspace datasets for one course.
-
-    Individual endpoint failures are recorded and do not abort the remaining collectors.
-    This is important because instructors often disable some Brightspace tools per course.
-    """
+    """Collect student-readable Brightspace course data with per-endpoint isolation."""
     wanted = include or {
         "announcements",
         "assignments",
+        "submissions",
         "quizzes",
+        "quiz_attempts",
         "content",
+        "content_structure",
         "grades",
+        "grade_objects",
         "final_grade",
         "calendar",
         "due",
         "overdue",
         "updates",
+        "discussions",
+        "checklists",
+        "overview",
     }
     report = CollectionReport()
 
-    def run(name: str, fetcher) -> None:
+    def persist(name: str, payload: object) -> None:
+        report.datasets[name] = persist_dataset(
+            conn,
+            dataset=name,
+            payload=payload,
+            course_id=course_id,
+            org_unit_id=org_unit_id,
+        )
+
+    def run(name: str, fetcher) -> object | None:
         if name not in wanted:
-            return
+            return None
         try:
             payload = fetcher()
-            report.datasets[name] = persist_dataset(
-                conn,
-                dataset=name,
-                payload=payload,
-                course_id=course_id,
-                org_unit_id=org_unit_id,
-            )
+            persist(name, payload)
+            return payload
         except requests.HTTPError as exc:
-            status = exc.response.status_code if exc.response is not None else "HTTP"
-            report.errors[name] = f"{status}: {exc}"
-        except Exception as exc:  # endpoint isolation is intentional
+            report.errors[name] = _http_error(exc)
+        except Exception as exc:
             report.errors[name] = f"{type(exc).__name__}: {exc}"
+        return None
 
     if "announcements" in wanted:
         try:
@@ -238,10 +270,49 @@ def collect_course_data(
         except Exception as exc:
             report.errors["announcements"] = f"{type(exc).__name__}: {exc}"
 
-    run("assignments", lambda: client.assignments(org_unit_id))
-    run("quizzes", lambda: client.quizzes(org_unit_id))
-    run("content", lambda: client.content_toc(org_unit_id))
+    assignments = run("assignments", lambda: client.assignments(org_unit_id))
+    if "submissions" in wanted and isinstance(assignments, list):
+        for assignment in assignments:
+            folder_id = assignment.get("Id") if isinstance(assignment, dict) else None
+            if folder_id is None:
+                continue
+            name = f"submissions:{folder_id}"
+            try:
+                persist(name, client.my_submissions(org_unit_id, folder_id))
+            except requests.HTTPError as exc:
+                report.errors[name] = _http_error(exc)
+            except Exception as exc:
+                report.errors[name] = f"{type(exc).__name__}: {exc}"
+
+    quizzes = run("quizzes", lambda: client.quizzes(org_unit_id))
+    if "quiz_attempts" in wanted and isinstance(quizzes, list):
+        for quiz in quizzes:
+            quiz_id = quiz.get("Id") if isinstance(quiz, dict) else None
+            if quiz_id is None:
+                continue
+            name = f"quiz_attempts:{quiz_id}"
+            try:
+                persist(name, client.quiz_attempts(org_unit_id, quiz_id))
+            except requests.HTTPError as exc:
+                report.errors[name] = _http_error(exc)
+            except Exception as exc:
+                report.errors[name] = f"{type(exc).__name__}: {exc}"
+
+    toc = run("content", lambda: client.content_toc(org_unit_id))
+    if "content_structure" in wanted:
+        root = run("content_root", lambda: client.content_root(org_unit_id))
+        module_ids = _module_ids(toc) | _module_ids(root)
+        for module_id in sorted(module_ids):
+            name = f"content_module:{module_id}"
+            try:
+                persist(name, client.content_module(org_unit_id, module_id))
+            except requests.HTTPError as exc:
+                report.errors[name] = _http_error(exc)
+            except Exception as exc:
+                report.errors[name] = f"{type(exc).__name__}: {exc}"
+
     run("grades", lambda: client.grades(org_unit_id))
+    run("grade_objects", lambda: client.grade_objects(org_unit_id))
     run("final_grade", lambda: client.final_grade(org_unit_id))
     run("calendar", lambda: client.calendar_events(org_unit_id, start=start, end=end))
     run(
@@ -250,6 +321,41 @@ def collect_course_data(
     )
     run("overdue", lambda: client.overdue_items(org_ids_csv=str(org_unit_id)))
     run("updates", lambda: client.updates(org_unit_id))
+    run("checklists", lambda: client.checklists(org_unit_id))
+    run("overview", lambda: client.course_overview(org_unit_id))
+
+    if "discussions" in wanted:
+        forums = run("discussion_forums", lambda: client.discussion_forums(org_unit_id))
+        if isinstance(forums, list):
+            for forum in forums:
+                forum_id = forum.get("ForumId") or forum.get("Id") if isinstance(forum, dict) else None
+                if forum_id is None:
+                    continue
+                topic_name = f"discussion_topics:{forum_id}"
+                try:
+                    topics = client.discussion_topics(org_unit_id, forum_id)
+                    persist(topic_name, topics)
+                except requests.HTTPError as exc:
+                    report.errors[topic_name] = _http_error(exc)
+                    continue
+                except Exception as exc:
+                    report.errors[topic_name] = f"{type(exc).__name__}: {exc}"
+                    continue
+                for topic in topics:
+                    topic_id = topic.get("TopicId") or topic.get("Id") if isinstance(topic, dict) else None
+                    if topic_id is None:
+                        continue
+                    post_name = f"discussion_posts:{forum_id}:{topic_id}"
+                    try:
+                        persist(
+                            post_name,
+                            client.discussion_posts(org_unit_id, forum_id, topic_id),
+                        )
+                    except requests.HTTPError as exc:
+                        report.errors[post_name] = _http_error(exc)
+                    except Exception as exc:
+                        report.errors[post_name] = f"{type(exc).__name__}: {exc}"
+
     return report
 
 
@@ -273,7 +379,6 @@ def _walk_file_topics(node: object):
         return
     if not isinstance(node, dict):
         return
-
     if node.get("TopicType") == 1:
         topic_id = node.get("Id") or node.get("TopicId")
         if topic_id is not None:
@@ -293,7 +398,6 @@ def download_course_files(
     assignment_dir = out_dir / "assignments"
     content_dir.mkdir(parents=True, exist_ok=True)
     assignment_dir.mkdir(parents=True, exist_ok=True)
-
     downloaded = 0
     unchanged = 0
     failed = 0
