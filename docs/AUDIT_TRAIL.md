@@ -171,7 +171,7 @@ CI snapshot for this slice: **48 passed** on Python 3.12 with Ruff correctness c
 
 ## Source collection v4 — durable incremental operation
 
-Status: implemented; final CI verification for the integrated slice is required before considering this section closed.
+Status: implemented and CI verified.
 
 Schema v4 adds:
 - `source_health` for freshness/failure state;
@@ -182,14 +182,18 @@ Microsoft Graph improvements:
 - Inbox delta queries are now the preferred incremental mode;
 - the opaque Graph `@odata.deltaLink` is persisted as the durable cursor;
 - page chains must reach a deltaLink before the saved cursor advances;
-- removals are persisted locally as tombstone source changes;
+- additions, updates, and removals are represented locally; removals are retained as tombstones;
+- changed-message attachment metadata can drive optional attachment mirroring;
+- attachment binaries use the same persistent manifest strategy and are not re-requested when metadata fingerprint + local state are unchanged;
+- Graph GETs retry throttling/transient failures (`429`, `502`, `503`, `504`), honoring `Retry-After` where available;
 - timestamp filtering remains available with `mail.use_delta = false` as a compatibility fallback.
 
 File mirroring improvements:
 - Brightspace content files and assignment attachments use stable manifest keys;
 - remote metadata is hashed into a fingerprint before binary download;
 - unchanged remote fingerprint + present local file allows the binary request to be skipped;
-- downloaded payloads record SHA256, byte size, ETag/Last-Modified when present, and check/download timestamps.
+- downloaded payloads record SHA256, byte size, ETag/Last-Modified when present, and check/download timestamps;
+- M365 delta-changed message attachments use an equivalent manifest-aware path when `mail.download_attachments = true`.
 
 Collection-health improvements:
 - account/course/mail collectors store last attempt, last success, last error, consecutive failures, changed/unchanged counts, and download counts;
@@ -200,16 +204,23 @@ Windows unattended operation:
 - `academicos-schedule install --minutes 30` constructs a current-user Windows Task Scheduler job;
 - `academicos-schedule status` and `academicos-schedule remove` manage it;
 - the task runs the same local Python environment and does not install a Windows service;
-- interval values below 15 minutes are rejected.
+- interval values below 15 minutes are rejected;
+- `academicos-sync` uses an atomic local lock file so overlapping scheduled runs do not write the same SQLite database/download tree concurrently;
+- stale locks can be reclaimed after the configured safety interval.
+
+Verification snapshot:
+- current source-collection integration completed successfully on the GitHub Actions Python 3.11 and Python 3.12 matrix;
+- Ruff correctness checks passed;
+- Python 3.11 pytest snapshot: **60 passed**.
 
 See `SOURCE_COLLECTION.md` for the acquisition architecture and privacy boundary.
 
 ## Current limitations / next audit targets
 
-- Brightspace and Microsoft 365 still require end-to-end validation against the user's real uOttawa accounts on Windows.
+- Brightspace and Microsoft 365 still require end-to-end validation against the user's real uOttawa accounts on Windows; CI uses deterministic fakes and cannot prove institution-specific permissions or response shapes.
 - Some Brightspace endpoints can vary by institution/course permissions; per-endpoint isolation is implemented, but real uOttawa response shapes should be captured and hardened.
 - The current Brightspace remote fingerprint depends on metadata returned in TOC/assignment objects. If uOttawa fails to update those metadata fields when binary content changes, a conditional-GET/ETag strategy should be added for that endpoint.
-- Microsoft 365 attachment binary mirroring is not yet wired into the delta-sync path; attachment metadata is collected and the downloader exists, but delta-aware attachment download selection remains a follow-up.
+- The Windows scheduler registration command is tested as command construction, but has not yet been executed against the user's actual Windows Task Scheduler.
 - Source health is available through CLI and SQLite but is not yet shown in the local Dashboard/Morning Brief.
 - Free-text `class_moved` extraction is deliberately not automated yet because time/date movement language needs safer disambiguation; the Candidate acceptance engine itself supports moved events.
 - Deadline-change CandidateEvents do not yet deterministically identify/materialize the correct Task.
