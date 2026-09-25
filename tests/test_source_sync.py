@@ -4,7 +4,12 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from academicos.sources.state import get_cursor, set_sync_state
-from academicos.sources.sync import _course_specs, load_sync_config
+from academicos.sources.sync import (
+    _announcement_cursor,
+    _announcement_state_key,
+    _course_specs,
+    load_sync_config,
+)
 from academicos.storage.db import connect_db, initialize_db
 
 
@@ -141,3 +146,15 @@ def test_sync_state_round_trip_can_be_used_as_incremental_cursor() -> None:
 
     assert get_cursor(conn, "brightspace:101:course") == cursor
     assert get_cursor(conn, "missing") is None
+
+
+def test_announcement_cursor_prefers_new_key_and_falls_back_to_legacy_key() -> None:
+    conn = _course_db()
+    legacy = "2026-09-25T14:00:00+00:00"
+    current = "2026-09-25T15:00:00+00:00"
+
+    set_sync_state(conn, "brightspace:101:course", cursor=legacy)
+    assert _announcement_cursor(conn, "101") == legacy
+
+    set_sync_state(conn, _announcement_state_key("101"), cursor=current)
+    assert _announcement_cursor(conn, "101") == current
