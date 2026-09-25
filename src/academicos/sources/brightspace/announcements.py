@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -14,7 +15,7 @@ from academicos.calendar.events import (
     persist_candidate_event,
 )
 from academicos.calendar.extract import extract_candidates_from_text
-from academicos.calendar.models import Evidence, SourceItem, SourceType
+from academicos.calendar.models import Evidence, EventKind, SourceItem, SourceType
 from academicos.sources.store import (
     canonical_hash,
     delete_pending_candidates_for_source,
@@ -156,6 +157,57 @@ def _record_activity(
         )
 
 
+def _normalize_match_text(value: str) -> str:
+    return " ".join(re.sub(r"[^a-z0-9]+", " ", value.lower()).split())
+
+
+def _resolve_deadline_task(
+    conn: sqlite3.Connection,
+    *,
+    course_id: str,
+    title: str,
+    body: str,
+) -> str | None:
+    """Resolve only a unique explicit task-title mention; never fuzzy-guess a deadline target."""
+    haystack = _normalize_match_text(f"{title} {body}")
+    rows = conn.execute(
+        """
+        SELECT id, title
+        FROM tasks
+        WHERE course_id = ? AND status IN ('pending', 'in_progress')
+        ORDER BY title
+        """,
+        (course_id,),
+    ).fetchall()
+    matches = []
+    for row in rows:
+        needle = _normalize_match_text(row["title"])
+        if len(needle) >= 4 and needle in haystack:
+            matches.append(row["id"])
+    return matches[0] if len(matches) == 1 else None
+
+
+def _enrich_deadline_candidate(
+    conn: sqlite3.Connection,
+    candidate,
+    *,
+    course_id: str,
+    title: str,
+    body: str,
+):  # noqa: ANN001, ANN201
+    if candidate.kind != EventKind.DEADLINE_CHANGED or candidate.target_ref is not None:
+        return candidate
+    task_id = _resolve_deadline_task(
+        conn,
+        course_id=course_id,
+        title=title,
+        body=body,
+    )
+    if task_id is None:
+        return candidate.model_copy(update={"confidence": min(candidate.confidence, 0.82)})
+    return candidate.model_copy(update={"target_ref": task_id, "confidence": 0.94})
+
+
 def ingest_announcements(
     conn: sqlite3.Connection,
     announcements: list[dict],
@@ -239,6 +291,13 @@ def ingest_announcements(
             timezone_name=timezone_name,
         )
         for candidate in candidates:
+            candidate = _enrich_deadline_candidate(
+                conn,
+                candidate,
+                course_id=course_id,
+                title=normalized.title,
+                body=normalized.body,
+            )
             persist_candidate_event(conn, candidate, evidence_ids=(ev_id,))
             summary["candidates"] += 1
             if not auto_accept or candidate.confidence < auto_threshold:
