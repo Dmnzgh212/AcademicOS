@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from zoneinfo import ZoneInfo
 
 from academicos.briefing import build_morning_brief
+from academicos.sources.run_ledger import record_sync_run
+from academicos.sources.sync import SyncReport
 from academicos.storage.db import connect_db, initialize_db
 from academicos.web.app import render_dashboard, serve_dashboard
 
@@ -71,8 +73,45 @@ def test_morning_brief_combines_truth_changes_tasks_and_plan() -> None:
     assert [item.id for item in brief.pending_changes] == ["candidate"]
     assert [item.id for item in brief.upcoming_tasks] == ["t1"]
     assert [item.id for item in brief.plan_blocks] == ["p1"]
+    assert any("DATA UNKNOWN" in alert for alert in brief.alerts)
     assert any("waiting for review" in alert for alert in brief.alerts)
     assert any("due within 48h" in alert for alert in brief.alerts)
+
+
+def test_partial_collection_run_warns_brief_and_dashboard() -> None:
+    conn = _db()
+    record_sync_run(
+        conn,
+        SyncReport(
+            sources_ok=["brightspace:101", "mail:m365"],
+            errors={"brightspace:101:grades": "403"},
+        ),
+        started_at=datetime(2026, 9, 25, 12, 55, tzinfo=UTC),
+        finished_at=datetime(2026, 9, 25, 13, 0, tzinfo=UTC),
+    )
+    now = datetime(2026, 9, 25, 9, 5, tzinfo=ZoneInfo("America/Toronto"))
+
+    brief = build_morning_brief(conn, date(2026, 9, 25), now=now)
+    page = render_dashboard(conn, date(2026, 9, 25), now=now)
+
+    assert any("DATA PARTIAL" in alert for alert in brief.alerts)
+    assert "DATA PARTIAL" in page
+    assert "No immediate academic risk" not in page
+
+
+def test_stale_complete_collection_run_warns_user() -> None:
+    conn = _db()
+    record_sync_run(
+        conn,
+        SyncReport(sources_ok=["brightspace:101", "mail:m365"]),
+        started_at=datetime(2026, 9, 25, 8, 0, tzinfo=UTC),
+        finished_at=datetime(2026, 9, 25, 8, 5, tzinfo=UTC),
+    )
+    now = datetime(2026, 9, 25, 9, 0, tzinfo=ZoneInfo("America/Toronto"))
+
+    brief = build_morning_brief(conn, date(2026, 9, 25), now=now)
+
+    assert any("DATA STALE" in alert for alert in brief.alerts)
 
 
 def test_dashboard_is_local_self_contained_and_escapes_data() -> None:
