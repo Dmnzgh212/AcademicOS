@@ -50,6 +50,21 @@ def _open_db(path: Path) -> sqlite3.Connection:
     return conn
 
 
+def _announcement_state_key(org_unit_id: str | int) -> str:
+    return f"brightspace:{org_unit_id}:announcements"
+
+
+def _legacy_course_state_key(org_unit_id: str | int) -> str:
+    return f"brightspace:{org_unit_id}:course"
+
+
+def _announcement_cursor(conn: sqlite3.Connection, org_unit_id: str | int) -> str | None:
+    """Read the dedicated announcement cursor, falling back to the pre-v0.1 legacy key."""
+    return get_cursor(conn, _announcement_state_key(org_unit_id)) or get_cursor(
+        conn, _legacy_course_state_key(org_unit_id)
+    )
+
+
 def _resolve_course_id(conn: sqlite3.Connection, code: str, section: str | None) -> str:
     if section:
         rows = conn.execute(
@@ -166,10 +181,12 @@ def _sync_brightspace(
         enrollments = client.my_enrollments(active_only=True)
         feed_state_key = "brightspace:activity_feed"
         feed_since = get_cursor(conn, feed_state_key)
+        feed_request_started = datetime.now(UTC)
+        feed_payload = client.user_feed(since=feed_since)
         account_sets = {
             "whoami": client.whoami(),
             "enrollments": enrollments,
-            "activity_feed": client.user_feed(since=feed_since),
+            "activity_feed": feed_payload,
         }
         account_changed = 0
         account_unchanged = 0
@@ -185,11 +202,13 @@ def _sync_brightspace(
             account_unchanged += result["unchanged"]
             report.changed += result["changed"]
             report.unchanged += result["unchanged"]
+        # Use the request-start high-water mark. Anything arriving while this sync is
+        # running remains eligible for the next request instead of falling into a gap.
         set_sync_state(
             conn,
             feed_state_key,
-            cursor=datetime.now(UTC).isoformat(),
-            metadata={"dataset": "activity_feed"},
+            cursor=feed_request_started.isoformat(),
+            metadata={"dataset": "activity_feed", "watermark": "request_start"},
         )
         mark_success(
             conn,
@@ -206,10 +225,11 @@ def _sync_brightspace(
             section = str(course["section"]) if course.get("section") else None
             org_id = str(course["org_id"])
             source_name = f"brightspace:{code}{'-' + section if section else ''}"
-            state_key = f"brightspace:{org_id}:course"
+            announcement_state_key = _announcement_state_key(org_id)
             try:
                 course_id = _resolve_course_id(conn, code, section)
-                since = course.get("since") or get_cursor(conn, state_key)
+                since = course.get("since") or _announcement_cursor(conn, org_id)
+                announcement_request_started = datetime.now(UTC)
                 course_report = collect_course_data_capability_aware(
                     conn,
                     client,
@@ -259,12 +279,23 @@ def _sync_brightspace(
                         metadata={"org_id": org_id, "section": section},
                     )
 
-                set_sync_state(
-                    conn,
-                    state_key,
-                    cursor=datetime.now(UTC).isoformat(),
-                    metadata={"code": code, "section": section, "org_id": org_id},
-                )
+                # This cursor is only used by the incremental announcement request.
+                # Advance it only when announcements were actually fetched successfully.
+                # If the endpoint failed or was capability-cooldown skipped, keep the old
+                # cursor so the later retry can still cover the missed interval.
+                if "announcements" in course_report.datasets:
+                    set_sync_state(
+                        conn,
+                        announcement_state_key,
+                        cursor=announcement_request_started.isoformat(),
+                        metadata={
+                            "code": code,
+                            "section": section,
+                            "org_id": org_id,
+                            "dataset": "announcements",
+                            "watermark": "request_start",
+                        },
+                    )
                 report.sources_ok.append(source_name)
             except Exception as exc:
                 error = f"{type(exc).__name__}: {exc}"
@@ -352,17 +383,24 @@ def _sync_mail(
             }
         else:
             since = mail.get("since") or cursor
+            request_started = datetime.now(UTC)
             inbox = collect_inbox(
                 conn,
                 mail_client,
                 since=str(since) if since else None,
                 max_pages=int(mail.get("max_pages", 20)),
             )
+            # Same high-water rule as Brightspace: use request start, not request end,
+            # so mail arriving while pagination is running cannot fall into a gap.
             set_sync_state(
                 conn,
                 state_key,
-                cursor=datetime.now(UTC).isoformat(),
-                metadata={"provider": "microsoft_graph", "mode": "timestamp"},
+                cursor=request_started.isoformat(),
+                metadata={
+                    "provider": "microsoft_graph",
+                    "mode": "timestamp",
+                    "watermark": "request_start",
+                },
             )
             mail_changed = inbox.changed
             mail_unchanged = inbox.unchanged
