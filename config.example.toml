@@ -45,7 +45,9 @@ download_files = true
 enabled = false
 client_id = "REPLACE_WITH_AZURE_PUBLIC_CLIENT_APP_ID"
 cache = ".auth/mail/msal_cache.json"
-max_pages = 20
+# Graph deltaLink is preferred because it tracks additions, updates, and removals.
+use_delta = true
+max_pages = 50
 
 [ollama]
 base_url = "http://127.0.0.1:11434"
