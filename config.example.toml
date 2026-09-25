@@ -1,0 +1,24 @@
+[app]
+timezone = "America/Toronto"
+data_dir = "D:/AcademicOSData"
+
+[privacy]
+cloud_policy = "explicit_only"
+background_cloud_calls = false
+
+[calendar]
+day_start = "08:00"
+day_end = "23:30"
+default_break_minutes = 15
+minimum_study_block_minutes = 30
+maximum_study_block_minutes = 120
+
+[planner]
+replan_on_material_change = true
+replan_on_progress_change = true
+freeze_started_blocks = true
+freeze_completed_blocks = true
+
+[ollama]
+base_url = "http://127.0.0.1:11434"
+keep_alive = "1h"

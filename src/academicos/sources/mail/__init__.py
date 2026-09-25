@@ -1,0 +1,1 @@
+"""Academic email connector package."""

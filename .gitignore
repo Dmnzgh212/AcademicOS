@@ -1,0 +1,57 @@
+# Academic/private runtime data
+data/
+private/
+courses/
+recordings/
+transcripts/
+notes/
+browser-profile/
+auth/
+models/
+downloads/
+
+# Databases and indexes
+*.db
+*.sqlite
+*.sqlite3
+*.db-wal
+*.db-shm
+
+# Academic source files
+*.pdf
+*.ppt
+*.pptx
+*.doc
+*.docx
+*.vtt
+*.srt
+*.mp4
+*.m4a
+
+# Authentication / browser state
+.env
+.env.*
+!.env.example
+cookies.json
+storageState.json
+*.har
+*.token
+*.tokens
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+dist/
+build/
+*.egg-info/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
