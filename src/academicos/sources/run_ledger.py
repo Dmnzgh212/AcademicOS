@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
+from academicos.sources.brightspace.task_sync import reconcile_persisted_brightspace_tasks
 from academicos.sources.sync import SyncReport, load_sync_config, sync_all
 from academicos.storage.db import connect_db, initialize_db
 
@@ -219,7 +220,7 @@ def run_tracked_sync(
     db_path: Path | None = None,
     interactive_mail_auth: bool = False,
 ) -> tuple[SyncReport, RunLedgerEntry]:
-    """Run the normal collector and persist a content-free completeness ledger entry."""
+    """Run collectors, reconcile structured tasks, and persist a completeness ledger entry."""
     config = load_sync_config(config_path)
     app_config = config.get("app", {})
     effective_db = db_path or Path(app_config.get("database", "data/academicos.db"))
@@ -242,6 +243,13 @@ def run_tracked_sync(
                 mode="full",
             )
             raise
+
+        try:
+            task_report = reconcile_persisted_brightspace_tasks(conn)
+            report.changed += task_report.created + task_report.updated
+            report.unchanged += task_report.unchanged + task_report.skipped
+        except Exception as exc:
+            report.errors["task_reconcile"] = f"{type(exc).__name__}: {exc}"
 
         entry = record_sync_run(
             conn,
