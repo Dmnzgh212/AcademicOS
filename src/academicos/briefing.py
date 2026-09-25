@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 from academicos.calendar.inbox import CandidateInboxItem, list_candidate_inbox
 from academicos.calendar.models import CandidateStatus
 from academicos.calendar.truth import EffectiveSession, effective_sessions_for_date
+from academicos.sources.run_ledger import latest_sync_run
 
 
 @dataclass(frozen=True)
@@ -235,6 +236,37 @@ def _alerts(
     return alerts
 
 
+def _collection_alerts(
+    conn: sqlite3.Connection,
+    *,
+    now: datetime,
+    tz: ZoneInfo,
+) -> list[str]:
+    latest = latest_sync_run(conn)
+    if latest is None:
+        return ["DATA UNKNOWN · no tracked source sync has completed yet."]
+
+    status = str(latest["status"])
+    finished_at = _parse_local(str(latest["finished_at"]), tz)
+    when = finished_at.strftime("%H:%M") if finished_at else "unknown time"
+
+    if status == "failed":
+        return [f"DATA FAILED · latest source sync failed at {when}; source data may be incomplete."]
+    if status == "partial":
+        return [
+            "DATA PARTIAL · latest sync finished with "
+            f"{latest['partial_count']} partial and {latest['failed_count']} failed source(s)."
+        ]
+    if status == "empty":
+        return ["DATA EMPTY · latest sync completed without any tracked source results."]
+    if finished_at is not None:
+        age = now - finished_at
+        if age > timedelta(hours=2):
+            hours = max(2, int(age.total_seconds() // 3600))
+            return [f"DATA STALE · latest complete source sync is about {hours}h old."]
+    return []
+
+
 def build_morning_brief(
     conn: sqlite3.Connection,
     target_date: date,
@@ -281,13 +313,19 @@ def build_morning_brief(
         end_at=day_end,
         tz=tz,
     )
-    alerts = _alerts(
+    risk_alerts = _alerts(
         target_date=target_date,
         now=local_now,
         tasks=tasks,
         plan_blocks=plan_blocks,
         pending_changes=pending_changes,
     )
+    collection_alerts = _collection_alerts(conn, now=local_now, tz=tz)
+    if collection_alerts:
+        risk_alerts = [
+            alert for alert in risk_alerts if not alert.startswith("No immediate academic risk")
+        ]
+    alerts = collection_alerts + risk_alerts
 
     return MorningBrief(
         target_date=target_date,
