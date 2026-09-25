@@ -35,16 +35,18 @@ def http_error(status: int) -> requests.HTTPError:
     return requests.HTTPError(f"HTTP {status}", response=response)
 
 
-def test_fresh_schema_is_v6_and_has_capability_table() -> None:
+def test_fresh_schema_is_v7_and_has_capability_and_task_identity_tables() -> None:
     conn = make_conn()
-    assert schema_version(conn) == 6
-    row = conn.execute(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name='endpoint_capabilities'"
-    ).fetchone()
-    assert row is not None
+    assert schema_version(conn) == 7
+    for table in ("endpoint_capabilities", "task_source_links", "task_deadline_changes"):
+        row = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+            (table,),
+        ).fetchone()
+        assert row is not None
 
 
-def test_v4_database_migrates_to_v6() -> None:
+def test_v4_database_migrates_to_v7() -> None:
     conn = connect_db(":memory:")
     conn.execute("CREATE TABLE schema_meta(key TEXT PRIMARY KEY, value TEXT NOT NULL)")
     conn.execute("INSERT INTO schema_meta(key, value) VALUES ('schema_version', '4')")
@@ -52,13 +54,17 @@ def test_v4_database_migrates_to_v6() -> None:
 
     initialize_db(conn)
 
-    assert schema_version(conn) == 6
-    assert conn.execute(
-        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='endpoint_capabilities'"
-    ).fetchone()
-    assert conn.execute(
-        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='sync_runs'"
-    ).fetchone()
+    assert schema_version(conn) == 7
+    for table in (
+        "endpoint_capabilities",
+        "sync_runs",
+        "task_source_links",
+        "task_deadline_changes",
+    ):
+        assert conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
+            (table,),
+        ).fetchone()
 
 
 def test_response_shape_contains_structure_not_values() -> None:
