@@ -84,7 +84,7 @@ def collect_course_data_capability_aware(
     their availability can differ item-by-item.
     """
     source_key = f"brightspace:{org_unit_id}"
-    wanted = set(include or DEFAULT_DATASETS)
+    wanted = set(include if include is not None else DEFAULT_DATASETS)
     top_level = set(_SUCCESS_DATASET)
     skipped = {
         name
@@ -93,18 +93,24 @@ def collect_course_data_capability_aware(
     }
     effective = wanted - skipped
 
-    report = collect_course_data(
-        conn,
-        client,
-        course_id=course_id,
-        org_unit_id=org_unit_id,
-        since=since,
-        start=start,
-        end=end,
-        include=effective,
-        auto_accept_announcements=auto_accept_announcements,
-        timezone_name=timezone_name,
-    )
+    # The base collector historically treats an empty set as "use defaults".
+    # If capability filtering removed every requested top-level endpoint, calling it
+    # would accidentally re-enable all endpoints and defeat the cooldown.
+    if effective:
+        report = collect_course_data(
+            conn,
+            client,
+            course_id=course_id,
+            org_unit_id=org_unit_id,
+            since=since,
+            start=start,
+            end=end,
+            include=effective,
+            auto_accept_announcements=auto_accept_announcements,
+            timezone_name=timezone_name,
+        )
+    else:
+        report = CollectionReport()
 
     for name in top_level & effective:
         dataset = _SUCCESS_DATASET[name]
