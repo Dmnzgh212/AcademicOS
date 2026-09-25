@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -30,6 +31,14 @@ class TaskSyncReport:
             "changed": self.created + self.updated,
             "unchanged": self.unchanged + self.skipped,
         }
+
+    def merge(self, other: "TaskSyncReport") -> "TaskSyncReport":
+        return TaskSyncReport(
+            created=self.created + other.created,
+            updated=self.updated + other.updated,
+            unchanged=self.unchanged + other.unchanged,
+            skipped=self.skipped + other.skipped,
+        )
 
 
 def _records(payload: object) -> list[dict[str, Any]]:
@@ -172,6 +181,10 @@ def _upsert_one(
             result = "unchanged"
 
     source_item_key = source_item_id(SourceType.BRIGHTSPACE, source_key)
+    source_exists = conn.execute(
+        "SELECT 1 FROM source_items WHERE id = ?",
+        (source_item_key,),
+    ).fetchone()
     conn.execute(
         """
         INSERT INTO task_source_links(
@@ -189,7 +202,7 @@ def _upsert_one(
             SourceType.BRIGHTSPACE.value,
             source_key,
             task_id,
-            source_item_key,
+            source_item_key if source_exists else None,
             kind,
             external_id,
             seen_at.astimezone(UTC).isoformat(),
@@ -229,3 +242,50 @@ def reconcile_brightspace_tasks(
                 counts[outcome] += 1
 
     return TaskSyncReport(**counts)
+
+
+def reconcile_persisted_brightspace_tasks(
+    conn: sqlite3.Connection,
+    *,
+    seen_at: datetime | None = None,
+) -> TaskSyncReport:
+    """Rebuild task mappings idempotently from already-persisted Brightspace objects."""
+    seen_at = seen_at or datetime.now(UTC)
+    rows = conn.execute(
+        """
+        SELECT course_id, source_id, raw_json
+        FROM source_items
+        WHERE source_type = 'brightspace'
+          AND course_id IS NOT NULL
+          AND (source_id LIKE '%:assignments:%' OR source_id LIKE '%:quizzes:%')
+        ORDER BY source_id
+        """
+    ).fetchall()
+    total = TaskSyncReport()
+
+    for row in rows:
+        source_id = str(row["source_id"])
+        parts = source_id.split(":", 2)
+        if len(parts) != 3:
+            total = total.merge(TaskSyncReport(skipped=1))
+            continue
+        org_unit_id, dataset, _ = parts
+        if dataset not in {"assignments", "quizzes"}:
+            total = total.merge(TaskSyncReport(skipped=1))
+            continue
+        try:
+            payload = json.loads(row["raw_json"] or "{}")
+        except (TypeError, json.JSONDecodeError):
+            total = total.merge(TaskSyncReport(skipped=1))
+            continue
+        report = reconcile_brightspace_tasks(
+            conn,
+            course_id=row["course_id"],
+            org_unit_id=org_unit_id,
+            assignments=payload if dataset == "assignments" else None,
+            quizzes=payload if dataset == "quizzes" else None,
+            seen_at=seen_at,
+        )
+        total = total.merge(report)
+
+    return total
