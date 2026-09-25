@@ -128,26 +128,58 @@ Dashboard verified properties:
 - separate visual semantics for Confirmed facts, movable Plan blocks, and Candidate changes;
 - responsive Today page with week strip, timeline, Attention, Changes Inbox, Upcoming Work, and Recent Activity.
 
-CLI now exposes:
-- timetable import;
-- Brightspace announcement import/live News sync;
-- day/week Truth Calendar;
-- Changes Inbox + accept/reject;
-- adaptive planning;
-- deterministic brief;
-- local dashboard server.
+## Source collection — Brightspace + Microsoft 365
 
-CI snapshot for the integrated Brightspace + planner + brief + dashboard code: **37 passed** on Python 3.11, with Ruff correctness checks passing; the corresponding Python 3.12 matrix job also completed successfully.
+Status: implemented and CI verified; real-account validation is still required on the user's machine.
+
+Brightspace acquisition now includes:
+- persistent-browser SSO/MFA bootstrap and local bearer-token capture/refresh;
+- account identity, active enrollments, and activity feed;
+- announcements;
+- assignments and the student's submissions;
+- quizzes and attempts;
+- content TOC/root/module structures;
+- grades, grade objects, and final grade;
+- calendar, due, overdue, and update feeds;
+- discussions, checklists, and overview;
+- downloadable course-content files and assignment attachments.
+
+Microsoft 365 acquisition now includes:
+- delegated read-only Graph authentication with local token cache;
+- Inbox metadata/body collection;
+- bounded pagination;
+- attachment metadata/content collection and local attachment download support.
+
+Incremental sync:
+- schema v3 adds `sync_state`;
+- Brightspace activity feed, per-course announcement collection, and Microsoft 365 Inbox use persisted cursors/last-success timestamps;
+- successful runs advance cursors; failed course/source runs do not;
+- unchanged source objects are hash-deduplicated.
+
+Course discovery:
+- local timetable courses are conservatively matched against active Brightspace Course Offering enrollments;
+- `org_id` is auto-filled when there is exactly one match;
+- a missing `[[brightspace.courses]]` list means auto-discover all unambiguous local courses;
+- ambiguous mappings are reported instead of guessed;
+- explicit per-course config remains available as an override.
+
+Collector audit finding:
+- CI exposed a real bug where requesting `content_structure` did not collect `content_root` because the nested helper incorrectly rechecked the alias name against the include set;
+- the collector now fetches and persists `content_root` directly under the `content_structure` request, and nested module discovery again has the full root + TOC input.
+
+Final CI snapshot for this source-collection slice: **48 passed** on Python 3.12 with Ruff correctness checks passing; the corresponding Python 3.11 matrix job also completed successfully.
+
+See `SOURCE_COLLECTION.md` for the acquisition architecture and privacy boundary.
 
 ## Current limitations / next audit targets
 
-- Brightspace browser SSO / automatic token capture is not implemented yet; live sync currently expects an existing Bearer token via environment variable.
-- Email ingestion is not implemented yet.
+- Source collectors are implemented, but Brightspace and Microsoft 365 still need end-to-end validation against the user's real uOttawa accounts on Windows.
+- The Windows Task Scheduler installer/registration flow is not yet implemented; the sync command itself is suitable for scheduled execution.
+- Some Brightspace endpoints can vary by institution/course permissions; per-endpoint isolation is implemented, but real uOttawa response shapes should be captured and hardened.
+- File mirroring currently compares local bytes to downloaded bytes; a persistent remote metadata/hash manifest could reduce unnecessary binary transfers further.
+- Microsoft Graph Inbox collection uses a timestamp filter rather than Graph delta queries; delta-link support would be a stronger long-term incremental mechanism.
 - Free-text `class_moved` extraction is deliberately not automated yet because time/date movement language needs safer disambiguation; the Candidate acceptance engine itself supports moved events.
 - Deadline-change CandidateEvents do not yet deterministically identify/materialize the correct Task.
 - Accepted CandidateEvent rollback/supersession is not implemented yet.
 - Adaptive planner does not yet learn time-of-day energy preference, switching cost, or schedule-churn penalties.
-- Planner v0.1 is urgency-sorted first-fit greedy placement, not a global constraint optimum.
-- Dashboard v0.1 is primarily read-only; Candidate accept/reject is currently exposed through CLI, not web controls.
-- Full orchestrated recurring `sync` and Windows Task Scheduler installation are not implemented yet.
-- Email + Brightspace combined Morning Brief has not yet been validated against the user's real Fall 2026 data.
+- Dashboard v0.1 remains primarily read-only; Candidate accept/reject is currently exposed through CLI, not web controls.
