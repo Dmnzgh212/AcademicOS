@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 
 GRAPH_SCOPES = ["User.Read", "Mail.Read"]
@@ -16,11 +17,12 @@ def acquire_graph_token(
     cache_path: Path,
     authority: str = DEFAULT_AUTHORITY,
     allow_interactive: bool = True,
-) -> tuple[str, str | None]:
-    """Return a delegated Graph token and optional device-code message.
+    prompt: Callable[[str], None] | None = None,
+) -> str:
+    """Return a delegated Graph token, using local MSAL cache when possible.
 
-    Only ``User.Read`` and ``Mail.Read`` are requested. The MSAL cache is serialized
-    locally and should live under AcademicOS' ignored ``.auth`` directory.
+    Only ``User.Read`` and ``Mail.Read`` are requested. If interactive device-code
+    authentication is required, ``prompt`` is called before MSAL starts waiting.
     """
     try:
         import msal
@@ -42,12 +44,13 @@ def acquire_graph_token(
     if accounts:
         result = app.acquire_token_silent(GRAPH_SCOPES, account=accounts[0])
 
-    device_message = None
     if not result and allow_interactive:
         flow = app.initiate_device_flow(scopes=GRAPH_SCOPES)
         if "user_code" not in flow:
             raise MailAuthError(f"unable to start Microsoft device flow: {flow}")
-        device_message = flow.get("message")
+        message = str(flow.get("message") or "Open the Microsoft device-login page and enter the code shown.")
+        if prompt:
+            prompt(message)
         result = app.acquire_token_by_device_flow(flow)
 
     if cache.has_state_changed:
@@ -57,4 +60,4 @@ def acquire_graph_token(
     if not result or "access_token" not in result:
         detail = (result or {}).get("error_description") or "no cached token available"
         raise MailAuthError(detail)
-    return result["access_token"], device_message
+    return result["access_token"]
