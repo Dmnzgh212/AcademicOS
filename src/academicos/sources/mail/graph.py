@@ -87,6 +87,19 @@ class GraphMailClient:
     def me(self) -> dict:
         return self._get("/me", {"$select": "id,displayName,mail,userPrincipalName"})
 
+    def inbox_probe(self, *, top: int = 1) -> list[dict]:
+        """Probe Inbox access using metadata only; never request subject/body/recipients."""
+        data = self._get(
+            "/me/mailFolders/inbox/messages",
+            {
+                "$select": "id,receivedDateTime,lastModifiedDateTime,hasAttachments",
+                "$orderby": "receivedDateTime desc",
+                "$top": min(max(top, 1), 10),
+            },
+        )
+        value = data.get("value", [])
+        return [item for item in value if isinstance(item, dict)] if isinstance(value, list) else []
+
     def inbox_messages(
         self,
         *,
