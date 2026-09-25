@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS schema_meta (
     value TEXT NOT NULL
 );
 
-INSERT OR REPLACE INTO schema_meta(key, value) VALUES ('schema_version', '4');
+INSERT OR REPLACE INTO schema_meta(key, value) VALUES ('schema_version', '5');
 
 CREATE TABLE IF NOT EXISTS courses (
     id TEXT PRIMARY KEY,
@@ -72,6 +72,21 @@ CREATE TABLE IF NOT EXISTS file_manifest (
 
 CREATE INDEX IF NOT EXISTS idx_file_manifest_path
     ON file_manifest(local_path);
+
+CREATE TABLE IF NOT EXISTS endpoint_capabilities (
+    source_key TEXT NOT NULL,
+    endpoint TEXT NOT NULL,
+    status TEXT NOT NULL,
+    http_status INTEGER,
+    last_checked_at TEXT NOT NULL,
+    next_probe_at TEXT,
+    response_shape_json TEXT NOT NULL DEFAULT '{}',
+    last_error TEXT,
+    PRIMARY KEY(source_key, endpoint)
+);
+
+CREATE INDEX IF NOT EXISTS idx_endpoint_capabilities_probe
+    ON endpoint_capabilities(status, next_probe_at);
 
 CREATE TABLE IF NOT EXISTS evidence (
     id TEXT PRIMARY KEY,
