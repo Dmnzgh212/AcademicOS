@@ -5,7 +5,7 @@ from pathlib import Path
 
 SCHEMA_PATH = Path(__file__).with_name("schema.sql")
 MIGRATIONS_PATH = Path(__file__).with_name("migrations")
-LATEST_SCHEMA_VERSION = 2
+LATEST_SCHEMA_VERSION = 3
 
 
 def connect_db(path: str | Path) -> sqlite3.Connection:
