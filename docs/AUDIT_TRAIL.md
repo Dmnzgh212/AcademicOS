@@ -213,7 +213,26 @@ Verification snapshot:
 - Ruff correctness checks passed;
 - Python 3.11 pytest snapshot: **60 passed**.
 
-See `SOURCE_COLLECTION.md` for the acquisition architecture and privacy boundary.
+## Real-account validation doctor
+
+Status: implemented and CI verified; real uOttawa execution is the next step.
+
+Added:
+- `academicos-doctor` local and live validation command;
+- local checks for Python, config, writable data directory, SQLite initialization/schema, optional dependencies, and local auth state;
+- optional minimal live GET-only Brightspace probes for account identity, active enrollments, course discovery, and representative course endpoints;
+- optional minimal Microsoft Graph identity + one-item Inbox probe when mail is configured;
+- `--bootstrap-auth` support for interactive Brightspace SSO/MFA or Microsoft device-code authentication when local auth is missing;
+- redacted JSON report at `data/audits/latest-doctor.json` by default;
+- no bearer tokens, cookies, email addresses/account IDs, email bodies, or course material contents are written to the report;
+- Windows `scripts/first_run_windows.ps1` bootstrap and `REAL_ACCOUNT_VALIDATION.md` runbook.
+
+Verification snapshot:
+- GitHub Actions Python 3.11 and Python 3.12 matrix both completed successfully;
+- Ruff correctness checks passed;
+- Python 3.11 pytest snapshot: **63 passed**.
+
+See `SOURCE_COLLECTION.md` and `REAL_ACCOUNT_VALIDATION.md` for the acquisition and first-live-validation procedures.
 
 ## Current limitations / next audit targets
 
