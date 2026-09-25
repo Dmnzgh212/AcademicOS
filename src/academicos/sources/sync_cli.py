@@ -4,7 +4,8 @@ from pathlib import Path
 
 import typer
 
-from academicos.sources.sync import sync_all
+from academicos.sources.lock import SyncAlreadyRunning, sync_lock
+from academicos.sources.sync import load_sync_config, sync_all
 
 app = typer.Typer(
     help="Run configured AcademicOS read-only source synchronization.",
@@ -22,11 +23,22 @@ def main(
     if not config.exists():
         raise typer.BadParameter(f"config file not found: {config}")
 
-    report = sync_all(
-        config_path=config,
-        db_path=db,
-        interactive_mail_auth=interactive_mail_auth,
-    )
+    loaded = load_sync_config(config)
+    app_config = loaded.get("app", {})
+    effective_db = db or Path(app_config.get("database", "data/academicos.db"))
+    lock_path = effective_db.with_suffix(effective_db.suffix + ".sync.lock")
+
+    try:
+        with sync_lock(lock_path):
+            report = sync_all(
+                config_path=config,
+                db_path=db,
+                interactive_mail_auth=interactive_mail_auth,
+            )
+    except SyncAlreadyRunning as exc:
+        typer.echo(f"Sync skipped: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+
     typer.echo(
         f"Sync complete · changed={report.changed} unchanged={report.unchanged} "
         f"downloaded_files={report.downloaded_files} errors={len(report.errors)}"
