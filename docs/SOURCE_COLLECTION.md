@@ -28,28 +28,87 @@ Course mapping is automatic by default. AcademicOS compares local timetable cour
 
 ## Microsoft 365 mail
 
-uOttawa mail collection uses Microsoft Graph delegated read-only permissions. The collector stores message metadata/body locally and can download supported attachments. Authentication tokens are cached under `.auth/` and are excluded from Git.
+uOttawa mail collection uses Microsoft Graph delegated read-only permissions. The collector stores message metadata/body locally. Authentication tokens are cached under `.auth/` and are excluded from Git.
 
-The inbox collector supports a `since` timestamp and bounded pagination.
+The preferred Inbox mode uses Microsoft Graph delta queries:
+
+```text
+first sync
+  → /me/mailFolders/inbox/messages/delta
+  → follow @odata.nextLink pages
+  → persist @odata.deltaLink
+
+later sync
+  → request the opaque deltaLink directly
+  → receive additions / updates / removals only
+  → persist the next deltaLink only after the page chain completes
+```
+
+Removed messages are retained locally as tombstone source changes rather than silently disappearing from acquisition history.
+
+A timestamp-filter Inbox collector remains available as a compatibility fallback by setting `mail.use_delta = false`.
 
 ## Incremental collection
 
-`sync_state` stores a per-source cursor and last successful collection time. Successful source runs advance their cursor; failed runs do not. The next run reuses the cursor for endpoints that support incremental time filtering, including Brightspace announcements/activity feed and Microsoft 365 Inbox.
+`sync_state` stores a per-source cursor and last successful collection time.
 
-This reduces network traffic and avoids repeatedly processing an entire semester of unchanged data.
+Current cursor behavior:
+
+- Brightspace activity feed: last-success timestamp;
+- per-course Brightspace announcements: last-success timestamp;
+- Microsoft 365 Inbox: opaque Graph `@odata.deltaLink` by default.
+
+Successful source runs advance their cursor; failed or incomplete delta runs do not. In particular, if a Graph delta page chain does not reach a durable deltaLink within the configured page bound, AcademicOS refuses to advance the saved cursor.
+
+## File manifest
+
+Schema v4 adds a persistent `file_manifest`.
+
+For downloadable Brightspace content and assignment attachments, AcademicOS records:
+
+- stable source key;
+- local destination path;
+- remote metadata fingerprint;
+- local SHA256;
+- byte size;
+- ETag/Last-Modified when the source provides them;
+- last checked/downloaded timestamps.
+
+If the remote metadata fingerprint is unchanged and the recorded local file still exists with the expected size, the binary request is skipped. This avoids downloading the same lecture PDFs every scheduled run just to compare bytes afterward.
+
+## Collection health
+
+Schema v4 also adds `source_health`. Each logical collector records:
+
+- current status;
+- last attempt;
+- last successful collection;
+- latest error;
+- consecutive failure count;
+- changed/unchanged item counts;
+- downloaded-file count;
+- source-specific metadata.
+
+Inspect it locally with:
+
+```text
+academicos-health --db D:/AcademicOSData/academicos.db
+```
+
+The command labels sources as `OK`, `STALE`, or `ERROR`, making authentication expiry and silent collector failure visible before a morning brief relies on stale data.
 
 ## Local storage
 
 Raw source objects are normalized into `source_items` with:
 
-- stable source identifier
-- source type
-- optional course mapping
-- source timestamp
-- fetch timestamp
-- canonical content hash
-- raw text when available
-- raw JSON
+- stable source identifier;
+- source type;
+- optional course mapping;
+- source timestamp;
+- fetch timestamp;
+- canonical content hash;
+- raw text when available;
+- raw JSON.
 
 Unchanged objects are recognized by hash and do not create duplicate logical records.
 
@@ -62,7 +121,7 @@ The intended unattended loop is:
 ```text
 Windows Task Scheduler
         ↓
-academicos-sync --config config.toml
+academicos-sync --config config.local.toml
         ↓
 Brightspace token reuse/refresh
         ↓
@@ -70,10 +129,22 @@ Brightspace + M365 read-only collection
         ↓
 source_items / local files / sync_state
         ↓
-(optional later deterministic extraction/planning)
+file_manifest + source_health
+        ↓
+(optional deterministic extraction/planning)
 ```
 
-A failed endpoint is isolated so one unavailable Brightspace feature does not abort collection from other endpoints or courses.
+AcademicOS can register the task for the current Windows user:
+
+```text
+academicos-schedule install --config config.local.toml --minutes 30
+academicos-schedule status
+academicos-schedule remove
+```
+
+The scheduler command uses Windows `schtasks` and invokes the same local Python environment that installed AcademicOS. It does not install a Windows service.
+
+A failed Brightspace endpoint is isolated so one unavailable feature does not abort collection from other endpoints or courses.
 
 ## Privacy boundary
 
