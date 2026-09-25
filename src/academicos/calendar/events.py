@@ -118,6 +118,10 @@ def _override_id(candidate_id: str) -> str:
     return str(uuid5(EVENT_NAMESPACE, f"override|{candidate_id}"))
 
 
+def _deadline_change_id(candidate_id: str) -> str:
+    return str(uuid5(EVENT_NAMESPACE, f"deadline|{candidate_id}"))
+
+
 def _ensure_no_override_conflict(
     conn: sqlite3.Connection,
     *,
@@ -211,6 +215,52 @@ def _accept_class_override(
     )
 
 
+def _accept_deadline_change(
+    conn: sqlite3.Connection,
+    row: sqlite3.Row,
+    payload: dict,
+) -> AcceptanceResult:
+    task_id = row["target_ref"]
+    if not task_id:
+        raise ValueError(f"candidate {row['id']} requires target_ref=task_id")
+    raw_due_at = payload.get("due_at")
+    if not isinstance(raw_due_at, str) or not raw_due_at.strip():
+        raise ValueError("deadline_changed requires payload.due_at")
+    try:
+        new_due_at = datetime.fromisoformat(raw_due_at).isoformat()
+    except ValueError as exc:
+        raise ValueError("deadline_changed payload.due_at must be ISO-8601") from exc
+
+    task = conn.execute(
+        "SELECT id, course_id, due_at FROM tasks WHERE id = ?",
+        (task_id,),
+    ).fetchone()
+    if task is None:
+        raise ValueError(f"deadline target task does not exist: {task_id}")
+    if row["course_id"] and task["course_id"] != row["course_id"]:
+        raise ValueError("deadline target task belongs to a different course")
+
+    change_id = _deadline_change_id(row["id"])
+    conn.execute(
+        """
+        INSERT INTO task_deadline_changes(
+            id, task_id, candidate_event_id, old_due_at, new_due_at
+        ) VALUES (?, ?, ?, ?, ?)
+        """,
+        (change_id, task_id, row["id"], task["due_at"], new_due_at),
+    )
+    conn.execute(
+        "UPDATE tasks SET due_at = ? WHERE id = ?",
+        (new_due_at, task_id),
+    )
+    return AcceptanceResult(
+        candidate_id=row["id"],
+        status=CandidateStatus.ACCEPTED,
+        action_type="task_deadline_update",
+        action_id=change_id,
+    )
+
+
 def accept_candidate_event(
     conn: sqlite3.Connection,
     candidate_id: str,
@@ -222,7 +272,11 @@ def accept_candidate_event(
     with conn:
         row = _candidate_row(conn, candidate_id)
         current = CandidateStatus(row["status"])
-        if current in {CandidateStatus.ACCEPTED, CandidateStatus.REJECTED}:
+        if current in {
+            CandidateStatus.ACCEPTED,
+            CandidateStatus.AUTO_ACCEPTED,
+            CandidateStatus.REJECTED,
+        }:
             raise CandidateTransitionError(
                 f"candidate {candidate_id} is already {current.value}"
             )
@@ -242,6 +296,8 @@ def accept_candidate_event(
             EventKind.CLASS_LOCATION_CHANGED,
         }:
             result = _accept_class_override(conn, row, event_kind, payload)
+        elif event_kind == EventKind.DEADLINE_CHANGED:
+            result = _accept_deadline_change(conn, row, payload)
         else:
             raise NotImplementedError(
                 f"acceptance materialization for {event_kind.value} is not implemented yet"
