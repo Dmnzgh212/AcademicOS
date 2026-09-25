@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
-
 from academicos.calendar.events import accept_candidate_event
 from academicos.sources.brightspace.announcements import ingest_announcements
 from academicos.sources.brightspace.collector import persist_dataset
