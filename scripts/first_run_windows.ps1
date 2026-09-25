@@ -60,12 +60,15 @@ Write-Host ""
 Write-Host "Local bootstrap complete." -ForegroundColor Green
 Write-Host ""
 Write-Host "Recommended real-account validation:" -ForegroundColor Cyan
-Write-Host ".\.venv\Scripts\academicos-audit.exe --live --bootstrap-auth --config config.local.toml" -ForegroundColor White
+Write-Host "1. .\.venv\Scripts\academicos-audit.exe --live --bootstrap-auth --config config.local.toml" -ForegroundColor White
+Write-Host "2. .\.venv\Scripts\academicos-first-sync.exe --config config.local.toml" -ForegroundColor White
+Write-Host "3. .\.venv\Scripts\academicos-audit.exe --config config.local.toml" -ForegroundColor White
 Write-Host ""
-Write-Host "After the live audit succeeds:" -ForegroundColor Cyan
-Write-Host ".\.venv\Scripts\academicos-sync.exe --config config.local.toml" -ForegroundColor White
-Write-Host ".\.venv\Scripts\academicos-health.exe" -ForegroundColor White
-Write-Host ".\.venv\Scripts\academicos-coverage.exe" -ForegroundColor White
+Write-Host "Only after the staged first sync looks healthy:" -ForegroundColor Cyan
+Write-Host "4. .\.venv\Scripts\academicos-sync.exe --config config.local.toml" -ForegroundColor White
+Write-Host "5. .\.venv\Scripts\academicos-health.exe" -ForegroundColor White
+Write-Host "6. .\.venv\Scripts\academicos-coverage.exe" -ForegroundColor White
 Write-Host ""
+Write-Host "academicos-first-sync does not advance sync cursors, download files/attachments, or create announcement-derived calendar candidates." -ForegroundColor DarkGray
 Write-Host "academicos-audit writes one timestamped sanitized JSON bundle under the configured data\audits directory." -ForegroundColor DarkGray
 Write-Host "The bundle excludes raw academic content, tokens, cookies, email addresses, grades, and downloaded files." -ForegroundColor DarkGray
