@@ -33,8 +33,6 @@ def classify_report_sources(report: SyncReport) -> tuple[RunSourceResult, ...]:
     results: list[RunSourceResult] = []
     covered_errors: set[str] = set()
 
-    # More-specific source names are checked first so one course cannot be mistaken for
-    # another source that happens to share a broad prefix.
     for source in sorted(successful, key=len, reverse=True):
         related = [
             key
@@ -50,8 +48,6 @@ def classify_report_sources(report: SyncReport) -> tuple[RunSourceResult, ...]:
             )
         )
 
-    # Errors for sources that never reached sources_ok (for example authentication,
-    # mapping, or an exception before a course completed) become explicit failed rows.
     for key in sorted(set(report.errors) - covered_errors):
         results.append(RunSourceResult(source_key=key, status="failed", error_count=1))
 
@@ -61,26 +57,29 @@ def classify_report_sources(report: SyncReport) -> tuple[RunSourceResult, ...]:
 def _entry_status(sources: tuple[RunSourceResult, ...]) -> str:
     if not sources:
         return "empty"
+    if all(item.status == "failed" for item in sources):
+        return "failed"
     if any(item.status in {"partial", "failed"} for item in sources):
         return "partial"
     return "complete"
 
 
-def record_sync_run(
+def _insert_run(
     conn: sqlite3.Connection,
-    report: SyncReport,
     *,
+    run_id: str,
+    mode: str,
     started_at: datetime,
-    finished_at: datetime | None = None,
-    mode: str = "full",
+    finished_at: datetime,
+    status: str,
+    sources: tuple[RunSourceResult, ...],
+    changed: int = 0,
+    unchanged: int = 0,
+    downloaded_files: int = 0,
 ) -> RunLedgerEntry:
-    finished_at = finished_at or datetime.now(UTC)
-    sources = classify_report_sources(report)
     ok_count = sum(item.status == "ok" for item in sources)
     partial_count = sum(item.status == "partial" for item in sources)
     failed_count = sum(item.status == "failed" for item in sources)
-    status = _entry_status(sources)
-    run_id = str(uuid4())
 
     with conn:
         conn.execute(
@@ -101,9 +100,9 @@ def record_sync_run(
                 ok_count,
                 partial_count,
                 failed_count,
-                max(0, report.changed),
-                max(0, report.unchanged),
-                max(0, report.downloaded_files),
+                max(0, changed),
+                max(0, unchanged),
+                max(0, downloaded_files),
             ),
         )
         conn.executemany(
@@ -127,18 +126,91 @@ def record_sync_run(
     )
 
 
+def record_sync_run(
+    conn: sqlite3.Connection,
+    report: SyncReport,
+    *,
+    started_at: datetime,
+    finished_at: datetime | None = None,
+    mode: str = "full",
+) -> RunLedgerEntry:
+    finished_at = finished_at or datetime.now(UTC)
+    sources = classify_report_sources(report)
+    return _insert_run(
+        conn,
+        run_id=str(uuid4()),
+        mode=mode,
+        started_at=started_at,
+        finished_at=finished_at,
+        status=_entry_status(sources),
+        sources=sources,
+        changed=report.changed,
+        unchanged=report.unchanged,
+        downloaded_files=report.downloaded_files,
+    )
+
+
+def record_failed_sync_run(
+    conn: sqlite3.Connection,
+    *,
+    started_at: datetime,
+    finished_at: datetime | None = None,
+    mode: str = "full",
+    source_key: str = "sync",
+) -> RunLedgerEntry:
+    """Record a top-level sync failure without persisting exception text or source content."""
+    finished_at = finished_at or datetime.now(UTC)
+    sources = (RunSourceResult(source_key=source_key, status="failed", error_count=1),)
+    return _insert_run(
+        conn,
+        run_id=str(uuid4()),
+        mode=mode,
+        started_at=started_at,
+        finished_at=finished_at,
+        status="failed",
+        sources=sources,
+    )
+
+
 def latest_sync_run(conn: sqlite3.Connection) -> dict[str, object] | None:
-    row = conn.execute(
+    rows = list_sync_runs(conn, limit=1)
+    return rows[0] if rows else None
+
+
+def list_sync_runs(
+    conn: sqlite3.Connection,
+    *,
+    limit: int = 10,
+) -> tuple[dict[str, object], ...]:
+    safe_limit = max(1, min(int(limit), 100))
+    rows = conn.execute(
         """
         SELECT id, mode, started_at, finished_at, status, source_count,
                ok_count, partial_count, failed_count, items_changed,
                items_unchanged, downloaded_files
         FROM sync_runs
         ORDER BY finished_at DESC
-        LIMIT 1
+        LIMIT ?
+        """,
+        (safe_limit,),
+    ).fetchall()
+    return tuple(dict(row) for row in rows)
+
+
+def sync_run_sources(
+    conn: sqlite3.Connection,
+    run_id: str,
+) -> tuple[dict[str, object], ...]:
+    rows = conn.execute(
         """
-    ).fetchone()
-    return dict(row) if row is not None else None
+        SELECT source_key, status, error_count
+        FROM sync_run_sources
+        WHERE run_id = ?
+        ORDER BY source_key
+        """,
+        (run_id,),
+    ).fetchall()
+    return tuple(dict(row) for row in rows)
 
 
 def run_tracked_sync(
@@ -148,27 +220,36 @@ def run_tracked_sync(
     interactive_mail_auth: bool = False,
 ) -> tuple[SyncReport, RunLedgerEntry]:
     """Run the normal collector and persist a content-free completeness ledger entry."""
-    started_at = datetime.now(UTC)
-    report = sync_all(
-        config_path=config_path,
-        db_path=db_path,
-        interactive_mail_auth=interactive_mail_auth,
-    )
-    finished_at = datetime.now(UTC)
-
     config = load_sync_config(config_path)
     app_config = config.get("app", {})
     effective_db = db_path or Path(app_config.get("database", "data/academicos.db"))
     conn = connect_db(effective_db)
     initialize_db(conn)
+    started_at = datetime.now(UTC)
+
     try:
+        try:
+            report = sync_all(
+                config_path=config_path,
+                db_path=db_path,
+                interactive_mail_auth=interactive_mail_auth,
+            )
+        except Exception:
+            record_failed_sync_run(
+                conn,
+                started_at=started_at,
+                finished_at=datetime.now(UTC),
+                mode="full",
+            )
+            raise
+
         entry = record_sync_run(
             conn,
             report,
             started_at=started_at,
-            finished_at=finished_at,
+            finished_at=datetime.now(UTC),
             mode="full",
         )
+        return report, entry
     finally:
         conn.close()
-    return report, entry
