@@ -20,6 +20,7 @@ from academicos.sources.brightspace.auth import (
 )
 from academicos.sources.brightspace.client import BrightspaceClient
 from academicos.sources.brightspace.discovery import discover_course_mappings
+from academicos.sources.capabilities import record_failure, record_success
 from academicos.sources.mail.auth import acquire_graph_token
 from academicos.sources.mail.graph import GraphMailClient
 from academicos.sources.sync import load_sync_config
@@ -181,24 +182,27 @@ def _probe_brightspace(
     sample = discovery.mappings[0]
     org_id = sample.org_unit_id
     code = sample.code
-    probes: tuple[tuple[str, Callable[[], Any]], ...] = (
-        ("news", lambda: client.news(org_id)),
-        ("assignments", lambda: client.assignments(org_id)),
-        ("quizzes", lambda: client.quizzes(org_id)),
-        ("content_toc", lambda: client.content_toc(org_id)),
-        ("grades", lambda: client.grades(org_id)),
-        ("calendar", lambda: client.calendar_events(org_id)),
-        ("updates", lambda: client.updates(org_id)),
+    source_key = f"brightspace:{org_id}"
+    probes: tuple[tuple[str, str, Callable[[], Any]], ...] = (
+        ("news", "announcements", lambda: client.news(org_id)),
+        ("assignments", "assignments", lambda: client.assignments(org_id)),
+        ("quizzes", "quizzes", lambda: client.quizzes(org_id)),
+        ("content_toc", "content", lambda: client.content_toc(org_id)),
+        ("grades", "grades", lambda: client.grades(org_id)),
+        ("calendar", "calendar", lambda: client.calendar_events(org_id)),
+        ("updates", "updates", lambda: client.updates(org_id)),
     )
-    for label, operation in probes:
+    for label, capability_name, operation in probes:
         try:
             payload = operation()
+            record_success(conn, source_key, capability_name, payload)
             if isinstance(payload, (list, tuple, dict)):
                 detail = f"course={code}; response_items={len(payload)}"
             else:
                 detail = f"course={code}; response_type={type(payload).__name__}"
             checks.append(_check(f"brightspace.endpoint.{label}", "PASS", detail))
         except Exception as exc:
+            record_failure(conn, source_key, capability_name, exc)
             checks.append(
                 _check(
                     f"brightspace.endpoint.{label}",
