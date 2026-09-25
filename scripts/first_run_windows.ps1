@@ -59,10 +59,13 @@ Write-Host "Running local-only doctor..." -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Local bootstrap complete." -ForegroundColor Green
 Write-Host ""
-Write-Host "Real-account validation sequence:" -ForegroundColor Cyan
-Write-Host "1. .\.venv\Scripts\academicos-doctor.exe --live --bootstrap-auth --config config.local.toml" -ForegroundColor White
-Write-Host "2. .\.venv\Scripts\academicos-capabilities.exe --json-out data\audits\capabilities.json" -ForegroundColor White
-Write-Host "3. .\.venv\Scripts\academicos-coverage.exe" -ForegroundColor White
-Write-Host "4. .\.venv\Scripts\academicos-sync.exe --config config.local.toml" -ForegroundColor White
+Write-Host "Recommended real-account validation:" -ForegroundColor Cyan
+Write-Host ".\.venv\Scripts\academicos-audit.exe --live --bootstrap-auth --config config.local.toml" -ForegroundColor White
 Write-Host ""
-Write-Host "The doctor/capability reports are designed to omit tokens, cookies, email addresses, and academic response values." -ForegroundColor DarkGray
+Write-Host "After the live audit succeeds:" -ForegroundColor Cyan
+Write-Host ".\.venv\Scripts\academicos-sync.exe --config config.local.toml" -ForegroundColor White
+Write-Host ".\.venv\Scripts\academicos-health.exe" -ForegroundColor White
+Write-Host ".\.venv\Scripts\academicos-coverage.exe" -ForegroundColor White
+Write-Host ""
+Write-Host "academicos-audit writes one timestamped sanitized JSON bundle under the configured data\audits directory." -ForegroundColor DarkGray
+Write-Host "The bundle excludes raw academic content, tokens, cookies, email addresses, grades, and downloaded files." -ForegroundColor DarkGray
