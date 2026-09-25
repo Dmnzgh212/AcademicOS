@@ -1,6 +1,7 @@
 [app]
 timezone = "America/Toronto"
 data_dir = "D:/AcademicOSData"
+database = "D:/AcademicOSData/academicos.db"
 
 [privacy]
 cloud_policy = "explicit_only"
@@ -18,6 +19,34 @@ replan_on_material_change = true
 replan_on_progress_change = true
 freeze_started_blocks = true
 freeze_completed_blocks = true
+
+[brightspace]
+enabled = true
+host = "https://uottawa.brightspace.com"
+auth_dir = ".auth/brightspace"
+token_env = "BRIGHTSPACE_TOKEN"
+le_version = "1.75"
+lp_version = "1.51"
+
+# Add one block per enrolled course after importing the authoritative timetable.
+[[brightspace.courses]]
+code = "CEG2136"
+section = "A00"
+org_id = "REPLACE_WITH_BRIGHTSPACE_ORG_UNIT_ID"
+download_files = true
+
+[[brightspace.courses]]
+code = "CSI2110"
+org_id = "REPLACE_WITH_BRIGHTSPACE_ORG_UNIT_ID"
+download_files = true
+
+[mail]
+# uOttawa mail is Microsoft 365. Register a public-client app for delegated
+# User.Read + Mail.Read only, then put the non-secret application/client ID here.
+enabled = false
+client_id = "REPLACE_WITH_AZURE_PUBLIC_CLIENT_APP_ID"
+cache = ".auth/mail/msal_cache.json"
+max_pages = 20
 
 [ollama]
 base_url = "http://127.0.0.1:11434"
