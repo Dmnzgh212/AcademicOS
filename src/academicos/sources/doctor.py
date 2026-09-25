@@ -244,12 +244,12 @@ def _probe_mail(
         )
         client = GraphMailClient(access_token=token)
         identity = client.me()
-        messages = client.inbox_messages(top=1, max_pages=1)
+        messages = client.inbox_probe(top=1)
         checks.append(
             _check(
                 "mail.live",
                 "PASS" if identity else "WARN",
-                f"identity_ok={bool(identity)}; inbox_probe_items={len(messages)}",
+                f"identity_ok={bool(identity)}; inbox_probe_items={len(messages)}; metadata_only=True",
             )
         )
     except Exception as exc:
