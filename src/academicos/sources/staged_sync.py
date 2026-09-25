@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from academicos.sources.brightspace.client import BrightspaceClient
+from academicos.sources.brightspace.collector import persist_dataset
 from academicos.sources.capabilities import record_failure, record_success, should_probe
 from academicos.sources.mail.auth import acquire_graph_token
 from academicos.sources.mail.graph import GraphMailClient
@@ -16,7 +17,6 @@ from academicos.sources.sync import (
     _resolve_course_id,
     load_sync_config,
 )
-from academicos.sources.brightspace.collector import persist_dataset
 
 
 STAGED_BRIGHTSPACE_ENDPOINTS = (
@@ -194,9 +194,9 @@ def run_staged_sync(
                 )
                 report.changed += identity["changed"]
                 report.unchanged += identity["unchanged"]
-                # Probe one message to verify Mail.Read and response shape, but do not persist
-                # message content or establish/advance a delta cursor during staged validation.
-                messages = mail_client.inbox_messages(top=1, max_pages=1)
+                # Verify Mail.Read using metadata only. Message subject/body/recipients are neither
+                # requested nor persisted and no delta cursor is created or advanced here.
+                messages = mail_client.inbox_probe(top=1)
                 report.mail_probe_items = len(messages)
             except Exception as exc:
                 report.errors["mail:m365"] = f"{type(exc).__name__}: {exc}"
