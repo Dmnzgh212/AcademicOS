@@ -2,13 +2,19 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import typer
 
+from academicos.briefing import build_morning_brief
+from academicos.calendar.events import accept_candidate_event, reject_candidate_event
+from academicos.calendar.inbox import list_candidate_inbox
+from academicos.calendar.models import CandidateStatus
 from academicos.calendar.timetable import import_timetable, load_timetable
 from academicos.calendar.truth import effective_sessions_for_date, effective_sessions_for_range
+from academicos.planner.engine import plan_tasks
 from academicos.sources.brightspace.announcements import (
     ingest_announcements,
     load_announcement_json,
@@ -16,6 +22,7 @@ from academicos.sources.brightspace.announcements import (
 )
 from academicos.sources.brightspace.client import BrightspaceClient
 from academicos.storage.db import connect_db, initialize_db, schema_version
+from academicos.web.app import serve_dashboard
 
 app = typer.Typer(
     help="AcademicOS local academic planning system.",
@@ -31,7 +38,7 @@ def _open_db(path: Path):
     return conn
 
 
-def _resolve_course_id(conn, code: str, section: str | None) -> str:  # noqa: ANN001
+def _resolve_course_id(conn, code: str, section: str | None) -> str:
     if section:
         rows = conn.execute(
             "SELECT id FROM courses WHERE UPPER(code) = UPPER(?) AND UPPER(COALESCE(section, '')) = UPPER(?)",
@@ -49,6 +56,12 @@ def _resolve_course_id(conn, code: str, section: str | None) -> str:  # noqa: AN
             f"multiple {code} sections exist; pass --section to select one"
         )
     return rows[0]["id"]
+
+
+def _parse_target_date(value: str, timezone_name: str) -> date:
+    if value.lower() == "today":
+        return datetime.now(ZoneInfo(timezone_name)).date()
+    return date.fromisoformat(value)
 
 
 @app.command("status")
@@ -190,6 +203,170 @@ def brightspace_news_sync(
         conn.close()
 
 
+@app.command("changes")
+def changes(
+    status_name: str = typer.Option("pending", "--status"),
+    limit: int = typer.Option(50, "--limit", min=1, max=500),
+    db: Path = typer.Option(DEFAULT_DB, "--db"),
+) -> None:
+    """Show evidence-backed academic changes waiting for review."""
+    try:
+        selected_status = CandidateStatus(status_name)
+    except ValueError as exc:
+        raise typer.BadParameter(f"invalid candidate status: {status_name}") from exc
+
+    conn = _open_db(db)
+    try:
+        items = list_candidate_inbox(conn, status=selected_status, limit=limit)
+        if not items:
+            typer.echo("No matching candidate changes.")
+            return
+        for item in items:
+            course = item.course_code or "Academic"
+            if item.course_section:
+                course += f" {item.course_section}"
+            typer.echo(
+                f"{item.id}  {item.confidence:.0%}  {course}  "
+                f"{item.kind.value}  {item.title}"
+            )
+    finally:
+        conn.close()
+
+
+@app.command("change-accept")
+def change_accept(
+    candidate_id: str,
+    db: Path = typer.Option(DEFAULT_DB, "--db"),
+) -> None:
+    """Accept one reviewed CandidateEvent and materialize its deterministic action."""
+    conn = _open_db(db)
+    try:
+        result = accept_candidate_event(conn, candidate_id)
+        typer.echo(
+            f"Accepted {result.candidate_id} -> {result.action_type} "
+            f"{result.action_id or ''}".rstrip()
+        )
+    finally:
+        conn.close()
+
+
+@app.command("change-reject")
+def change_reject(
+    candidate_id: str,
+    db: Path = typer.Option(DEFAULT_DB, "--db"),
+) -> None:
+    """Reject one reviewed CandidateEvent."""
+    conn = _open_db(db)
+    try:
+        result = reject_candidate_event(conn, candidate_id)
+        typer.echo(f"Rejected {result.candidate_id}")
+    finally:
+        conn.close()
+
+
+@app.command("plan")
+def plan(
+    start: str = typer.Argument("today", help="Start date or 'today'."),
+    days: int = typer.Option(7, "--days", min=1, max=31),
+    db: Path = typer.Option(DEFAULT_DB, "--db"),
+    timezone_name: str = typer.Option("America/Toronto", "--timezone"),
+    dry_run: bool = typer.Option(False, "--dry-run"),
+) -> None:
+    """Rebuild movable study blocks using the adaptive local planner."""
+    start_date = _parse_target_date(start, timezone_name)
+    end_date = start_date + timedelta(days=days - 1)
+    now = datetime.now(ZoneInfo(timezone_name))
+
+    conn = _open_db(db)
+    try:
+        result = plan_tasks(
+            conn,
+            start_date=start_date,
+            end_date=end_date,
+            now=now,
+            timezone_name=timezone_name,
+            persist=not dry_run,
+        )
+        typer.echo(
+            f"Planner run {result.planner_run_id} · "
+            f"{len(result.blocks)} block(s) · "
+            f"{sum(result.unscheduled_minutes.values())} unscheduled minute(s)"
+        )
+        for block in result.blocks:
+            typer.echo(
+                f"{block.start_at:%Y-%m-%d %H:%M}–{block.end_at:%H:%M}  "
+                f"{block.task_id}  urgency={block.urgency:.2f}"
+            )
+    finally:
+        conn.close()
+
+
+@app.command("brief")
+def brief(
+    target: str = typer.Argument("today", help="Date in YYYY-MM-DD format or 'today'."),
+    db: Path = typer.Option(DEFAULT_DB, "--db"),
+    timezone_name: str = typer.Option("America/Toronto", "--timezone"),
+) -> None:
+    """Render the deterministic local morning brief."""
+    target_date = _parse_target_date(target, timezone_name)
+    now = datetime.now(ZoneInfo(timezone_name))
+    conn = _open_db(db)
+    try:
+        report = build_morning_brief(
+            conn,
+            target_date,
+            now=now,
+            timezone_name=timezone_name,
+        )
+        typer.echo(f"{target_date:%A · %Y-%m-%d} · AcademicOS Brief")
+        typer.echo("\nTODAY")
+        if report.sessions:
+            for item in report.sessions:
+                typer.echo(
+                    f"  {item.start_at:%H:%M}–{item.end_at:%H:%M}  "
+                    f"{item.course_code} {item.session_type.value}"
+                )
+        else:
+            typer.echo("  No confirmed classes.")
+
+        typer.echo("\nPLAN")
+        if report.plan_blocks:
+            for block in report.plan_blocks:
+                typer.echo(
+                    f"  {block.start_at:%H:%M}–{block.end_at:%H:%M}  "
+                    f"{block.course_code or ''} {block.task_title}".rstrip()
+                )
+        else:
+            typer.echo("  No study blocks planned.")
+
+        typer.echo("\nATTENTION")
+        for alert in report.alerts:
+            typer.echo(f"  • {alert}")
+        typer.echo(
+            f"\nChanges waiting: {len(report.pending_changes)} · "
+            f"Recent activity: {len(report.activities)} · "
+            f"Upcoming tasks: {len(report.upcoming_tasks)}"
+        )
+    finally:
+        conn.close()
+
+
+@app.command("serve")
+def serve(
+    db: Path = typer.Option(DEFAULT_DB, "--db"),
+    host: str = typer.Option("127.0.0.1", "--host"),
+    port: int = typer.Option(8765, "--port", min=1, max=65535),
+    timezone_name: str = typer.Option("America/Toronto", "--timezone"),
+) -> None:
+    """Run the private local AcademicOS dashboard."""
+    serve_dashboard(
+        db,
+        host=host,
+        port=port,
+        timezone_name=timezone_name,
+    )
+
+
 @app.command("day")
 def day(
     target: str = typer.Argument(..., help="Date in YYYY-MM-DD format."),
@@ -228,11 +405,13 @@ def day(
             section = f" {item.course_section}" if item.course_section else ""
             location = f" · {item.location}" if item.location else ""
             mode = f" · {item.delivery_mode}" if item.delivery_mode else ""
-            status = "" if item.status.value == "scheduled" else f" · {item.status.value.upper()}"
+            status_label = (
+                "" if item.status.value == "scheduled" else f" · {item.status.value.upper()}"
+            )
             typer.echo(
                 f"{item.start_at:%H:%M}–{item.end_at:%H:%M}  "
                 f"{item.course_code}{section}  "
-                f"{item.session_type.value}{location}{mode}{status}"
+                f"{item.session_type.value}{location}{mode}{status_label}"
             )
     finally:
         conn.close()
@@ -251,14 +430,14 @@ def week(
 
     conn = _open_db(db)
     try:
-        days = effective_sessions_for_range(
+        days_map = effective_sessions_for_range(
             conn,
             monday,
             sunday,
             timezone_name=timezone_name,
         )
         typer.echo(f"Week {monday.isoformat()} → {sunday.isoformat()}")
-        for day_date, sessions in days.items():
+        for day_date, sessions in days_map.items():
             typer.echo(f"\n{day_date:%A · %Y-%m-%d}")
             if not sessions:
                 typer.echo("  —")
