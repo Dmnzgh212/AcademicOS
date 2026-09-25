@@ -21,6 +21,7 @@ class MailDeltaReport:
     attachment_metadata: int
     delta_link: str | None
     complete: bool
+    attachment_message_ids: tuple[str, ...] = ()
 
 
 def _parse_datetime(value: object) -> datetime | None:
@@ -70,6 +71,7 @@ def collect_inbox_delta(
     unchanged = 0
     removed = 0
     attachment_metadata = 0
+    attachment_message_ids: list[str] = []
 
     for message in page.items:
         message_id = message.get("id")
@@ -88,6 +90,8 @@ def collect_inbox_delta(
                 metadata = []
             raw["_attachmentMetadata"] = metadata
             attachment_metadata += len(metadata)
+            if metadata:
+                attachment_message_ids.append(message_id)
 
         text = "" if is_removed else _body_text(raw)
         source_key = f"m365:{message_id}"
@@ -118,4 +122,5 @@ def collect_inbox_delta(
         attachment_metadata=attachment_metadata,
         delta_link=page.delta_link,
         complete=page.complete,
+        attachment_message_ids=tuple(attachment_message_ids),
     )
