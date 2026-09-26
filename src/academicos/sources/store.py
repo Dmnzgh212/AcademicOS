@@ -89,7 +89,7 @@ def delete_pending_candidates_for_source(
     conn: sqlite3.Connection,
     source_item: str,
 ) -> int:
-    """Drop stale, unaccepted candidates before re-extracting an edited source item."""
+    """Drop stale pending candidates while preserving a valid supersession chain."""
     rows = conn.execute(
         """
         SELECT DISTINCT ce.id
@@ -105,6 +105,23 @@ def delete_pending_candidates_for_source(
         return 0
 
     with conn:
+        for candidate_id in ids:
+            conn.execute(
+                """
+                UPDATE candidate_events
+                SET status = 'pending',
+                    superseded_by_candidate_id = NULL,
+                    superseded_at = NULL
+                WHERE status = 'superseded'
+                  AND superseded_by_candidate_id = ?
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM task_deadline_changes AS tdc
+                      WHERE tdc.candidate_event_id = candidate_events.id
+                  )
+                """,
+                (candidate_id,),
+            )
         conn.executemany(
             "DELETE FROM candidate_events WHERE id = ?",
             [(candidate_id,) for candidate_id in ids],
