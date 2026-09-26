@@ -7,6 +7,7 @@ import requests
 
 from academicos.sources.brightspace.client import BrightspaceClient
 from academicos.sources.brightspace.collector import CollectionReport, collect_course_data
+from academicos.sources.brightspace.time_window import course_calendar_window
 from academicos.sources.capabilities import record_failure, record_success, should_probe
 
 DEFAULT_DATASETS = {
@@ -92,6 +93,14 @@ def collect_course_data_capability_aware(
         if not should_probe(conn, source_key, name)
     }
     effective = wanted - skipped
+
+    # Calendar myEvents requires an explicit time window, and scheduled due items
+    # benefit from the same semester boundary. Derive it from the authoritative
+    # local timetable when the caller did not provide an override.
+    if ({"calendar", "due"} & effective) and (not start or not end):
+        default_start, default_end = course_calendar_window(conn, course_id)
+        start = start or default_start
+        end = end or default_end
 
     # The base collector historically treats an empty set as "use defaults".
     # If capability filtering removed every requested top-level endpoint, calling it
