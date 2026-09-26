@@ -17,7 +17,7 @@ def test_schema_initializes_with_foreign_keys() -> None:
     conn = connect_db(":memory:")
     initialize_db(conn)
 
-    assert schema_version(conn) == 7
+    assert schema_version(conn) == 8
     assert conn.execute("PRAGMA foreign_keys").fetchone()[0] == 1
 
 
@@ -71,7 +71,7 @@ def test_v1_database_migrates_to_latest_schema() -> None:
 
     initialize_db(conn)
 
-    assert schema_version(conn) == 7
+    assert schema_version(conn) == 8
     columns = {
         row["name"]
         for row in conn.execute("PRAGMA table_info(courses)").fetchall()
@@ -89,3 +89,14 @@ def test_v1_database_migrates_to_latest_schema() -> None:
     assert "sync_run_sources" in tables
     assert "task_source_links" in tables
     assert "task_deadline_changes" in tables
+
+    candidate_columns = {
+        row["name"]
+        for row in conn.execute("PRAGMA table_info(candidate_events)").fetchall()
+    }
+    deadline_columns = {
+        row["name"]
+        for row in conn.execute("PRAGMA table_info(task_deadline_changes)").fetchall()
+    }
+    assert {"superseded_by_candidate_id", "superseded_at", "rolled_back_at"} <= candidate_columns
+    assert {"status", "supersedes_change_id", "superseded_at", "rolled_back_at"} <= deadline_columns
