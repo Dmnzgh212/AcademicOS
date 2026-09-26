@@ -96,6 +96,27 @@ def test_new_pending_deadline_supersedes_old_pending_and_reject_restores_it() ->
     assert restored["superseded_by_candidate_id"] is None
 
 
+def test_editing_pending_superseder_does_not_leave_dangling_supersession() -> None:
+    conn = _db()
+    _assignment(conn, "2026-10-01T23:59:00-04:00")
+
+    first = _announcement(conn, news_id=551, due_text="October 5, 2026 at 11:59 PM")
+    old_second = _announcement(conn, news_id=552, due_text="October 7, 2026 at 11:59 PM")
+    new_second = _announcement(conn, news_id=552, due_text="October 8, 2026 at 11:59 PM")
+
+    assert new_second != old_second
+    assert conn.execute(
+        "SELECT 1 FROM candidate_events WHERE id=?",
+        (old_second,),
+    ).fetchone() is None
+    first_row = conn.execute(
+        "SELECT status, superseded_by_candidate_id FROM candidate_events WHERE id=?",
+        (first,),
+    ).fetchone()
+    assert first_row["status"] == "superseded"
+    assert first_row["superseded_by_candidate_id"] == new_second
+
+
 def test_accepting_new_deadline_supersedes_applied_change_and_rollback_reactivates_parent() -> None:
     conn = _db()
     task_id = _assignment(conn, "2026-10-01T23:59:00-04:00")
