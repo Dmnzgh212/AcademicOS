@@ -94,7 +94,9 @@ class TimetableDocument(BaseModel):
 
 
 def load_timetable(path: str | Path) -> TimetableDocument:
-    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    # ``utf-8-sig`` accepts both normal UTF-8 and the BOM that Windows PowerShell
+    # historically writes for ``Set-Content -Encoding UTF8``.
+    payload = json.loads(Path(path).read_text(encoding="utf-8-sig"))
     return TimetableDocument.model_validate(payload)
 
 
