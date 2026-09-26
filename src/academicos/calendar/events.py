@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from uuid import UUID, uuid5
 
 from academicos.calendar.models import (
@@ -21,7 +21,7 @@ class CandidateTransitionError(RuntimeError):
 
 
 class CandidateConflictError(RuntimeError):
-    """Raised when accepting a candidate would create an ambiguous truth override."""
+    """Raised when a candidate action would overwrite newer or ambiguous truth."""
 
 
 @dataclass(frozen=True)
@@ -30,6 +30,83 @@ class AcceptanceResult:
     status: CandidateStatus
     action_type: str
     action_id: str | None = None
+
+
+@dataclass(frozen=True)
+class RollbackResult:
+    candidate_id: str
+    status: CandidateStatus
+    action_type: str
+    action_id: str | None = None
+    restored_due_at: str | None = None
+    reactivated_candidate_id: str | None = None
+
+
+def _now_iso() -> str:
+    return datetime.now(UTC).isoformat()
+
+
+def _payload(row: sqlite3.Row) -> dict:
+    return json.loads(row["payload_json"] or "{}")
+
+
+def _deadline_payload_due(payload: dict) -> str | None:
+    raw = payload.get("due_at")
+    if not isinstance(raw, str) or not raw.strip():
+        return None
+    try:
+        return datetime.fromisoformat(raw).isoformat()
+    except ValueError:
+        return None
+
+
+def _supersede_pending_deadline_candidates(
+    conn: sqlite3.Connection,
+    event: CandidateEvent,
+) -> None:
+    if (
+        event.kind != EventKind.DEADLINE_CHANGED
+        or event.status != CandidateStatus.PENDING
+        or not event.target_ref
+    ):
+        return
+
+    new_due = _deadline_payload_due(event.payload)
+    rows = conn.execute(
+        """
+        SELECT id, payload_json
+        FROM candidate_events
+        WHERE kind = ?
+          AND target_ref = ?
+          AND status = ?
+          AND id <> ?
+        """,
+        (
+            EventKind.DEADLINE_CHANGED.value,
+            event.target_ref,
+            CandidateStatus.PENDING.value,
+            event.id,
+        ),
+    ).fetchall()
+    now = _now_iso()
+    for row in rows:
+        old_due = _deadline_payload_due(json.loads(row["payload_json"] or "{}"))
+        if old_due == new_due:
+            continue
+        conn.execute(
+            """
+            UPDATE candidate_events
+            SET status = ?, superseded_by_candidate_id = ?, superseded_at = ?
+            WHERE id = ? AND status = ?
+            """,
+            (
+                CandidateStatus.SUPERSEDED.value,
+                event.id,
+                now,
+                row["id"],
+                CandidateStatus.PENDING.value,
+            ),
+        )
 
 
 def persist_candidate_event(
@@ -66,6 +143,7 @@ def persist_candidate_event(
                 event.status.value,
             ),
         )
+        _supersede_pending_deadline_candidates(conn, event)
         for evidence_id in evidence_ids:
             conn.execute(
                 """
@@ -84,10 +162,6 @@ def _candidate_row(conn: sqlite3.Connection, candidate_id: str) -> sqlite3.Row:
     if row is None:
         raise KeyError(f"unknown candidate event: {candidate_id}")
     return row
-
-
-def _payload(row: sqlite3.Row) -> dict:
-    return json.loads(row["payload_json"] or "{}")
 
 
 def _occurrence_date(row: sqlite3.Row, payload: dict) -> date:
@@ -215,6 +289,65 @@ def _accept_class_override(
     )
 
 
+def _active_deadline_change(
+    conn: sqlite3.Connection,
+    task_id: str,
+) -> sqlite3.Row | None:
+    return conn.execute(
+        """
+        SELECT *
+        FROM task_deadline_changes
+        WHERE task_id = ? AND status = 'applied'
+        ORDER BY applied_at DESC, id DESC
+        LIMIT 1
+        """,
+        (task_id,),
+    ).fetchone()
+
+
+def supersede_active_deadline_change(
+    conn: sqlite3.Connection,
+    *,
+    task_id: str,
+    current_due_at: str | None,
+    superseding_candidate_id: str | None = None,
+) -> str | None:
+    """Close the currently applied deadline change and return it only if chain-safe."""
+    active = _active_deadline_change(conn, task_id)
+    if active is None:
+        return None
+
+    now = _now_iso()
+    conn.execute(
+        """
+        UPDATE task_deadline_changes
+        SET status = 'superseded', superseded_at = ?
+        WHERE id = ? AND status = 'applied'
+        """,
+        (now, active["id"]),
+    )
+    if active["candidate_event_id"]:
+        conn.execute(
+            """
+            UPDATE candidate_events
+            SET status = ?, superseded_by_candidate_id = ?, superseded_at = ?
+            WHERE id = ? AND status IN (?, ?)
+            """,
+            (
+                CandidateStatus.SUPERSEDED.value,
+                superseding_candidate_id,
+                now,
+                active["candidate_event_id"],
+                CandidateStatus.ACCEPTED.value,
+                CandidateStatus.AUTO_ACCEPTED.value,
+            ),
+        )
+
+    if active["new_due_at"] == current_due_at:
+        return active["id"]
+    return None
+
+
 def _accept_deadline_change(
     conn: sqlite3.Connection,
     row: sqlite3.Row,
@@ -240,14 +373,28 @@ def _accept_deadline_change(
     if row["course_id"] and task["course_id"] != row["course_id"]:
         raise ValueError("deadline target task belongs to a different course")
 
+    supersedes_change_id = supersede_active_deadline_change(
+        conn,
+        task_id=task_id,
+        current_due_at=task["due_at"],
+        superseding_candidate_id=row["id"],
+    )
     change_id = _deadline_change_id(row["id"])
     conn.execute(
         """
         INSERT INTO task_deadline_changes(
-            id, task_id, candidate_event_id, old_due_at, new_due_at
-        ) VALUES (?, ?, ?, ?, ?)
+            id, task_id, candidate_event_id, old_due_at, new_due_at,
+            status, supersedes_change_id
+        ) VALUES (?, ?, ?, ?, ?, 'applied', ?)
         """,
-        (change_id, task_id, row["id"], task["due_at"], new_due_at),
+        (
+            change_id,
+            task_id,
+            row["id"],
+            task["due_at"],
+            new_due_at,
+            supersedes_change_id,
+        ),
     )
     conn.execute(
         "UPDATE tasks SET due_at = ? WHERE id = ?",
@@ -258,6 +405,140 @@ def _accept_deadline_change(
         status=CandidateStatus.ACCEPTED,
         action_type="task_deadline_update",
         action_id=change_id,
+    )
+
+
+def _reactivate_pending_predecessors(
+    conn: sqlite3.Connection,
+    candidate_id: str,
+) -> None:
+    """Restore directly superseded candidates that were never materialized."""
+    rows = conn.execute(
+        """
+        SELECT ce.id
+        FROM candidate_events AS ce
+        WHERE ce.status = ?
+          AND ce.superseded_by_candidate_id = ?
+          AND NOT EXISTS (
+              SELECT 1
+              FROM task_deadline_changes AS tdc
+              WHERE tdc.candidate_event_id = ce.id
+          )
+        """,
+        (CandidateStatus.SUPERSEDED.value, candidate_id),
+    ).fetchall()
+    for row in rows:
+        conn.execute(
+            """
+            UPDATE candidate_events
+            SET status = ?, superseded_by_candidate_id = NULL, superseded_at = NULL
+            WHERE id = ?
+            """,
+            (CandidateStatus.PENDING.value, row["id"]),
+        )
+
+
+def _rollback_deadline_change(
+    conn: sqlite3.Connection,
+    row: sqlite3.Row,
+) -> RollbackResult:
+    change = conn.execute(
+        """
+        SELECT *
+        FROM task_deadline_changes
+        WHERE candidate_event_id = ?
+        ORDER BY applied_at DESC, id DESC
+        LIMIT 1
+        """,
+        (row["id"],),
+    ).fetchone()
+    if change is None:
+        raise CandidateTransitionError(
+            f"candidate {row['id']} has no materialized deadline change"
+        )
+    if change["status"] != "applied":
+        raise CandidateTransitionError(
+            f"deadline change {change['id']} is {change['status']}, not applied"
+        )
+
+    task = conn.execute(
+        "SELECT due_at FROM tasks WHERE id = ?",
+        (change["task_id"],),
+    ).fetchone()
+    if task is None:
+        raise CandidateConflictError(f"deadline target task no longer exists: {change['task_id']}")
+    if task["due_at"] != change["new_due_at"]:
+        raise CandidateConflictError(
+            "task deadline changed after this candidate was applied; refusing to overwrite newer truth"
+        )
+
+    now = _now_iso()
+    conn.execute(
+        "UPDATE tasks SET due_at = ? WHERE id = ?",
+        (change["old_due_at"], change["task_id"]),
+    )
+    conn.execute(
+        """
+        UPDATE task_deadline_changes
+        SET status = 'rolled_back', rolled_back_at = ?
+        WHERE id = ? AND status = 'applied'
+        """,
+        (now, change["id"]),
+    )
+    conn.execute(
+        """
+        UPDATE candidate_events
+        SET status = ?, rolled_back_at = ?
+        WHERE id = ?
+        """,
+        (CandidateStatus.ROLLED_BACK.value, now, row["id"]),
+    )
+
+    reactivated_candidate_id: str | None = None
+    parent_id = change["supersedes_change_id"]
+    if parent_id:
+        parent = conn.execute(
+            "SELECT * FROM task_deadline_changes WHERE id = ?",
+            (parent_id,),
+        ).fetchone()
+        if (
+            parent is not None
+            and parent["status"] == "superseded"
+            and parent["new_due_at"] == change["old_due_at"]
+        ):
+            conn.execute(
+                """
+                UPDATE task_deadline_changes
+                SET status = 'applied', superseded_at = NULL
+                WHERE id = ?
+                """,
+                (parent["id"],),
+            )
+            if parent["candidate_event_id"]:
+                conn.execute(
+                    """
+                    UPDATE candidate_events
+                    SET status = ?, superseded_by_candidate_id = NULL, superseded_at = NULL
+                    WHERE id = ? AND status = ?
+                    """,
+                    (
+                        CandidateStatus.ACCEPTED.value,
+                        parent["candidate_event_id"],
+                        CandidateStatus.SUPERSEDED.value,
+                    ),
+                )
+                reactivated_candidate_id = parent["candidate_event_id"]
+
+    if reactivated_candidate_id is None:
+        _reactivate_pending_predecessors(conn, row["id"])
+
+    return RollbackResult(
+        candidate_id=row["id"],
+        status=CandidateStatus.ROLLED_BACK,
+        action_type="task_deadline_rollback",
+        action_id=change["id"],
+        restored_due_at=change["old_due_at"],
+        reactivated_candidate_id=reactivated_candidate_id,
     )
 
 
@@ -276,6 +557,8 @@ def accept_candidate_event(
             CandidateStatus.ACCEPTED,
             CandidateStatus.AUTO_ACCEPTED,
             CandidateStatus.REJECTED,
+            CandidateStatus.SUPERSEDED,
+            CandidateStatus.ROLLED_BACK,
         }:
             raise CandidateTransitionError(
                 f"candidate {candidate_id} is already {current.value}"
@@ -307,7 +590,12 @@ def accept_candidate_event(
             CandidateStatus.AUTO_ACCEPTED if automatic else CandidateStatus.ACCEPTED
         )
         conn.execute(
-            "UPDATE candidate_events SET status = ? WHERE id = ?",
+            """
+            UPDATE candidate_events
+            SET status = ?, superseded_by_candidate_id = NULL,
+                superseded_at = NULL, rolled_back_at = NULL
+            WHERE id = ?
+            """,
             (next_status.value, candidate_id),
         )
         return AcceptanceResult(
@@ -315,6 +603,26 @@ def accept_candidate_event(
             status=next_status,
             action_type=result.action_type,
             action_id=result.action_id,
+        )
+
+
+def rollback_candidate_event(
+    conn: sqlite3.Connection,
+    candidate_id: str,
+) -> RollbackResult:
+    """Rollback the currently applied deterministic action for a reviewed candidate."""
+    with conn:
+        row = _candidate_row(conn, candidate_id)
+        current = CandidateStatus(row["status"])
+        if current not in {CandidateStatus.ACCEPTED, CandidateStatus.AUTO_ACCEPTED}:
+            raise CandidateTransitionError(
+                f"candidate {candidate_id} is {current.value}; only an applied candidate can be rolled back"
+            )
+        event_kind = EventKind(row["kind"])
+        if event_kind == EventKind.DEADLINE_CHANGED:
+            return _rollback_deadline_change(conn, row)
+        raise NotImplementedError(
+            f"rollback materialization for {event_kind.value} is not implemented yet"
         )
 
 
@@ -329,6 +637,10 @@ def reject_candidate_event(
             raise CandidateTransitionError(
                 f"accepted candidate {candidate_id} cannot be rejected without rollback"
             )
+        if current in {CandidateStatus.SUPERSEDED, CandidateStatus.ROLLED_BACK}:
+            raise CandidateTransitionError(
+                f"candidate {candidate_id} is {current.value} and cannot be rejected"
+            )
         if current == CandidateStatus.REJECTED:
             return AcceptanceResult(
                 candidate_id=candidate_id,
@@ -340,6 +652,7 @@ def reject_candidate_event(
             "UPDATE candidate_events SET status = ? WHERE id = ?",
             (CandidateStatus.REJECTED.value, candidate_id),
         )
+        _reactivate_pending_predecessors(conn, candidate_id)
         return AcceptanceResult(
             candidate_id=candidate_id,
             status=CandidateStatus.REJECTED,
