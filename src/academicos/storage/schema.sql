@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS schema_meta (
     value TEXT NOT NULL
 );
 
-INSERT OR REPLACE INTO schema_meta(key, value) VALUES ('schema_version', '7');
+INSERT OR REPLACE INTO schema_meta(key, value) VALUES ('schema_version', '8');
 
 CREATE TABLE IF NOT EXISTS courses (
     id TEXT PRIMARY KEY,
@@ -148,8 +148,14 @@ CREATE TABLE IF NOT EXISTS candidate_events (
     payload_json TEXT NOT NULL DEFAULT '{}',
     confidence REAL NOT NULL CHECK (confidence >= 0.0 AND confidence <= 1.0),
     status TEXT NOT NULL DEFAULT 'pending',
+    superseded_by_candidate_id TEXT REFERENCES candidate_events(id) ON DELETE SET NULL,
+    superseded_at TEXT,
+    rolled_back_at TEXT,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX IF NOT EXISTS idx_candidate_supersession
+    ON candidate_events(superseded_by_candidate_id, status);
 
 CREATE TABLE IF NOT EXISTS candidate_evidence (
     candidate_event_id TEXT NOT NULL REFERENCES candidate_events(id) ON DELETE CASCADE,
@@ -209,11 +215,17 @@ CREATE TABLE IF NOT EXISTS task_deadline_changes (
     candidate_event_id TEXT REFERENCES candidate_events(id) ON DELETE SET NULL,
     old_due_at TEXT,
     new_due_at TEXT NOT NULL,
-    applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    status TEXT NOT NULL DEFAULT 'applied',
+    supersedes_change_id TEXT REFERENCES task_deadline_changes(id) ON DELETE SET NULL,
+    applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    superseded_at TEXT,
+    rolled_back_at TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_task_deadline_changes_task
     ON task_deadline_changes(task_id, applied_at DESC);
+CREATE INDEX IF NOT EXISTS idx_task_deadline_changes_status
+    ON task_deadline_changes(task_id, status, applied_at DESC);
 
 CREATE TABLE IF NOT EXISTS plan_blocks (
     id TEXT PRIMARY KEY,
