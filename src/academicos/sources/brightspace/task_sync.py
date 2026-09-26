@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID, uuid5
 
+from academicos.calendar.events import supersede_active_deadline_change
 from academicos.calendar.models import SourceType
 from academicos.sources.store import source_item_id
 
@@ -168,6 +169,12 @@ def _upsert_one(
             )
         )
         if changed:
+            if existing["due_at"] != due_value:
+                supersede_active_deadline_change(
+                    conn,
+                    task_id=task_id,
+                    current_due_at=existing["due_at"],
+                )
             conn.execute(
                 """
                 UPDATE tasks
