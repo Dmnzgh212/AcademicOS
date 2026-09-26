@@ -20,6 +20,7 @@ from academicos.sources.brightspace.auth import (
 )
 from academicos.sources.brightspace.client import BrightspaceClient
 from academicos.sources.brightspace.discovery import discover_course_mappings
+from academicos.sources.brightspace.time_window import course_calendar_window
 from academicos.sources.capabilities import record_failure, record_success
 from academicos.sources.mail.auth import acquire_graph_token
 from academicos.sources.mail.graph import GraphMailClient
@@ -183,13 +184,22 @@ def _probe_brightspace(
     org_id = sample.org_unit_id
     code = sample.code
     source_key = f"brightspace:{org_id}"
+    calendar_start, calendar_end = course_calendar_window(conn, sample.local_course_id)
     probes: tuple[tuple[str, str, Callable[[], Any]], ...] = (
         ("news", "announcements", lambda: client.news(org_id)),
         ("assignments", "assignments", lambda: client.assignments(org_id)),
         ("quizzes", "quizzes", lambda: client.quizzes(org_id)),
         ("content_toc", "content", lambda: client.content_toc(org_id)),
         ("grades", "grades", lambda: client.grades(org_id)),
-        ("calendar", "calendar", lambda: client.calendar_events(org_id)),
+        (
+            "calendar",
+            "calendar",
+            lambda: client.calendar_events(
+                org_id,
+                start=calendar_start,
+                end=calendar_end,
+            ),
+        ),
         ("updates", "updates", lambda: client.updates(org_id)),
     )
     for label, capability_name, operation in probes:
