@@ -6,19 +6,47 @@ from pathlib import Path
 import typer
 
 from academicos.sources.capabilities import capability_rows
+from academicos.sources.sync import load_sync_config
 from academicos.storage.db import connect_db, initialize_db
 
-app = typer.Typer(help="Show learned source endpoint compatibility without private payload data.")
+app = typer.Typer(help="Show or reset learned source endpoint compatibility without private payload data.")
+
+
+def _database_path(config: Path, db: Path | None) -> Path:
+    if db is not None:
+        return db
+    if config.exists():
+        payload = load_sync_config(config)
+        app_config = payload.get("app", {}) if isinstance(payload, dict) else {}
+        if isinstance(app_config, dict) and app_config.get("database"):
+            return Path(str(app_config["database"]))
+    return Path("data/academicos.db")
 
 
 @app.callback(invoke_without_command=True)
 def main(
-    db: Path = typer.Option(Path("data/academicos.db"), "--db"),
+    config: Path = typer.Option(Path("config.local.toml"), "--config"),
+    db: Path | None = typer.Option(None, "--db"),
     json_out: Path | None = typer.Option(None, "--json-out"),
+    reset_endpoint: str | None = typer.Option(
+        None,
+        "--reset-endpoint",
+        help="Forget cached compatibility for this endpoint so the next run probes it again.",
+    ),
 ) -> None:
-    conn = connect_db(db)
+    effective_db = _database_path(config, db)
+    conn = connect_db(effective_db)
     try:
         initialize_db(conn)
+        if reset_endpoint:
+            with conn:
+                cursor = conn.execute(
+                    "DELETE FROM endpoint_capabilities WHERE endpoint = ?",
+                    (reset_endpoint,),
+                )
+            typer.echo(
+                f"Reset endpoint capability cache · endpoint={reset_endpoint} rows={cursor.rowcount}"
+            )
         rows = capability_rows(conn)
     finally:
         conn.close()
