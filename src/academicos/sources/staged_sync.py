@@ -7,6 +7,7 @@ from typing import Any, Callable
 
 from academicos.sources.brightspace.client import BrightspaceClient
 from academicos.sources.brightspace.collector import persist_dataset
+from academicos.sources.brightspace.time_window import course_calendar_window
 from academicos.sources.capabilities import record_failure, record_success, should_probe
 from academicos.sources.mail.auth import acquire_graph_token
 from academicos.sources.mail.graph import GraphMailClient
@@ -46,6 +47,9 @@ class StagedSyncReport:
 def _endpoint_fetchers(
     client: BrightspaceClient,
     org_id: str,
+    *,
+    start: str,
+    end: str,
 ) -> dict[str, Callable[[], object]]:
     return {
         "announcements": lambda: client.news(org_id),
@@ -53,7 +57,7 @@ def _endpoint_fetchers(
         "quizzes": lambda: client.quizzes(org_id),
         "content": lambda: client.content_toc(org_id),
         "grades": lambda: client.grades(org_id),
-        "calendar": lambda: client.calendar_events(org_id),
+        "calendar": lambda: client.calendar_events(org_id, start=start, end=end),
         "updates": lambda: client.updates(org_id),
     }
 
@@ -105,8 +109,14 @@ def stage_brightspace(
             report.errors[f"brightspace:{label}"] = f"{type(exc).__name__}: {exc}"
             continue
 
+        start, end = course_calendar_window(conn, course_id)
         report.courses_checked += 1
-        for endpoint, fetcher in _endpoint_fetchers(client, org_id).items():
+        for endpoint, fetcher in _endpoint_fetchers(
+            client,
+            org_id,
+            start=start,
+            end=end,
+        ).items():
             if endpoint not in STAGED_BRIGHTSPACE_ENDPOINTS:
                 continue
             if not should_probe(conn, source_key, endpoint):
