@@ -198,18 +198,23 @@ class BrightspaceClient:
         self,
         org_id: str | int,
         *,
-        start: str | None = None,
-        end: str | None = None,
+        start: str,
+        end: str,
     ) -> list[dict]:
-        params: dict[str, Any] = {}
-        if start:
-            params["startDateTime"] = start
-        if end:
-            params["endDateTime"] = end
+        """Return the calling user's calendar events for one org unit.
+
+        Brightspace requires an explicit start/end time window for this route. The
+        response is an ObjectListPage on current LMS versions, while some older
+        instances returned a bare list, so accept both shapes.
+        """
+        if not start or not end:
+            raise ValueError("Brightspace calendar events require start and end timestamps")
         data = self._get(
             self.le(f"/{org_id}/calendar/events/myEvents/"),
-            params=params or None,
+            params={"startDateTime": start, "endDateTime": end},
         )
+        if isinstance(data, dict) and isinstance(data.get("Items"), list):
+            return [item for item in data["Items"] if isinstance(item, dict)]
         return data if isinstance(data, list) else []
 
     def due_items(
