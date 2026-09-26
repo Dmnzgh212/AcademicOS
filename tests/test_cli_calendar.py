@@ -35,7 +35,7 @@ def test_cli_import_and_day(tmp_path: Path) -> None:
                 ],
             }
         ),
-        encoding="utf-8",
+        encoding="utf-8-sig",
     )
 
     result = runner.invoke(
