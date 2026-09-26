@@ -51,15 +51,21 @@ def _announcement(conn, *, news_id: int, due_text: str) -> str:
         course_id="c1",
         org_unit_id="99",
     )
-    return conn.execute(
+    row = conn.execute(
         """
-        SELECT id
-        FROM candidate_events
-        WHERE kind='deadline_changed'
-        ORDER BY created_at DESC, id DESC
+        SELECT ce.id
+        FROM candidate_events AS ce
+        JOIN candidate_evidence AS link ON link.candidate_event_id = ce.id
+        JOIN evidence AS e ON e.id = link.evidence_id
+        JOIN source_items AS si ON si.id = e.source_item_id
+        WHERE ce.kind = 'deadline_changed'
+          AND si.source_id = ?
         LIMIT 1
-        """
-    ).fetchone()["id"]
+        """,
+        (f"news:99:{news_id}",),
+    ).fetchone()
+    assert row is not None
+    return row["id"]
 
 
 def test_new_pending_deadline_supersedes_old_pending_and_reject_restores_it() -> None:
