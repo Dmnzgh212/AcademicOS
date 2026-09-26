@@ -69,3 +69,42 @@ def test_news_retries_429_using_retry_after() -> None:
     assert client.news("123") == [{"Id": 2}]
     assert sleeps == [2.0]
     assert len(session.calls) == 2
+
+
+def test_calendar_events_sends_required_window_and_reads_object_list_page() -> None:
+    session = FakeSession(
+        [
+            FakeResponse(
+                200,
+                {
+                    "Items": [{"CalendarEventId": 9, "Title": "Midterm"}],
+                    "PagingInfo": {"HasMoreItems": False},
+                },
+            )
+        ]
+    )
+    client = BrightspaceClient(
+        host="https://example.brightspace.com",
+        bearer_token="secret",
+        le_version="1.75",
+        session=session,  # type: ignore[arg-type]
+        sleep=lambda _: None,
+    )
+
+    result = client.calendar_events(
+        987,
+        start="2026-08-26T00:00:00Z",
+        end="2026-12-24T00:00:00Z",
+    )
+
+    assert result == [{"CalendarEventId": 9, "Title": "Midterm"}]
+    assert session.calls == [
+        (
+            "https://example.brightspace.com/d2l/api/le/1.75/987/calendar/events/myEvents/",
+            {
+                "startDateTime": "2026-08-26T00:00:00Z",
+                "endDateTime": "2026-12-24T00:00:00Z",
+            },
+            30,
+        )
+    ]
