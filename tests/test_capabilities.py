@@ -35,9 +35,9 @@ def http_error(status: int) -> requests.HTTPError:
     return requests.HTTPError(f"HTTP {status}", response=response)
 
 
-def test_fresh_schema_is_v7_and_has_capability_and_task_identity_tables() -> None:
+def test_fresh_schema_is_v8_and_has_capability_and_task_identity_tables() -> None:
     conn = make_conn()
-    assert schema_version(conn) == 7
+    assert schema_version(conn) == 8
     for table in ("endpoint_capabilities", "task_source_links", "task_deadline_changes"):
         row = conn.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
@@ -46,7 +46,7 @@ def test_fresh_schema_is_v7_and_has_capability_and_task_identity_tables() -> Non
         assert row is not None
 
 
-def test_v4_database_migrates_to_v7() -> None:
+def test_v4_database_migrates_to_v8() -> None:
     conn = connect_db(":memory:")
     conn.execute("CREATE TABLE schema_meta(key TEXT PRIMARY KEY, value TEXT NOT NULL)")
     conn.execute("INSERT INTO schema_meta(key, value) VALUES ('schema_version', '4')")
@@ -54,7 +54,7 @@ def test_v4_database_migrates_to_v7() -> None:
 
     initialize_db(conn)
 
-    assert schema_version(conn) == 7
+    assert schema_version(conn) == 8
     for table in (
         "endpoint_capabilities",
         "sync_runs",
