@@ -49,6 +49,8 @@ class CandidateStatus(StrEnum):
     AUTO_ACCEPTED = "auto_accepted"
     ACCEPTED = "accepted"
     REJECTED = "rejected"
+    SUPERSEDED = "superseded"
+    ROLLED_BACK = "rolled_back"
 
 
 class TaskStatus(StrEnum):
