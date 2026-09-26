@@ -10,6 +10,7 @@ class FakeBrightspaceClient:
     def __init__(self, *, fail_assignments: bool = False) -> None:
         self.fail_assignments = fail_assignments
         self.assignment_calls = 0
+        self.calendar_calls: list[tuple[object, str, str]] = []
 
     def my_enrollments(self, *, active_only: bool = True):  # noqa: ANN201
         assert active_only is True
@@ -48,7 +49,8 @@ class FakeBrightspaceClient:
     def grades(self, org_id):  # noqa: ANN001, ANN201
         return [{"GradeObjectIdentifier": 5, "Name": "A1"}]
 
-    def calendar_events(self, org_id):  # noqa: ANN001, ANN201
+    def calendar_events(self, org_id, *, start: str, end: str):  # noqa: ANN001, ANN201
+        self.calendar_calls.append((org_id, start, end))
         return [{"CalendarEventId": 6, "Title": "Lecture"}]
 
     def updates(self, org_id):  # noqa: ANN001, ANN201
@@ -61,6 +63,27 @@ def _conn():  # noqa: ANN202
     conn.execute(
         "INSERT INTO courses(id, code, name, term, section) VALUES (?, ?, ?, ?, ?)",
         ("c1", "CEG2136", "Computer Architecture I", "20269", "A00"),
+    )
+    conn.execute(
+        """
+        INSERT INTO course_sessions(
+            id, course_id, session_type, weekday,
+            start_time, end_time, start_date, end_date,
+            location, delivery_mode
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            "s1",
+            "c1",
+            "lecture",
+            1,
+            "14:30",
+            "15:50",
+            "2026-09-09",
+            "2026-12-09",
+            "SITE",
+            "in_person",
+        ),
     )
     conn.commit()
     return conn
@@ -78,6 +101,9 @@ def test_staged_sync_does_not_advance_state_or_create_calendar_candidates() -> N
     assert report.errors == {}
     assert report.cursors_advanced == 0
     assert report.downloaded_files == 0
+    assert client.calendar_calls == [
+        (12345, "2026-08-26T00:00:00Z", "2026-12-24T00:00:00Z")
+    ]
     assert conn.execute("SELECT COUNT(*) FROM sync_state").fetchone()[0] == 0
     assert conn.execute("SELECT COUNT(*) FROM file_manifest").fetchone()[0] == 0
     assert conn.execute("SELECT COUNT(*) FROM candidate_events").fetchone()[0] == 0
