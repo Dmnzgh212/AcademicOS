@@ -1,3 +1,18 @@
+-- Some migration tests and very early AcademicOS databases can have schema_meta
+-- without every v1 table present. Recreate the v7 candidate table shape only when
+-- it is missing so v8 can still migrate forward safely.
+CREATE TABLE IF NOT EXISTS candidate_events (
+    id TEXT PRIMARY KEY,
+    kind TEXT NOT NULL,
+    course_id TEXT REFERENCES courses(id) ON DELETE SET NULL,
+    target_ref TEXT,
+    effective_at TEXT,
+    payload_json TEXT NOT NULL DEFAULT '{}',
+    confidence REAL NOT NULL CHECK (confidence >= 0.0 AND confidence <= 1.0),
+    status TEXT NOT NULL DEFAULT 'pending',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 ALTER TABLE candidate_events
     ADD COLUMN superseded_by_candidate_id TEXT REFERENCES candidate_events(id) ON DELETE SET NULL;
 ALTER TABLE candidate_events ADD COLUMN superseded_at TEXT;
