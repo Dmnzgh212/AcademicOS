@@ -1,0 +1,20 @@
+id = "demo.markets"
+name = "Markets"
+version = "0.1.0"
+description = "Synthetic market snapshot for validating the LifeHub plugin contract."
+kind = ["widget"]
+
+[permissions]
+storage_write = ["markets"]
+network_hosts = []
+localhost_ports = []
+
+[[widgets]]
+id = "snapshot"
+title = "Markets"
+namespace = "markets.snapshot"
+renderer = "metric"
+width = 1
+height = 1
+limit = 8
+description = "Compact local market snapshot."
