@@ -97,7 +97,8 @@ def _extension_body(hub: LifeHub, extension: RegisteredExtension) -> str:
         return (
             '<div class="custom-surface">Custom extension surface registered.<br>'
             f'entrypoint: <strong>{_esc(contribution.entrypoint or "declarative")}</strong><br>'
-            'The v0.2 kernel preserves this contribution without forcing it into a built-in renderer.'</n            '</div>'
+            'The v0.2 kernel preserves this contribution without forcing it into a built-in renderer.'
+            '</div>'
         )
     namespace = str(contribution.config.get("namespace", ""))
     records = hub.store.latest_records(namespace, limit=int(contribution.config.get("limit", 8)))
@@ -196,7 +197,10 @@ def serve(*, db_path: str | Path, plugins_path: str | Path, host: str = "127.0.0
     if host not in {"127.0.0.1", "localhost", "::1"}:
         raise ValueError("LifeHub v0.2 shell is loopback-only")
     token = secrets.token_urlsafe(24)
-    server = ThreadingHTTPServer((host, port), make_handler(db_path=db_path, plugins_path=plugins_path, token=token))
+    server = ThreadingHTTPServer(
+        (host, port),
+        make_handler(db_path=db_path, plugins_path=plugins_path, token=token),
+    )
     print(f"LifeHub: http://{host}:{port}")
     try:
         server.serve_forever()
