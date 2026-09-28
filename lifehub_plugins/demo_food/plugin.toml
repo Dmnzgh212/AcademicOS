@@ -1,0 +1,20 @@
+id = "demo.food"
+name = "Food"
+version = "0.1.0"
+description = "Synthetic dining data for validating the LifeHub plugin contract."
+kind = ["widget"]
+
+[permissions]
+storage_write = ["food"]
+network_hosts = []
+localhost_ports = []
+
+[[widgets]]
+id = "today-menu"
+title = "Food today"
+namespace = "food.today"
+renderer = "list"
+width = 1
+height = 1
+limit = 8
+description = "One place for menus instead of opening each dining page."
