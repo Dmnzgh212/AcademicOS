@@ -1,0 +1,15 @@
+[
+  {
+    "namespace": "fitness.today",
+    "record_key": "workout",
+    "payload": {
+      "items": [
+        {"title": "Bench press", "detail": "4 × 8 · controlled eccentric · stop 1–2 reps before failure"},
+        {"title": "Incline dumbbell press", "detail": "3 × 10"},
+        {"title": "Cable row", "detail": "4 × 10"},
+        {"title": "Triceps pressdown", "detail": "3 × 12"}
+      ]
+    },
+    "source": "synthetic-demo"
+  }
+]
