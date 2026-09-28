@@ -1,20 +1,27 @@
+manifest_version = 1
+api = "lifehub@1"
 id = "demo.fitness"
 name = "Fitness"
-version = "0.1.0"
-description = "Synthetic training data for validating the LifeHub plugin contract."
-kind = ["widget"]
+version = "0.2.0"
+description = "Synthetic training data for validating the open LifeHub extension contract."
 
 [permissions]
+storage_read = []
 storage_write = ["fitness"]
-network_hosts = []
+network_retrieval = []
 localhost_ports = []
 
-[[widgets]]
+[[contributes]]
 id = "today-workout"
+point = "workspace.widget"
 title = "Workout"
+entrypoint = "lifehub.primitive"
+
+[contributes.config]
 namespace = "fitness.today"
 renderer = "list"
-width = 1
-height = 1
+width = 4
+height = 3
 limit = 8
 description = "Keep today's training plan and cues visible."
+default_workspace = true
