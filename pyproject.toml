@@ -35,6 +35,7 @@ academicos-capabilities = "academicos.sources.capabilities_cli:app"
 academicos-coverage = "academicos.sources.coverage_cli:app"
 academicos-audit = "academicos.sources.audit_cli:app"
 academicos-changes = "academicos.calendar.change_cli:app"
+lifehub = "academicos.lifehub.cli:app"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
