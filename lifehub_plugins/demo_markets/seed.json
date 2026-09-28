@@ -1,0 +1,15 @@
+[
+  {
+    "namespace": "markets.snapshot",
+    "record_key": "daily",
+    "payload": {
+      "metrics": [
+        {"label": "S&P 500", "value": "6,184", "delta": "+0.4%"},
+        {"label": "NASDAQ", "value": "20,311", "delta": "+0.6%"},
+        {"label": "WTI", "value": "$64.20", "delta": "-1.1%"},
+        {"label": "CAD/USD", "value": "0.724", "delta": "+0.2%"}
+      ]
+    },
+    "source": "synthetic-demo"
+  }
+]
