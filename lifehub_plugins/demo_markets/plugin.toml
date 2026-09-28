@@ -1,20 +1,27 @@
+manifest_version = 1
+api = "lifehub@1"
 id = "demo.markets"
 name = "Markets"
-version = "0.1.0"
-description = "Synthetic market snapshot for validating the LifeHub plugin contract."
-kind = ["widget"]
+version = "0.2.0"
+description = "Synthetic market snapshot for validating the open LifeHub extension contract."
 
 [permissions]
+storage_read = []
 storage_write = ["markets"]
-network_hosts = []
+network_retrieval = []
 localhost_ports = []
 
-[[widgets]]
+[[contributes]]
 id = "snapshot"
+point = "workspace.widget"
 title = "Markets"
+entrypoint = "lifehub.primitive"
+
+[contributes.config]
 namespace = "markets.snapshot"
 renderer = "metric"
-width = 1
-height = 1
+width = 4
+height = 3
 limit = 8
 description = "Compact local market snapshot."
+default_workspace = true
