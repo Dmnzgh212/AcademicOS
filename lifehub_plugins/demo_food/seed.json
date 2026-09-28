@@ -1,0 +1,14 @@
+[
+  {
+    "namespace": "food.today",
+    "record_key": "menu",
+    "payload": {
+      "items": [
+        {"title": "Dining Hall · Lunch", "detail": "Butter chicken · rice · roasted vegetables"},
+        {"title": "Dining Hall · Dinner", "detail": "Pasta · grilled chicken · salad"},
+        {"title": "Campus cafe", "detail": "Turkey sandwich · soup · fruit"}
+      ]
+    },
+    "source": "synthetic-demo"
+  }
+]
