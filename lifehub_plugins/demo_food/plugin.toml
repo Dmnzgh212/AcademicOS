@@ -1,20 +1,27 @@
+manifest_version = 1
+api = "lifehub@1"
 id = "demo.food"
 name = "Food"
-version = "0.1.0"
-description = "Synthetic dining data for validating the LifeHub plugin contract."
-kind = ["widget"]
+version = "0.2.0"
+description = "Synthetic dining data for validating the open LifeHub extension contract."
 
 [permissions]
+storage_read = []
 storage_write = ["food"]
-network_hosts = []
+network_retrieval = []
 localhost_ports = []
 
-[[widgets]]
+[[contributes]]
 id = "today-menu"
+point = "workspace.widget"
 title = "Food today"
+entrypoint = "lifehub.primitive"
+
+[contributes.config]
 namespace = "food.today"
 renderer = "list"
-width = 1
-height = 1
+width = 4
+height = 3
 limit = 8
 description = "One place for menus instead of opening each dining page."
+default_workspace = true
