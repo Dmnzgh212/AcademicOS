@@ -58,6 +58,7 @@ The host-owned `EgressGateway` is intentionally retrieval-oriented:
 - only `GET` and `HEAD`;
 - no request body API;
 - no credentials embedded in URLs;
+- no arbitrary query strings in v0.1;
 - external traffic requires HTTPS;
 - destination hosts must be declared in the plugin manifest;
 - local services require an explicitly declared loopback port;
@@ -67,7 +68,7 @@ This is a **host API boundary, not an operating-system sandbox**. v0.1 therefore
 
 For the same reason, v0.1 demo plugins are declaration + local seed data only.
 
-A future connector contract should go further and construct outbound requests from reviewed public/static parameters rather than giving plugins arbitrary query-string construction. This is needed before claiming information-flow enforcement for real connectors.
+A future connector contract may re-introduce query parameters only as reviewed public/static parameters constructed by Core (for example a date or ticker), rather than giving plugins arbitrary query-string construction. This is required before real connectors can preserve the closed-data rule without crippling normal retrieval APIs.
 
 ## Workspace
 
