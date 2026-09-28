@@ -337,8 +337,8 @@ class EgressGateway:
     """Host-owned outbound gateway.
 
     The gateway deliberately supports retrieval-only HTTP semantics: GET/HEAD, no body,
-    and manifest-declared destinations. It is a platform boundary for trusted/declarative
-    plugins, not an OS sandbox for arbitrary Python code.
+    no arbitrary query strings, and manifest-declared destinations. It is a platform
+    boundary for trusted/declarative plugins, not an OS sandbox for arbitrary Python code.
     """
 
     def __init__(self, store: LifeStore, manifest: PluginManifest) -> None:
@@ -355,6 +355,10 @@ class EgressGateway:
                 raise PermissionError("LifeHub egress is retrieval-only; request bodies are not allowed")
             if parsed.username or parsed.password:
                 raise PermissionError("credentials embedded in URLs are not allowed")
+            if parsed.query:
+                raise PermissionError(
+                    "arbitrary query strings are disabled; use reviewed public parameters"
+                )
             if not host:
                 raise PermissionError("network request has no host")
             if host in {"127.0.0.1", "localhost", "::1"}:
@@ -366,7 +370,10 @@ class EgressGateway:
             else:
                 if parsed.scheme != "https":
                     raise PermissionError("external network access must use https")
-                if not any(_host_matches(host, pattern) for pattern in self.manifest.permissions.network_hosts):
+                if not any(
+                    _host_matches(host, pattern)
+                    for pattern in self.manifest.permissions.network_hosts
+                ):
                     raise PermissionError(f"host {host!r} is not allowlisted")
             allowed = True
         finally:
