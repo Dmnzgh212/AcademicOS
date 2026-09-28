@@ -1,0 +1,20 @@
+id = "demo.fitness"
+name = "Fitness"
+version = "0.1.0"
+description = "Synthetic training data for validating the LifeHub plugin contract."
+kind = ["widget"]
+
+[permissions]
+storage_write = ["fitness"]
+network_hosts = []
+localhost_ports = []
+
+[[widgets]]
+id = "today-workout"
+title = "Workout"
+namespace = "fitness.today"
+renderer = "list"
+width = 1
+height = 1
+limit = 8
+description = "Keep today's training plan and cues visible."
