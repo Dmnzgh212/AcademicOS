@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
-from academicos.lifehub.core import LifeHub, PluginBundle, WidgetSpec
+from academicos.lifehub.core import LifeHub, WidgetSpec
 
 
 CSS = r"""
