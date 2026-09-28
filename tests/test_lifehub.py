@@ -5,33 +5,56 @@ from pathlib import Path
 
 import pytest
 
-from academicos.lifehub.core import EgressGateway, LifeHub, PluginRegistry
+from academicos.lifehub.kernel import LifeHub
+from academicos.lifehub.manifest import load_manifest
+from academicos.lifehub.network import EgressGateway
+from academicos.lifehub.registry import PluginRegistry
 from academicos.lifehub.web import render_workspace
 
 
-def _write_plugin(root: Path) -> Path:
-    plugin = root / "sample"
+def _write_plugin(
+    root: Path,
+    *,
+    folder: str = "sample",
+    plugin_id: str = "demo.sample",
+    writes: str = "sample",
+    reads: str | None = None,
+) -> Path:
+    plugin = root / folder
     plugin.mkdir(parents=True)
+    read_line = f'storage_read = ["{reads}"]' if reads else "storage_read = []"
     (plugin / "plugin.toml").write_text(
-        """
-id = "demo.sample"
+        f"""
+manifest_version = 1
+api = "lifehub@1"
+id = "{plugin_id}"
 name = "Sample"
-version = "0.1.0"
-kind = ["connector", "widget"]
+version = "0.2.0"
 
 [permissions]
-storage_write = ["sample"]
-network_hosts = ["example.com"]
+{read_line}
+storage_write = ["{writes}"]
+network_retrieval = ["example.com"]
 localhost_ports = [8000]
 
-[[widgets]]
+[[contributes]]
 id = "main"
-title = "Sample widget"
-namespace = "sample.today"
+point = "workspace.widget"
+title = "Sample surface"
+entrypoint = "lifehub.primitive"
+
+[contributes.config]
+namespace = "{writes}.today"
 renderer = "list"
-width = 1
-height = 1
+width = 5
+height = 4
 limit = 5
+default_workspace = true
+
+[[contributes]]
+id = "future"
+point = "future.capability.that-core-does-not-know"
+entrypoint = "sample.future"
 """.strip(),
         encoding="utf-8",
     )
@@ -39,7 +62,7 @@ limit = 5
         json.dumps(
             [
                 {
-                    "namespace": "sample.today",
+                    "namespace": f"{writes}.today",
                     "record_key": "today",
                     "payload": {"items": [{"title": "Local item", "detail": "stored locally"}]},
                     "source": "synthetic",
@@ -51,20 +74,36 @@ limit = 5
     return plugin
 
 
-def test_registry_store_and_workspace_are_plugin_driven(tmp_path: Path) -> None:
+def test_registry_accepts_unknown_extension_points_without_core_changes(tmp_path: Path) -> None:
+    plugins = tmp_path / "plugins"
+    _write_plugin(plugins)
+    registry = PluginRegistry(plugins)
+
+    assert registry.points() == (
+        "future.capability.that-core-does-not-know",
+        "workspace.widget",
+    )
+    assert registry.extension("demo.sample:future").contribution.entrypoint == "sample.future"
+
+
+def test_store_workspace_and_temporary_shell_are_extension_driven(tmp_path: Path) -> None:
     plugins = tmp_path / "plugins"
     _write_plugin(plugins)
     hub = LifeHub(db_path=tmp_path / "lifehub.db", plugins_path=plugins)
     try:
         assert [bundle.manifest.id for bundle in hub.bundles] == ["demo.sample"]
+        assert len(hub.extensions()) == 2
         assert hub.seed_declared_data() == 1
         assert hub.seed_declared_data() == 0
         layout = hub.store.workspace_layout()
-        assert layout[0]["widget_id"] == "main"
+        assert layout[0]["extension_ref"] == "demo.sample:main"
+        assert layout[0]["width"] == 5
+        assert layout[0]["height"] == 4
         page = render_workspace(hub, token="test-token")
-        assert "Sample widget" in page
+        assert "Sample surface" in page
         assert "Local item" in page
         assert "stored locally" in page
+        assert "future.capability.that-core-does-not-know" not in page
     finally:
         hub.close()
 
@@ -72,11 +111,9 @@ def test_registry_store_and_workspace_are_plugin_driven(tmp_path: Path) -> None:
 def test_scoped_store_cannot_write_another_namespace(tmp_path: Path) -> None:
     plugins = tmp_path / "plugins"
     _write_plugin(plugins)
-    registry = PluginRegistry(plugins)
-    manifest = registry.discover()[0].manifest
     hub = LifeHub(db_path=tmp_path / "lifehub.db", plugins_path=plugins)
     try:
-        scoped = hub.store.scoped(manifest)
+        scoped = hub.scoped_store("demo.sample")
         assert scoped.append("sample.private", "one", {"value": 1})
         with pytest.raises(PermissionError, match="cannot write namespace"):
             scoped.append("finance.private", "leak", {"value": 2})
@@ -84,16 +121,43 @@ def test_scoped_store_cannot_write_another_namespace(tmp_path: Path) -> None:
         hub.close()
 
 
-def test_registry_rejects_widget_outside_owned_namespace(tmp_path: Path) -> None:
+def test_cross_plugin_read_requires_manifest_request_and_local_grant(tmp_path: Path) -> None:
     plugins = tmp_path / "plugins"
-    plugin = _write_plugin(plugins)
-    path = plugin / "plugin.toml"
-    path.write_text(
-        path.read_text(encoding="utf-8").replace("sample.today", "other.today"),
-        encoding="utf-8",
+    _write_plugin(plugins, folder="producer", plugin_id="demo.producer", writes="finance")
+    _write_plugin(
+        plugins,
+        folder="consumer",
+        plugin_id="demo.consumer",
+        writes="consumer",
+        reads="finance",
     )
-    with pytest.raises(ValueError, match="does not own"):
-        PluginRegistry(plugins).discover()
+    hub = LifeHub(db_path=tmp_path / "lifehub.db", plugins_path=plugins)
+    try:
+        assert hub.seed_declared_data() == 2
+        consumer = hub.scoped_store("demo.consumer")
+        with pytest.raises(PermissionError, match="cannot read namespace"):
+            consumer.read("finance.today")
+
+        hub.grant_read("demo.consumer", "finance")
+        rows = consumer.read("finance.today")
+        assert rows[0]["payload"]["items"][0]["title"] == "Local item"
+
+        hub.revoke_read("demo.consumer", "finance")
+        with pytest.raises(PermissionError):
+            consumer.read("finance.today")
+    finally:
+        hub.close()
+
+
+def test_kernel_refuses_grant_not_requested_by_manifest(tmp_path: Path) -> None:
+    plugins = tmp_path / "plugins"
+    _write_plugin(plugins)
+    hub = LifeHub(db_path=tmp_path / "lifehub.db", plugins_path=plugins)
+    try:
+        with pytest.raises(PermissionError, match="did not request"):
+            hub.grant_read("demo.sample", "finance")
+    finally:
+        hub.close()
 
 
 def test_egress_gateway_is_retrieval_only_and_allowlisted(tmp_path: Path) -> None:
@@ -123,3 +187,30 @@ def test_egress_gateway_is_retrieval_only_and_allowlisted(tmp_path: Path) -> Non
         assert [row["allowed"] for row in rows] == [1, 1, 0, 0, 0, 0, 0]
     finally:
         hub.close()
+
+
+def test_legacy_v01_manifest_is_upgraded_at_boundary(tmp_path: Path) -> None:
+    path = tmp_path / "plugin.toml"
+    path.write_text(
+        """
+id = "legacy.sample"
+name = "Legacy"
+version = "0.1.0"
+kind = ["widget"]
+[permissions]
+storage_write = ["legacy"]
+network_hosts = []
+localhost_ports = []
+[[widgets]]
+id = "old"
+title = "Old card"
+namespace = "legacy.today"
+renderer = "list"
+""".strip(),
+        encoding="utf-8",
+    )
+    manifest = load_manifest(path)
+    assert manifest.manifest_version == 1
+    assert manifest.api == "lifehub@1"
+    assert manifest.contributes[0].point == "workspace.widget"
+    assert manifest.contributes[0].config["renderer"] == "list"
