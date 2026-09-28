@@ -88,7 +88,10 @@ def test_registry_rejects_widget_outside_owned_namespace(tmp_path: Path) -> None
     plugins = tmp_path / "plugins"
     plugin = _write_plugin(plugins)
     path = plugin / "plugin.toml"
-    path.write_text(path.read_text(encoding="utf-8").replace("sample.today", "other.today"), encoding="utf-8")
+    path.write_text(
+        path.read_text(encoding="utf-8").replace("sample.today", "other.today"),
+        encoding="utf-8",
+    )
     with pytest.raises(ValueError, match="does not own"):
         PluginRegistry(plugins).discover()
 
@@ -111,10 +114,12 @@ def test_egress_gateway_is_retrieval_only_and_allowlisted(tmp_path: Path) -> Non
             gateway.authorize("http://example.com/menu")
         with pytest.raises(PermissionError, match="port 9000"):
             gateway.authorize("http://localhost:9000/api")
+        with pytest.raises(PermissionError, match="query strings"):
+            gateway.authorize("https://example.com/menu?secret=local-data")
 
         rows = hub.store.conn.execute(
             "SELECT allowed FROM lifehub_network_audit ORDER BY id"
         ).fetchall()
-        assert [row["allowed"] for row in rows] == [1, 1, 0, 0, 0, 0]
+        assert [row["allowed"] for row in rows] == [1, 1, 0, 0, 0, 0, 0]
     finally:
         hub.close()
