@@ -55,4 +55,8 @@ The verifier rejects unknown operations, malformed graphs, invalid dataflow edge
 
 Threat model for this slice: an untrusted **serialized graph** run by a trusted Python host. Executing arbitrary third-party Python in the host process to construct a graph would bypass this boundary. The model does not claim process isolation, a secure package sandbox, protection from malicious host code, or absence of covert channels.
 
-Next: a conventional capability-limited baseline and a measured comparison before any Go/No-Go on a compiler. Do not infer a new-language advantage from these primitives alone; the comparison criteria are in `docs/lifehub/research/PERSON_IR_EXPERIMENT_PLAN.md`.
+Next: an actual isolated component baseline and durable recovery evaluation before a final Go/No-Go. Do not infer a new-language advantage from these primitives alone; the comparison criteria are in `docs/lifehub/research/PERSON_IR_EXPERIMENT_PLAN.md`.
+
+## Provisional baseline
+
+`baseline.py` and `tests/test_baseline.py` compare the academic and email examples to ordinary host capability calls using the same authority/state/effect services. `benchmark.py` probes Python request construction overhead. [BASELINE_COMPARISON.md](BASELINE_COMPARISON.md) records results and a provisional hold on compiler work. This API sketch does not run untrusted code in WASM or an OS sandbox, so the final comparative decision remains open.
