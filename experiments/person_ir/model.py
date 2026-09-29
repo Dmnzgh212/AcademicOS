@@ -1,6 +1,7 @@
 """Data-only IR. Graphs are descriptions, never Python plugin callbacks."""
 
 from dataclasses import dataclass, field
+from hashlib import sha256
 import json
 from typing import Any
 
@@ -70,6 +71,19 @@ class Proposal:
     value: Any
     base_version: int
     sources: frozenset[str]
+    producer: str
+    node_id: str
+    proposal_id: str
+
+
+def proposal_identity(*, producer: str, node_id: str, target: str, value: Any,
+                      base_version: int, sources: frozenset[str]) -> str:
+    """Deterministic identity for exact recomputation, not an authenticity proof."""
+    payload = {"producer": producer, "node": node_id, "target": target,
+               "value": value, "base_version": base_version, "sources": sorted(sources)}
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"),
+                           ensure_ascii=False, allow_nan=False)
+    return sha256(canonical.encode("utf-8")).hexdigest()
 
 
 @dataclass(frozen=True)

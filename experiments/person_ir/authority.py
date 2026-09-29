@@ -6,7 +6,9 @@ handle issued by this registry can authorize a request, and checks are live.
 
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
+from functools import wraps
 import secrets
+from threading import RLock
 
 from .model import CommitRequest, DisclosureRequest, EffectRequest
 
@@ -51,13 +53,23 @@ def _time(value: datetime) -> datetime:
     return value.astimezone(timezone.utc)
 
 
+def _synchronized(method):
+    @wraps(method)
+    def wrapped(self, *args, **kwargs):
+        with self._lock:
+            return method(self, *args, **kwargs)
+    return wrapped
+
+
 class AuthorityStore:
     """Trusted host API. Never expose this store or issue() to untrusted code."""
 
     def __init__(self):
+        self._lock = RLock()
         self._handles: dict[_CapabilityHandle, str] = {}
         self._grants: dict[str, Grant] = {}
 
+    @_synchronized
     def issue(self, *, principal: str, domain: str, agent: str, operation: str,
               resource: str, issuer: str, issued_at: datetime,
               expires_at: datetime | None = None, activation_context: str | None = None,
@@ -84,12 +96,14 @@ class AuthorityStore:
                                          expires_at, activation_context, purpose)
         return handle
 
+    @_synchronized
     def describe(self, handle: object) -> Grant:
         """Return non-authorizing metadata; its capability_id is not a credential."""
         if type(handle) is not _CapabilityHandle or handle not in self._handles:
             raise AuthorityError("unknown capability handle")
         return self._grants[self._handles[handle]]
 
+    @_synchronized
     def revoke(self, capability_id: str) -> None:
         if capability_id not in self._grants:
             raise AuthorityError("unknown capability id")
@@ -110,6 +124,7 @@ class AuthorityStore:
             raise AuthorityError("activation context mismatch")
         return grant.capability_id
 
+    @_synchronized
     def check_commit_request(self, request: CommitRequest, handle: object, *,
                              principal: str, domain: str, agent: str,
                              context: str | None = None, now: datetime | None = None) -> CheckResult:
@@ -121,6 +136,7 @@ class AuthorityStore:
                                  purpose=None, context=context, now=checked)
         return CheckResult((identifier,), checked)
 
+    @_synchronized
     def check_disclosure_request(self, request: DisclosureRequest, handle: object, *,
                                  principal: str, domain: str, agent: str,
                                  context: str | None = None,
@@ -133,6 +149,7 @@ class AuthorityStore:
                                  purpose=request.purpose, context=context, now=checked)
         return CheckResult((identifier,), checked)
 
+    @_synchronized
     def check_effect_request(self, request: EffectRequest, effect_handle: object, *,
                              principal: str, domain: str, agent: str,
                              disclosure_handle: object | None = None,

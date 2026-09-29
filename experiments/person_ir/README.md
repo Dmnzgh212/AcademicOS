@@ -1,4 +1,4 @@
-# PersonIR experiment — slices 1–2
+# PersonIR experiment — slices 1–3
 
 This is an isolated falsification experiment, not a source language or a replacement for the LifeHub kernel. Run `python -m unittest discover -s experiments/person_ir/tests -v` from the repository root. `examples/academic.py` computes a local study-block proposal from two host observations.
 
@@ -15,12 +15,20 @@ This is an isolated falsification experiment, not a source language or a replace
 
 `check_commit_request`, `check_disclosure_request`, and `check_effect_request` validate the handle's identity, current revocation state, time window, principal/domain/agent, operation, exact resource, and optional context. An external effect with protected content needs both an effect grant and a distinct destination/purpose disclosure grant. Read authority confers neither commit nor effect authority. These checks produce audit metadata, **not an executable authorization token**. No effect executor or durable commit exists yet.
 
-Issuance policy, authenticating the issuer, chained delegation, persistent revocation, atomic checks alongside state mutation/effect execution, and OS isolation are outside this slice. In particular, a check followed later by an action has a revocation/expiry race; a future host executor must recheck at actual use under an appropriate transaction or lock. The registry is currently process-local and must never be passed to an untrusted Python plugin. JSON IR code has no access to `issue`.
+Issuance policy, authenticating the issuer, chained delegation, persistent revocation, atomic effect execution, and OS isolation are outside this slice. A standalone check followed later by an action has a revocation/expiry race; the slice 3 state store holds the authority lock through its local mutation. A future external executor needs its own use-time check. The registry is currently process-local and must never be passed to an untrusted Python plugin. JSON IR code has no access to `issue`.
+
+## Slice 3: versioned local commit
+
+The host creates `StateStore(domain, initial)` and gives the interpreter a base version from `snapshot()`. Each proposal has a deterministic ID based on its producer/version string, node ID, target, JSON value, base version, and observation source references. This hash distinguishes recomputations; it is **not a signature or proof that evidence is genuine**.
+
+`StateStore.commit(request, authority, handle, ...)` checks live commit authority and proposal integrity while holding authority and state locks in that order. It returns a receipt, rejects stale versions, and records completed proposal IDs so the exact same computation cannot commit twice. A new proposal that writes an already equal value is a no-op and does not advance the version. Replayed requests still need live authority. Rejecting a proposal leaves state and the original observation unchanged.
+
+This is conventional compare-and-swap/MVCC plus an idempotency ledger and explicit request boundary. **No semantic advantage over an ordinary capability host has been demonstrated yet.** State, ledger, and revocation are in memory; process restart loses them. It does not provide durable storage, shared-domain conflict resolution, multi-process transactions, or source authentication. External effects are not committed or rolled back with local state.
 
 ## What the first slice can and cannot establish
 
-The verifier rejects unknown operations, malformed graphs, invalid dataflow edges, and structurally direct protected effects. The interpreter records source references, proposals, commit requests, disclosures, and effects. Slice 2 checks live, host-issued authority but does not commit or execute anything. State version checks, effect executors, idempotency, persistence, robust information flow, and provenance authentication are **not implemented**. A `CommitRequest` is never a commit; a `DisclosureRequest` is never authority.
+The verifier rejects unknown operations, malformed graphs, invalid dataflow edges, and structurally direct protected effects. The interpreter records source references, proposals, commit requests, disclosures, and effects. The host checks authority and can apply a local state mutation in slice 3. The interpreter itself never commits. Effect executors, effect idempotency, persistence, robust information flow, and provenance authentication are **not implemented**. A `CommitRequest` is never a commit by itself; a `DisclosureRequest` is never authority.
 
 Threat model for this slice: an untrusted **serialized graph** run by a trusted Python host. Executing arbitrary third-party Python in the host process to construct a graph would bypass this boundary. The model does not claim process isolation, a secure package sandbox, protection from malicious host code, or absence of covert channels.
 
-Next: versioned commits (slice 3) and effect ledgers (slice 4). Before language work, compare with a conventional capability-limited runtime as specified in `docs/lifehub/research/PERSON_IR_EXPERIMENT_PLAN.md`.
+Next: host-owned fake effect executors and their idempotency ledger (slice 4). Before language work, compare with a conventional capability-limited runtime as specified in `docs/lifehub/research/PERSON_IR_EXPERIMENT_PLAN.md`.

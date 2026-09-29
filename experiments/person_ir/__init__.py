@@ -4,6 +4,7 @@ from .model import Graph, Node, Observation
 from .runtime import Interpreter
 from .verifier import VerificationError, verify
 from .authority import AuthorityStore, AuthorityError
+from .state import StateStore, StaleProposal, InvalidProposal
 
 __all__ = ["Graph", "Node", "Observation", "Interpreter", "VerificationError", "verify",
-           "AuthorityStore", "AuthorityError"]
+           "AuthorityStore", "AuthorityError", "StateStore", "StaleProposal", "InvalidProposal"]

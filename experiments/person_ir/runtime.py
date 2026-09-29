@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from .model import (CommitRequest, DisclosureRequest, EffectRequest, Graph,
-                    Observation, Proposal, Value)
+                    Observation, Proposal, Value, proposal_identity)
 from .verifier import verify
 
 
@@ -34,10 +34,13 @@ class RunResult:
 
 
 class Interpreter:
-    def run(self, graph: Graph, observations: dict[str, Observation], *, base_version: int) -> RunResult:
+    def run(self, graph: Graph, observations: dict[str, Observation], *, base_version: int,
+            producer: str = "adhoc@0") -> RunResult:
         verify(graph)
         if type(base_version) is not int or base_version < 0:
             raise ValueError("base_version must be a nonnegative integer")
+        if type(producer) is not str or not producer.strip():
+            raise ValueError("producer must identify a program and version")
         values: dict[str, Any] = {}
         outputs = {}
         proposals, commits, disclosures, effects = [], [], [], []
@@ -46,7 +49,9 @@ class Interpreter:
             config = node.config
             if node.op == "source":
                 observation = observations[config["name"]]
-                if not isinstance(observation, Observation) or observation.label != config["label"] or not observation.source:
+                if (not isinstance(observation, Observation) or
+                        observation.label != config["label"] or
+                        type(observation.source) is not str or not observation.source.strip()):
                     raise ValueError(f"observation metadata mismatch: {node.id}")
                 result = Value(_json_value(observation.value), observation.label, frozenset({observation.source}))
             elif node.op == "select":
@@ -62,7 +67,12 @@ class Interpreter:
             elif node.op == "derive":
                 result = Value(deepcopy(args[0].data), args[0].label, args[0].sources)
             elif node.op == "propose":
-                result = Proposal(config["target"], deepcopy(args[0].data), base_version, args[0].sources)
+                data = deepcopy(args[0].data)
+                result = Proposal(config["target"], data, base_version, args[0].sources,
+                                  producer, node.id,
+                                  proposal_identity(producer=producer, node_id=node.id,
+                                                    target=config["target"], value=data,
+                                                    base_version=base_version, sources=args[0].sources))
                 proposals.append(result)
             elif node.op == "commit_request":
                 result = CommitRequest(args[0])
