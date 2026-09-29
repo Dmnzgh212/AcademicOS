@@ -1,4 +1,4 @@
-# PersonIR experiment — slices 1–6
+# PersonIR experiment — slices 1–7
 
 This is an isolated falsification experiment, not a source language or a replacement for the LifeHub kernel. Run `python -m unittest discover -s experiments/person_ir/tests -v` from the repository root. `examples/academic.py` computes a local study-block proposal from two host observations.
 
@@ -45,10 +45,14 @@ These are narrow structural checks, not a general information-flow theorem. The 
 
 `examples/` contains academic, email, payment, home-device, and collaboration graphs. `tests/test_scenarios.py` executes them against host authority, state, and fake effects. Read [SCENARIO_FINDINGS.md](SCENARIO_FINDINGS.md) before treating a passing test as a safe scenario: tests deliberately reproduce missing price freshness, device predicates, multi-principal authorization, and recipient-to-destination consistency.
 
+## Slice 7: hostile extensions
+
+`tests/test_hostile_extension.py` covers the planned rejection matrix and deliberately reproduces three missing boundaries. [HOSTILE_FINDINGS.md](HOSTILE_FINDINGS.md) separates graph-only rejection from host integration gaps and direct Python API forgery. A passing test that demonstrates a gap must not be counted as a defended attack.
+
 ## What the first slice can and cannot establish
 
 The verifier rejects unknown operations, malformed graphs, invalid dataflow edges, and structurally direct protected effects. The interpreter records traceable proposals, commit requests, disclosures, and effects. The host checks authority, can apply an in-memory state mutation, and can run only fake effects. The interpreter itself neither commits nor executes. Durable persistence, real effect adapters, general information-flow enforcement, and provenance authentication are **not implemented**. A `CommitRequest` is never a commit by itself; a `DisclosureRequest` is never authority.
 
 Threat model for this slice: an untrusted **serialized graph** run by a trusted Python host. Executing arbitrary third-party Python in the host process to construct a graph would bypass this boundary. The model does not claim process isolation, a secure package sandbox, protection from malicious host code, or absence of covert channels.
 
-Next: hostile-extension tests (slice 7) and a conventional capability-limited baseline. Do not infer a new-language advantage from these primitives alone; the comparison criteria are in `docs/lifehub/research/PERSON_IR_EXPERIMENT_PLAN.md`.
+Next: a conventional capability-limited baseline and a measured comparison before any Go/No-Go on a compiler. Do not infer a new-language advantage from these primitives alone; the comparison criteria are in `docs/lifehub/research/PERSON_IR_EXPERIMENT_PLAN.md`.
