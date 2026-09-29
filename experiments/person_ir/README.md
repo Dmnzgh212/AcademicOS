@@ -1,4 +1,4 @@
-# PersonIR experiment — slices 1–3
+# PersonIR experiment — slices 1–4
 
 This is an isolated falsification experiment, not a source language or a replacement for the LifeHub kernel. Run `python -m unittest discover -s experiments/person_ir/tests -v` from the repository root. `examples/academic.py` computes a local study-block proposal from two host observations.
 
@@ -25,10 +25,18 @@ The host creates `StateStore(domain, initial)` and gives the interpreter a base 
 
 This is conventional compare-and-swap/MVCC plus an idempotency ledger and explicit request boundary. **No semantic advantage over an ordinary capability host has been demonstrated yet.** State, ledger, and revocation are in memory; process restart loses them. It does not provide durable storage, shared-domain conflict resolution, multi-process transactions, or source authentication. External effects are not committed or rolled back with local state.
 
+## Slice 4: simulated external effects
+
+The interpreter computes an inert `EffectRequest` with a deterministic ID over producer/version, node, host-supplied intent ID, destination, kind, material payload, sensitivity, disclosure purpose, and source references. Recomputing the same intent and inputs yields the same ID; changing an input or explicitly starting another intent yields a different ID. The hash is an identity, not an authentic signature or an external price/current-state check.
+
+The trusted host registers explicit `FakeExecutor` instances with `EffectService`. `execute` checks live effect authority and, for protected content, separate disclosure authority. It verifies request identity, records one receipt per domain and effect ID, and returns an earlier receipt on replay **after** another live authority check. Receipts distinguish `succeeded`, definite pre-action `failed`, and post-action `unknown`. A replay of a failed or unknown ID is terminal; the service never automatically retries an uncertain action. An explicit new intent might cause another action, so the user/host must reconcile unknown outcomes first.
+
+The fake executors only append to memory; they do not send messages, transfer money, or control devices. Changing local state after an action does not undo that action. Neither ledger nor authority state survives a restart; there is a crash window between an external action and recording its receipt. Real providers need durable intent/receipt storage, provider-side idempotency keys or reconciliation, and fresh policy and external-state validation. **Exactly-once external effects are not claimed.**
+
 ## What the first slice can and cannot establish
 
-The verifier rejects unknown operations, malformed graphs, invalid dataflow edges, and structurally direct protected effects. The interpreter records source references, proposals, commit requests, disclosures, and effects. The host checks authority and can apply a local state mutation in slice 3. The interpreter itself never commits. Effect executors, effect idempotency, persistence, robust information flow, and provenance authentication are **not implemented**. A `CommitRequest` is never a commit by itself; a `DisclosureRequest` is never authority.
+The verifier rejects unknown operations, malformed graphs, invalid dataflow edges, and structurally direct protected effects. The interpreter records source references, proposals, commit requests, disclosures, and effects. The host checks authority, can apply an in-memory state mutation, and can run only fake effects. The interpreter itself neither commits nor executes. Durable persistence, real effect adapters, robust information flow, and provenance authentication are **not implemented**. A `CommitRequest` is never a commit by itself; a `DisclosureRequest` is never authority.
 
 Threat model for this slice: an untrusted **serialized graph** run by a trusted Python host. Executing arbitrary third-party Python in the host process to construct a graph would bypass this boundary. The model does not claim process isolation, a secure package sandbox, protection from malicious host code, or absence of covert channels.
 
-Next: host-owned fake effect executors and their idempotency ledger (slice 4). Before language work, compare with a conventional capability-limited runtime as specified in `docs/lifehub/research/PERSON_IR_EXPERIMENT_PLAN.md`.
+Next: provenance and information-flow stress tests (slice 5), heterogeneous examples, hostile tests, and a conventional capability-limited baseline. Do not infer a new-language advantage from these primitives alone; the comparison criteria are in `docs/lifehub/research/PERSON_IR_EXPERIMENT_PLAN.md`.

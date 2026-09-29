@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from .model import (CommitRequest, DisclosureRequest, EffectRequest, Graph,
-                    Observation, Proposal, Value, proposal_identity)
+                    Observation, Proposal, Value, effect_identity, proposal_identity)
 from .verifier import verify
 
 
@@ -35,12 +35,14 @@ class RunResult:
 
 class Interpreter:
     def run(self, graph: Graph, observations: dict[str, Observation], *, base_version: int,
-            producer: str = "adhoc@0") -> RunResult:
+            producer: str = "adhoc@0", intent_id: str = "default") -> RunResult:
         verify(graph)
         if type(base_version) is not int or base_version < 0:
             raise ValueError("base_version must be a nonnegative integer")
         if type(producer) is not str or not producer.strip():
             raise ValueError("producer must identify a program and version")
+        if type(intent_id) is not str or not intent_id.strip():
+            raise ValueError("intent_id must identify the intended external action")
         values: dict[str, Any] = {}
         outputs = {}
         proposals, commits, disclosures, effects = [], [], [], []
@@ -84,10 +86,17 @@ class Interpreter:
             elif node.op == "effect_request":
                 value = args[0]
                 disclosure = value if isinstance(value, DisclosureRequest) else None
+                payload = deepcopy(value.value if disclosure else value.data)
+                label = "protected" if disclosure else value.label
                 result = EffectRequest(config["kind"], config["destination"],
-                                       deepcopy(value.value if disclosure else value.data),
-                                       "protected" if disclosure else value.label, disclosure,
-                                       value.sources)
+                                       payload, label, disclosure, value.sources,
+                                       producer, node.id, intent_id,
+                                       effect_identity(producer=producer, node_id=node.id,
+                                                       intent_id=intent_id, kind=config["kind"],
+                                                       destination=config["destination"],
+                                                       payload=payload, label=label,
+                                                       disclosure_purpose=disclosure.purpose if disclosure else None,
+                                                       sources=value.sources))
                 effects.append(result)
             elif node.op == "output":
                 result = args[0]

@@ -108,3 +108,20 @@ class EffectRequest:
     label: str
     disclosure: DisclosureRequest | None
     sources: frozenset[str]
+    producer: str
+    node_id: str
+    intent_id: str
+    effect_id: str
+
+
+def effect_identity(*, producer: str, node_id: str, intent_id: str, kind: str,
+                    destination: str, payload: Any, label: str,
+                    disclosure_purpose: str | None, sources: frozenset[str]) -> str:
+    """Stable identity for one material request and explicit user intent."""
+    canonical = json.dumps({"producer": producer, "node": node_id,
+                            "intent": intent_id, "kind": kind,
+                            "destination": destination, "payload": payload,
+                            "label": label, "disclosure_purpose": disclosure_purpose,
+                            "sources": sorted(sources)}, sort_keys=True,
+                           separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+    return sha256(canonical.encode("utf-8")).hexdigest()

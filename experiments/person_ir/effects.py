@@ -1,0 +1,139 @@
+"""Host-owned fake effects with conservative, in-memory replay handling."""
+
+from dataclasses import dataclass
+from datetime import datetime
+from threading import RLock
+from typing import Any
+
+from .authority import AuthorityStore
+from .model import EffectRequest, effect_identity
+from .runtime import _json_value
+
+
+class InvalidEffect(ValueError):
+    pass
+
+
+class EffectRejected(Exception):
+    """Executor definitely rejected before performing an action."""
+
+
+class EffectUncertain(Exception):
+    """Executor may have performed an action; never retry automatically."""
+
+
+@dataclass(frozen=True)
+class FakeAction:
+    effect_id: str
+    kind: str
+    destination: str
+    payload: Any
+    external_ref: str
+
+
+class FakeExecutor:
+    """Deterministic host test double. No email, payment, or device I/O."""
+
+    def __init__(self, fail_mode: str | None = None):
+        if fail_mode not in (None, "before", "after"):
+            raise ValueError("fail_mode must be before, after or None")
+        self.fail_mode = fail_mode
+        self.actions: list[FakeAction] = []
+
+    def perform(self, request: EffectRequest) -> str:
+        if self.fail_mode == "before":
+            raise EffectRejected("fake executor rejected before action")
+        ref = f"fake:{len(self.actions) + 1}"
+        self.actions.append(FakeAction(request.effect_id, request.kind,
+                                       request.destination, _json_value(request.payload), ref))
+        if self.fail_mode == "after":
+            raise EffectUncertain("fake executor lost acknowledgement after action")
+        return ref
+
+
+@dataclass(frozen=True)
+class EffectReceipt:
+    effect_id: str
+    domain: str
+    kind: str
+    destination: str
+    status: str  # succeeded | failed | unknown
+    external_ref: str | None
+    error: str | None
+    authority_ids: tuple[str, ...]
+    recorded_at: datetime
+
+
+@dataclass(frozen=True)
+class EffectOutcome:
+    receipt: EffectReceipt
+    replayed: bool
+    checked_at: datetime
+
+
+class EffectService:
+    """Trusted host API. The IR can only produce requests, never call executors."""
+
+    def __init__(self, executors: dict[str, FakeExecutor]):
+        if type(executors) is not dict or not executors or any(
+                type(kind) is not str or type(executor) is not FakeExecutor
+                for kind, executor in executors.items()):
+            raise ValueError("only explicit host fake executors are supported")
+        self._executors = executors.copy()
+        self._ledger: dict[tuple[str, str], EffectReceipt] = {}
+        self._lock = RLock()
+
+    def receipt(self, domain: str, effect_id: str) -> EffectReceipt | None:
+        with self._lock:
+            return self._ledger.get((domain, effect_id))
+
+    def execute(self, request: EffectRequest, authority: AuthorityStore, effect_handle: object, *,
+                principal: str, domain: str, agent: str,
+                disclosure_handle: object | None = None,
+                context: str | None = None, now: datetime | None = None) -> EffectOutcome:
+        if not isinstance(request, EffectRequest) or not isinstance(authority, AuthorityStore):
+            raise TypeError("effect request and trusted authority store required")
+        # Live grant check and local ledger/action are serialized with revocation.
+        # This does NOT provide atomicity with a real external service or a crash.
+        with authority._lock, self._lock:
+            check = authority.check_effect_request(
+                request, effect_handle, principal=principal, domain=domain, agent=agent,
+                disclosure_handle=disclosure_handle, context=context, now=now)
+            try:
+                payload = _json_value(request.payload)
+                if (type(request.producer) is not str or not request.producer.strip() or
+                        type(request.node_id) is not str or not request.node_id.strip() or
+                        type(request.intent_id) is not str or not request.intent_id.strip() or
+                        type(request.sources) is not frozenset or
+                        any(type(source) is not str for source in request.sources)):
+                    raise ValueError("invalid effect metadata")
+                expected = effect_identity(
+                    producer=request.producer, node_id=request.node_id,
+                    intent_id=request.intent_id, kind=request.kind,
+                    destination=request.destination, payload=payload, label=request.label,
+                    disclosure_purpose=request.disclosure.purpose if request.disclosure else None,
+                    sources=request.sources)
+            except (TypeError, ValueError) as exc:
+                raise InvalidEffect("malformed effect request") from exc
+            if expected != request.effect_id:
+                raise InvalidEffect("effect content changed since creation")
+            key = (domain, expected)
+            previous = self._ledger.get(key)
+            if previous is not None:
+                return EffectOutcome(previous, True, check.checked_at)
+            executor = self._executors.get(request.kind)
+            if executor is None:
+                raise InvalidEffect("no host executor for effect kind")
+            try:
+                external_ref = executor.perform(request)
+                status, error = "succeeded", None
+            except EffectRejected as exc:
+                external_ref, status, error = None, "failed", str(exc)
+            except Exception as exc:
+                # Including an unexpected exception: its outcome could be unknown.
+                external_ref, status, error = None, "unknown", type(exc).__name__
+            receipt = EffectReceipt(expected, domain, request.kind, request.destination,
+                                    status, external_ref, error, check.capability_ids,
+                                    check.checked_at)
+            self._ledger[key] = receipt
+            return EffectOutcome(receipt, False, check.checked_at)
