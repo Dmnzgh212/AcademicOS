@@ -1,4 +1,4 @@
-# PersonIR experiment — slices 1–4
+# PersonIR experiment — slices 1–5
 
 This is an isolated falsification experiment, not a source language or a replacement for the LifeHub kernel. Run `python -m unittest discover -s experiments/person_ir/tests -v` from the repository root. `examples/academic.py` computes a local study-block proposal from two host observations.
 
@@ -33,10 +33,18 @@ The trusted host registers explicit `FakeExecutor` instances with `EffectService
 
 The fake executors only append to memory; they do not send messages, transfer money, or control devices. Changing local state after an action does not undo that action. Neither ledger nor authority state survives a restart; there is a crash window between an external action and recording its receipt. Real providers need durable intent/receipt storage, provider-side idempotency keys or reconciliation, and fresh policy and external-state validation. **Exactly-once external effects are not claimed.**
 
+## Slice 5: trace and information flow
+
+Runtime values, proposals, disclosures, effects, and their host receipts carry an ordered `TraceStep` chain: source reference, producer/version, node and input IDs, operation, propagated label, and proposal base state version. A `nondeterministic_source` declares an AI, clock, or sensor-like host input and requires an execution ID and engine metadata on its trusted `Observation`. This records the execution context; the IR does not run an AI model. Receipts also include the grant IDs used at commit/effect time. Request identities include the trace, so modifying it after construction without changing the identity is rejected.
+
+The verifier propagates `protected` across `select`, `join`, and `derive`, blocks direct protected effects, prevents disclosure requests from being treated as ordinary data, and checks the declared disclosure destination against the effect destination. The host still requires a purpose-scoped disclosure grant at execution. `output` remains a **trusted local** sink and may contain protected data; the host must enforce any subsequent export. Graph code cannot declare arbitrary sources as public if the host observation labels them protected.
+
+These are narrow structural checks, not a general information-flow theorem. The host controls observation labels and execution metadata; a malicious or mistaken source can lie, and a hash cannot authenticate provenance. There is no proof against timing/covert channels, compromised host code, arbitrary native transforms, or disclosures performed outside this host. Persisted, tamper-evident audit chains and source attestations remain future work.
+
 ## What the first slice can and cannot establish
 
-The verifier rejects unknown operations, malformed graphs, invalid dataflow edges, and structurally direct protected effects. The interpreter records source references, proposals, commit requests, disclosures, and effects. The host checks authority, can apply an in-memory state mutation, and can run only fake effects. The interpreter itself neither commits nor executes. Durable persistence, real effect adapters, robust information flow, and provenance authentication are **not implemented**. A `CommitRequest` is never a commit by itself; a `DisclosureRequest` is never authority.
+The verifier rejects unknown operations, malformed graphs, invalid dataflow edges, and structurally direct protected effects. The interpreter records traceable proposals, commit requests, disclosures, and effects. The host checks authority, can apply an in-memory state mutation, and can run only fake effects. The interpreter itself neither commits nor executes. Durable persistence, real effect adapters, general information-flow enforcement, and provenance authentication are **not implemented**. A `CommitRequest` is never a commit by itself; a `DisclosureRequest` is never authority.
 
 Threat model for this slice: an untrusted **serialized graph** run by a trusted Python host. Executing arbitrary third-party Python in the host process to construct a graph would bypass this boundary. The model does not claim process isolation, a secure package sandbox, protection from malicious host code, or absence of covert channels.
 
-Next: provenance and information-flow stress tests (slice 5), heterogeneous examples, hostile tests, and a conventional capability-limited baseline. Do not infer a new-language advantage from these primitives alone; the comparison criteria are in `docs/lifehub/research/PERSON_IR_EXPERIMENT_PLAN.md`.
+Next: heterogeneous examples (slice 6), hostile tests (slice 7), and a conventional capability-limited baseline. Do not infer a new-language advantage from these primitives alone; the comparison criteria are in `docs/lifehub/research/PERSON_IR_EXPERIMENT_PLAN.md`.

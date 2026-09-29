@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from .model import (CommitRequest, DisclosureRequest, EffectRequest, Graph,
-                    Observation, Proposal, Value, effect_identity, proposal_identity)
+                    Observation, Proposal, TraceStep, Value, effect_identity, proposal_identity)
 from .verifier import verify
 
 
@@ -49,45 +49,72 @@ class Interpreter:
         for node in graph.nodes:
             args = [values[dep] for dep in node.inputs]
             config = node.config
-            if node.op == "source":
+            def traced(label: str, *, source_ref: str | None = None,
+                       execution_id: str | None = None,
+                       engine: str | None = None,
+                       state_version: int | None = None) -> tuple[TraceStep, ...]:
+                steps = {}
+                for argument in args:
+                    for step in argument.trace if hasattr(argument, "trace") else argument.proposal.trace:
+                        steps[step.node_id] = step
+                step = TraceStep(node.id, node.op, node.inputs, producer, label,
+                                 source_ref, execution_id, engine, state_version)
+                return (*steps.values(), step)
+
+            if node.op in {"source", "nondeterministic_source"}:
                 observation = observations[config["name"]]
                 if (not isinstance(observation, Observation) or
                         observation.label != config["label"] or
                         type(observation.source) is not str or not observation.source.strip()):
                     raise ValueError(f"observation metadata mismatch: {node.id}")
-                result = Value(_json_value(observation.value), observation.label, frozenset({observation.source}))
+                if node.op == "nondeterministic_source" and (
+                        type(observation.execution_id) is not str or not observation.execution_id.strip() or
+                        type(observation.engine) is not str or not observation.engine.strip()):
+                    raise ValueError(f"nondeterministic source needs execution metadata: {node.id}")
+                result = Value(_json_value(observation.value), observation.label,
+                               frozenset({observation.source}),
+                               traced(observation.label, source_ref=observation.source,
+                                      execution_id=observation.execution_id,
+                                      engine=observation.engine))
             elif node.op == "select":
                 parent = args[0]
                 if type(parent.data) is not dict:
                     raise ValueError(f"select requires object: {node.id}")
-                result = Value(deepcopy(parent.data[config["key"]]), parent.label, parent.sources)
+                result = Value(deepcopy(parent.data[config["key"]]), parent.label,
+                               parent.sources, traced(parent.label))
             elif node.op == "join":
                 a, b = args
                 result = Value([deepcopy(a.data), deepcopy(b.data)],
                                "protected" if "protected" in (a.label, b.label) else "public",
-                               a.sources | b.sources)
+                               a.sources | b.sources,
+                               traced("protected" if "protected" in (a.label, b.label) else "public"))
             elif node.op == "derive":
-                result = Value(deepcopy(args[0].data), args[0].label, args[0].sources)
+                result = Value(deepcopy(args[0].data), args[0].label,
+                               args[0].sources, traced(args[0].label))
             elif node.op == "propose":
                 data = deepcopy(args[0].data)
+                trace = traced(args[0].label, state_version=base_version)
                 result = Proposal(config["target"], data, base_version, args[0].sources,
                                   producer, node.id,
                                   proposal_identity(producer=producer, node_id=node.id,
                                                     target=config["target"], value=data,
-                                                    base_version=base_version, sources=args[0].sources))
+                                                    base_version=base_version, sources=args[0].sources,
+                                                    trace=trace), trace)
                 proposals.append(result)
             elif node.op == "commit_request":
                 result = CommitRequest(args[0])
                 commits.append(result)
             elif node.op == "declassify":
                 result = DisclosureRequest(deepcopy(args[0].data), config["destination"],
-                                           config["purpose"], args[0].sources)
+                                           config["purpose"], args[0].sources,
+                                           traced(args[0].label))
                 disclosures.append(result)
             elif node.op == "effect_request":
                 value = args[0]
                 disclosure = value if isinstance(value, DisclosureRequest) else None
                 payload = deepcopy(value.value if disclosure else value.data)
                 label = "protected" if disclosure else value.label
+                trace = traced(label)
                 result = EffectRequest(config["kind"], config["destination"],
                                        payload, label, disclosure, value.sources,
                                        producer, node.id, intent_id,
@@ -96,7 +123,7 @@ class Interpreter:
                                                        destination=config["destination"],
                                                        payload=payload, label=label,
                                                        disclosure_purpose=disclosure.purpose if disclosure else None,
-                                                       sources=value.sources))
+                                                       sources=value.sources, trace=trace), trace)
                 effects.append(result)
             elif node.op == "output":
                 result = args[0]

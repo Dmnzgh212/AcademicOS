@@ -6,7 +6,7 @@ from threading import RLock
 from typing import Any
 
 from .authority import AuthorityStore
-from .model import EffectRequest, effect_identity
+from .model import EffectRequest, TraceStep, effect_identity
 from .runtime import _json_value
 
 
@@ -62,6 +62,7 @@ class EffectReceipt:
     error: str | None
     authority_ids: tuple[str, ...]
     recorded_at: datetime
+    trace: tuple[TraceStep, ...]
 
 
 @dataclass(frozen=True)
@@ -112,7 +113,7 @@ class EffectService:
                     intent_id=request.intent_id, kind=request.kind,
                     destination=request.destination, payload=payload, label=request.label,
                     disclosure_purpose=request.disclosure.purpose if request.disclosure else None,
-                    sources=request.sources)
+                    sources=request.sources, trace=request.trace)
             except (TypeError, ValueError) as exc:
                 raise InvalidEffect("malformed effect request") from exc
             if expected != request.effect_id:
@@ -134,6 +135,6 @@ class EffectService:
                 external_ref, status, error = None, "unknown", type(exc).__name__
             receipt = EffectReceipt(expected, domain, request.kind, request.destination,
                                     status, external_ref, error, check.capability_ids,
-                                    check.checked_at)
+                                    check.checked_at, request.trace)
             self._ledger[key] = receipt
             return EffectOutcome(receipt, False, check.checked_at)

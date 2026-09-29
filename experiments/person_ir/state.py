@@ -6,7 +6,7 @@ from threading import RLock
 from typing import Any
 
 from .authority import AuthorityStore
-from .model import CommitRequest, proposal_identity
+from .model import CommitRequest, TraceStep, proposal_identity
 from .runtime import _json_value
 
 
@@ -34,6 +34,8 @@ class CommitReceipt:
     new_version: int
     applied: bool
     sources: frozenset[str]
+    trace: tuple[TraceStep, ...]
+    authority_id: str
 
 
 @dataclass(frozen=True)
@@ -89,7 +91,7 @@ class StateStore:
                                                 node_id=proposal.node_id,
                                                 target=proposal.target, value=value,
                                                 base_version=proposal.base_version,
-                                                sources=proposal.sources)
+                                                sources=proposal.sources, trace=proposal.trace)
             except (TypeError, ValueError) as exc:
                 raise InvalidProposal("malformed proposal") from exc
             if proposal.proposal_id != expected_id:
@@ -106,6 +108,7 @@ class StateStore:
                 self._values[proposal.target] = value
                 self._version += 1
             receipt = CommitReceipt(expected_id, self.domain, proposal.target,
-                                    old_version, self._version, applied, proposal.sources)
+                                    old_version, self._version, applied, proposal.sources,
+                                    proposal.trace, check.capability_ids[0])
             self._ledger[expected_id] = receipt
             return CommitOutcome(receipt, False, check.checked_at, check.capability_ids[0])

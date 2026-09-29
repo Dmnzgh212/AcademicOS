@@ -1,6 +1,6 @@
 """Data-only IR. Graphs are descriptions, never Python plugin callbacks."""
 
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from hashlib import sha256
 import json
 from typing import Any
@@ -56,6 +56,21 @@ class Observation:
     value: Any
     source: str
     label: str = "public"  # public | protected
+    execution_id: str | None = None
+    engine: str | None = None
+
+
+@dataclass(frozen=True)
+class TraceStep:
+    node_id: str
+    operation: str
+    input_ids: tuple[str, ...]
+    producer: str
+    label: str
+    source_ref: str | None = None
+    execution_id: str | None = None
+    engine: str | None = None
+    state_version: int | None = None
 
 
 @dataclass(frozen=True)
@@ -63,6 +78,7 @@ class Value:
     data: Any
     label: str
     sources: frozenset[str]
+    trace: tuple[TraceStep, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -74,13 +90,35 @@ class Proposal:
     producer: str
     node_id: str
     proposal_id: str
+    trace: tuple[TraceStep, ...] = ()
+
+
+def _trace_payload(trace: tuple[TraceStep, ...]) -> list[dict[str, Any]]:
+    if type(trace) is not tuple or not trace or any(type(step) is not TraceStep for step in trace):
+        raise ValueError("trace must contain runtime steps")
+    if len({step.node_id for step in trace}) != len(trace):
+        raise ValueError("duplicate trace node")
+    for step in trace:
+        if any(type(field) is not str or not field.strip() for field in
+               (step.node_id, step.operation, step.producer, step.label)):
+            raise ValueError("invalid trace step")
+        if type(step.input_ids) is not tuple or any(type(dep) is not str for dep in step.input_ids):
+            raise ValueError("invalid trace inputs")
+        if any(value is not None and (type(value) is not str or not value.strip())
+               for value in (step.source_ref, step.execution_id, step.engine)):
+            raise ValueError("invalid trace metadata")
+        if step.state_version is not None and (type(step.state_version) is not int or step.state_version < 0):
+            raise ValueError("invalid trace state version")
+    return [asdict(step) for step in trace]
 
 
 def proposal_identity(*, producer: str, node_id: str, target: str, value: Any,
-                      base_version: int, sources: frozenset[str]) -> str:
+                      base_version: int, sources: frozenset[str],
+                      trace: tuple[TraceStep, ...]) -> str:
     """Deterministic identity for exact recomputation, not an authenticity proof."""
     payload = {"producer": producer, "node": node_id, "target": target,
-               "value": value, "base_version": base_version, "sources": sorted(sources)}
+               "value": value, "base_version": base_version, "sources": sorted(sources),
+               "trace": _trace_payload(trace)}
     canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"),
                            ensure_ascii=False, allow_nan=False)
     return sha256(canonical.encode("utf-8")).hexdigest()
@@ -97,6 +135,7 @@ class DisclosureRequest:
     destination: str
     purpose: str
     sources: frozenset[str]
+    trace: tuple[TraceStep, ...] = ()
     # This is a request, NOT an authorized or released value.
 
 
@@ -112,16 +151,18 @@ class EffectRequest:
     node_id: str
     intent_id: str
     effect_id: str
+    trace: tuple[TraceStep, ...] = ()
 
 
 def effect_identity(*, producer: str, node_id: str, intent_id: str, kind: str,
                     destination: str, payload: Any, label: str,
-                    disclosure_purpose: str | None, sources: frozenset[str]) -> str:
+                    disclosure_purpose: str | None, sources: frozenset[str],
+                    trace: tuple[TraceStep, ...]) -> str:
     """Stable identity for one material request and explicit user intent."""
     canonical = json.dumps({"producer": producer, "node": node_id,
                             "intent": intent_id, "kind": kind,
                             "destination": destination, "payload": payload,
                             "label": label, "disclosure_purpose": disclosure_purpose,
-                            "sources": sorted(sources)}, sort_keys=True,
+                            "sources": sorted(sources), "trace": _trace_payload(trace)}, sort_keys=True,
                            separators=(",", ":"), ensure_ascii=False, allow_nan=False)
     return sha256(canonical.encode("utf-8")).hexdigest()

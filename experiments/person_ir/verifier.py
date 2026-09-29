@@ -13,11 +13,12 @@ def verify(graph: Graph) -> None:
     kinds = {}
     labels = {}
     graph_node_config = {}
-    arity = {"source": 0, "select": 1, "join": 2, "derive": 1,
+    arity = {"source": 0, "nondeterministic_source": 0, "select": 1, "join": 2, "derive": 1,
              "propose": 1, "commit_request": 1, "declassify": 1,
              "effect_request": 1, "output": 1}
     config_keys = {
-        "source": {"name", "label"}, "select": {"key"}, "join": set(),
+        "source": {"name", "label"}, "nondeterministic_source": {"name", "label"},
+        "select": {"key"}, "join": set(),
         "derive": set(), "propose": {"target"}, "commit_request": set(),
         "declassify": {"destination", "purpose"},
         "effect_request": {"kind", "destination"}, "output": set(),
@@ -37,7 +38,7 @@ def verify(graph: Graph) -> None:
             if not isinstance(value, str) or not value.strip():
                 raise VerificationError(f"invalid {key}: {node.id}")
         input_kinds = tuple(kinds[dep] for dep in node.inputs)
-        data_kinds = {"source", "select", "join", "derive"}
+        data_kinds = {"source", "nondeterministic_source", "select", "join", "derive"}
         if node.op in {"select", "join", "derive", "propose", "declassify"} and any(k not in data_kinds for k in input_kinds):
             raise VerificationError(f"expected ordinary data: {node.id}")
         if node.op == "commit_request" and input_kinds != ("propose",):
@@ -50,9 +51,9 @@ def verify(graph: Graph) -> None:
                 raise VerificationError(f"disclosure destination mismatch: {node.id}")
         if node.op == "output" and input_kinds[0] not in data_kinds | {"propose", "commit_request", "declassify", "effect_request"}:
             raise VerificationError(f"unsupported output: {node.id}")
-        if node.op == "source" and node.config["label"] not in {"public", "protected"}:
+        if node.op in {"source", "nondeterministic_source"} and node.config["label"] not in {"public", "protected"}:
             raise VerificationError(f"invalid source label: {node.id}")
-        if node.op == "source":
+        if node.op in {"source", "nondeterministic_source"}:
             label = node.config["label"]
         elif node.op in {"select", "derive"}:
             label = labels[node.inputs[0]]
