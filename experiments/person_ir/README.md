@@ -1,4 +1,4 @@
-# PersonIR experiment — slices 1–5
+# PersonIR experiment — slices 1–6
 
 This is an isolated falsification experiment, not a source language or a replacement for the LifeHub kernel. Run `python -m unittest discover -s experiments/person_ir/tests -v` from the repository root. `examples/academic.py` computes a local study-block proposal from two host observations.
 
@@ -41,10 +41,14 @@ The verifier propagates `protected` across `select`, `join`, and `derive`, block
 
 These are narrow structural checks, not a general information-flow theorem. The host controls observation labels and execution metadata; a malicious or mistaken source can lie, and a hash cannot authenticate provenance. There is no proof against timing/covert channels, compromised host code, arbitrary native transforms, or disclosures performed outside this host. Persisted, tamper-evident audit chains and source attestations remain future work.
 
+## Slice 6: heterogeneous examples
+
+`examples/` contains academic, email, payment, home-device, and collaboration graphs. `tests/test_scenarios.py` executes them against host authority, state, and fake effects. Read [SCENARIO_FINDINGS.md](SCENARIO_FINDINGS.md) before treating a passing test as a safe scenario: tests deliberately reproduce missing price freshness, device predicates, multi-principal authorization, and recipient-to-destination consistency.
+
 ## What the first slice can and cannot establish
 
 The verifier rejects unknown operations, malformed graphs, invalid dataflow edges, and structurally direct protected effects. The interpreter records traceable proposals, commit requests, disclosures, and effects. The host checks authority, can apply an in-memory state mutation, and can run only fake effects. The interpreter itself neither commits nor executes. Durable persistence, real effect adapters, general information-flow enforcement, and provenance authentication are **not implemented**. A `CommitRequest` is never a commit by itself; a `DisclosureRequest` is never authority.
 
 Threat model for this slice: an untrusted **serialized graph** run by a trusted Python host. Executing arbitrary third-party Python in the host process to construct a graph would bypass this boundary. The model does not claim process isolation, a secure package sandbox, protection from malicious host code, or absence of covert channels.
 
-Next: heterogeneous examples (slice 6), hostile tests (slice 7), and a conventional capability-limited baseline. Do not infer a new-language advantage from these primitives alone; the comparison criteria are in `docs/lifehub/research/PERSON_IR_EXPERIMENT_PLAN.md`.
+Next: hostile-extension tests (slice 7) and a conventional capability-limited baseline. Do not infer a new-language advantage from these primitives alone; the comparison criteria are in `docs/lifehub/research/PERSON_IR_EXPERIMENT_PLAN.md`.
