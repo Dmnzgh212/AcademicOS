@@ -75,7 +75,8 @@ class Interpreter:
                 value = args[0]
                 disclosure = value if isinstance(value, DisclosureRequest) else None
                 result = EffectRequest(config["kind"], config["destination"],
-                                       deepcopy(value.value if disclosure else value.data), disclosure,
+                                       deepcopy(value.value if disclosure else value.data),
+                                       "protected" if disclosure else value.label, disclosure,
                                        value.sources)
                 effects.append(result)
             elif node.op == "output":

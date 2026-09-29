@@ -1,4 +1,4 @@
-# PersonIR experiment — slice 1
+# PersonIR experiment — slices 1–2
 
 This is an isolated falsification experiment, not a source language or a replacement for the LifeHub kernel. Run `python -m unittest discover -s experiments/person_ir/tests -v` from the repository root. `examples/academic.py` computes a local study-block proposal from two host observations.
 
@@ -9,10 +9,18 @@ This is an isolated falsification experiment, not a source language or a replace
 - `declassify` creates an inert disclosure request with a destination and purpose. It **does not authorize disclosure**. `effect_request` creates an inert request; a protected payload requires a matching disclosure request. No node executes network, file, process, payment, email, or device operations.
 - `output` is a local result delivered to the trusted caller, including protected values. It is not an external sink; the host must not expose local results to plugins or network without policy checks.
 
+## Slice 2: host-owned authority
+
+`AuthorityStore.issue(...)` is a **trusted host operation**. It issues an in-memory opaque handle, while `describe(handle)` exposes non-authorizing metadata: capability ID, principal, domain, agent, operation, exact resource, issuer, issue/expiry time, optional activation context/purpose, and revocation status. A serialized description or ID cannot substitute for the handle, and an unrelated registry's handle does not work.
+
+`check_commit_request`, `check_disclosure_request`, and `check_effect_request` validate the handle's identity, current revocation state, time window, principal/domain/agent, operation, exact resource, and optional context. An external effect with protected content needs both an effect grant and a distinct destination/purpose disclosure grant. Read authority confers neither commit nor effect authority. These checks produce audit metadata, **not an executable authorization token**. No effect executor or durable commit exists yet.
+
+Issuance policy, authenticating the issuer, chained delegation, persistent revocation, atomic checks alongside state mutation/effect execution, and OS isolation are outside this slice. In particular, a check followed later by an action has a revocation/expiry race; a future host executor must recheck at actual use under an appropriate transaction or lock. The registry is currently process-local and must never be passed to an untrusted Python plugin. JSON IR code has no access to `issue`.
+
 ## What the first slice can and cannot establish
 
-The verifier rejects unknown operations, malformed graphs, invalid dataflow edges, and structurally direct protected effects. The interpreter records source references, proposals, commit requests, disclosures, and effects. Host-owned authorization, state version checks, effect executors, idempotency, persistence, robust information flow, and provenance authentication are **not implemented**. A `CommitRequest` is never a commit; a `DisclosureRequest` is never authority.
+The verifier rejects unknown operations, malformed graphs, invalid dataflow edges, and structurally direct protected effects. The interpreter records source references, proposals, commit requests, disclosures, and effects. Slice 2 checks live, host-issued authority but does not commit or execute anything. State version checks, effect executors, idempotency, persistence, robust information flow, and provenance authentication are **not implemented**. A `CommitRequest` is never a commit; a `DisclosureRequest` is never authority.
 
 Threat model for this slice: an untrusted **serialized graph** run by a trusted Python host. Executing arbitrary third-party Python in the host process to construct a graph would bypass this boundary. The model does not claim process isolation, a secure package sandbox, protection from malicious host code, or absence of covert channels.
 
-Next: capability handles issued and checked by the host (slice 2), followed by versioned commits and effect ledgers. Before language work, compare with a conventional capability-limited runtime as specified in `docs/lifehub/research/PERSON_IR_EXPERIMENT_PLAN.md`.
+Next: versioned commits (slice 3) and effect ledgers (slice 4). Before language work, compare with a conventional capability-limited runtime as specified in `docs/lifehub/research/PERSON_IR_EXPERIMENT_PLAN.md`.

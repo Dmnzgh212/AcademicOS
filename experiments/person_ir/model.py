@@ -91,5 +91,6 @@ class EffectRequest:
     kind: str
     destination: str
     payload: Any
+    label: str
     disclosure: DisclosureRequest | None
     sources: frozenset[str]
