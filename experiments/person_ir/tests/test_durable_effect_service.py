@@ -1,12 +1,13 @@
 import tempfile
 import unittest
+import sqlite3
 from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 
 from experiments.person_ir import AuthorityError, AuthorityStore, FakeExecutor, InvalidEffect
-from experiments.person_ir.durable import DurableEffectJournal, DurableEffectService
-from experiments.person_ir.effects import EffectUncertain
+from experiments.person_ir.durable import DurableEffectJournal, DurableEffectService, _encoded_effect
+from experiments.person_ir.effects import EffectReceipt, EffectUncertain, IdempotentProviderEmulator
 from experiments.person_ir.examples import email
 
 
@@ -20,6 +21,7 @@ class DurableEffectServiceTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.path = str(Path(self.temp.name) / "effects.sqlite")
+        self.provider_path = str(Path(self.temp.name) / "provider.sqlite")
         self.authority = AuthorityStore()
         args = ACTOR | {"resource": DEST, "issuer": "person:1", "issued_at": NOW}
         self.send = self.authority.issue(**(args | {"operation": "effect:email"}))
@@ -111,6 +113,85 @@ class DurableEffectServiceTests(unittest.TestCase):
             self.execute(service, disclosure_handle=None)
         self.assertIsNone(service._journal.lookup(ACTOR["domain"], self.item.effect_id))
         service.close()
+
+    def test_provider_reconciles_action_after_restart_without_reexecution(self):
+        provider = IdempotentProviderEmulator(self.provider_path, interrupt_after=True)
+        service = DurableEffectService(self.path, {"email": provider})
+        with self.assertRaises(KeyboardInterrupt):
+            self.execute(service)
+        self.assertEqual(provider.action_count(), 1)
+        self.assertIsNone(service.receipt(ACTOR["domain"], self.item.effect_id))
+        service.close()
+        provider.close()
+
+        reopened = IdempotentProviderEmulator(self.provider_path)
+        service = DurableEffectService(self.path, {"email": reopened})
+        with self.assertRaises(EffectUncertain):
+            self.execute(service)
+        receipt = service.reconcile(self.item, domain=ACTOR["domain"], now=NOW)
+        self.assertEqual(receipt.status, "succeeded")
+        self.assertEqual(receipt.external_ref, f"fake-provider:{self.item.effect_id}")
+        self.assertEqual(receipt.authority_ids, (
+            self.authority.describe(self.send).capability_id,
+            self.authority.describe(self.disclose).capability_id))
+        self.assertEqual(receipt.trace, self.item.trace)
+        self.assertEqual(service.receipt(ACTOR["domain"], self.item.effect_id), receipt)
+        self.assertEqual(self.execute(service).receipt, receipt)
+        self.assertEqual(reopened.action_count(), 1)
+        service.close()
+        reopened.close()
+
+    def test_absent_provider_record_remains_unknown_without_retry(self):
+        provider = IdempotentProviderEmulator(self.provider_path)
+        service = DurableEffectService(self.path, {"email": provider})
+        metadata = _encoded_effect(EffectReceipt(
+            self.item.effect_id, ACTOR["domain"], self.item.kind, self.item.destination,
+            "unknown", None, "pending", (self.authority.describe(self.send).capability_id,),
+            NOW, self.item.trace))
+        self.assertTrue(service._journal.begin(ACTOR["domain"], self.item.effect_id, metadata))
+        with self.assertRaises(EffectUncertain):
+            service.reconcile(self.item, domain=ACTOR["domain"], now=NOW)
+        self.assertEqual(service._journal.lookup(ACTOR["domain"], self.item.effect_id),
+                         ("unknown", None))
+        self.assertEqual(provider.action_count(), 0)
+        service.close()
+        provider.close()
+
+    def test_reconciliation_does_not_reauthorize_revoked_action(self):
+        provider = IdempotentProviderEmulator(self.provider_path, interrupt_after=True)
+        service = DurableEffectService(self.path, {"email": provider})
+        with self.assertRaises(KeyboardInterrupt):
+            self.execute(service)
+        self.authority.revoke(self.authority.describe(self.send).capability_id)
+        receipt = service.reconcile(self.item, domain=ACTOR["domain"], now=NOW)
+        self.assertEqual(receipt.status, "succeeded")
+        with self.assertRaisesRegex(AuthorityError, "revoked"):
+            self.execute(service)
+        self.assertEqual(provider.action_count(), 1)
+        service.close()
+        provider.close()
+
+    def test_provider_rejects_same_id_with_altered_content(self):
+        provider = IdempotentProviderEmulator(self.provider_path)
+        provider.perform(self.item)
+        with self.assertRaises(InvalidEffect):
+            provider.lookup(replace(self.item, destination="other@example.com"))
+        self.assertEqual(provider.action_count(), 1)
+        provider.close()
+
+    def test_old_journal_schema_keeps_pending_intent_uncertain(self):
+        with sqlite3.connect(self.path) as db:
+            db.execute("CREATE TABLE effect_intents (domain TEXT NOT NULL, effect_id TEXT NOT NULL, "
+                       "status TEXT NOT NULL, receipt TEXT, PRIMARY KEY(domain, effect_id))")
+            db.execute("INSERT INTO effect_intents VALUES (?, ?, 'unknown', NULL)",
+                       (ACTOR["domain"], self.item.effect_id))
+        provider = IdempotentProviderEmulator(self.provider_path)
+        service = DurableEffectService(self.path, {"email": provider})
+        with self.assertRaisesRegex(EffectUncertain, "audit metadata"):
+            service.reconcile(self.item, domain=ACTOR["domain"], now=NOW)
+        self.assertEqual(provider.action_count(), 0)
+        service.close()
+        provider.close()
 
 
 if __name__ == "__main__":

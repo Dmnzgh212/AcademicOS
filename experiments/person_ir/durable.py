@@ -1,14 +1,15 @@
 """SQLite recovery probes for local state and uncertain external-effect intents."""
 
 from dataclasses import asdict, replace
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 import sqlite3
 from threading import RLock
 
 from .authority import AuthorityError, AuthorityStore, Grant, _CapabilityHandle
 from .effects import (EffectOutcome, EffectReceipt, EffectRejected, EffectService,
-                      EffectUncertain, InvalidEffect, _validated_identity)
+                      EffectUncertain, IdempotentProviderEmulator, InvalidEffect,
+                      _validated_identity)
 from .model import EffectRequest
 from .model import TraceStep
 from .policy import EffectPolicy, Evidence
@@ -152,14 +153,19 @@ class DurableEffectJournal:
     def __init__(self, path: str):
         self._db = sqlite3.connect(path, isolation_level=None, timeout=5)
         self._lock = RLock()
-        self._db.execute("CREATE TABLE IF NOT EXISTS effect_intents (domain TEXT NOT NULL, effect_id TEXT NOT NULL, status TEXT NOT NULL, receipt TEXT, PRIMARY KEY(domain, effect_id))")
+        self._db.execute("CREATE TABLE IF NOT EXISTS effect_intents (domain TEXT NOT NULL, effect_id TEXT NOT NULL, status TEXT NOT NULL, receipt TEXT, intent_meta TEXT, PRIMARY KEY(domain, effect_id))")
+        # Older local journals retain their pending rows, but without metadata
+        # those rows cannot be safely reconciled into complete receipts.
+        if "intent_meta" not in {row[1] for row in self._db.execute("PRAGMA table_info(effect_intents)")}:
+            self._db.execute("ALTER TABLE effect_intents ADD COLUMN intent_meta TEXT")
 
-    def begin(self, domain: str, effect_id: str) -> bool:
+    def begin(self, domain: str, effect_id: str, metadata: dict | None = None) -> bool:
         """Return true only for a new intent; never automatically retry an old one."""
         with self._lock, self._db:
             cursor = self._db.execute(
-                "INSERT OR IGNORE INTO effect_intents VALUES (?, ?, 'unknown', NULL)",
-                (domain, effect_id))
+                "INSERT OR IGNORE INTO effect_intents "
+                "(domain, effect_id, status, receipt, intent_meta) VALUES (?, ?, 'unknown', NULL, ?)",
+                (domain, effect_id, _dump(metadata) if metadata is not None else None))
             return cursor.rowcount == 1
 
     def finish(self, domain: str, effect_id: str, receipt: dict):
@@ -178,6 +184,13 @@ class DurableEffectJournal:
                 "SELECT status, receipt FROM effect_intents WHERE domain=? AND effect_id=?",
                 (domain, effect_id)).fetchone()
             return None if row is None else (row[0], json.loads(row[1]) if row[1] else None)
+
+    def intent_metadata(self, domain: str, effect_id: str) -> dict | None:
+        with self._lock:
+            row = self._db.execute(
+                "SELECT intent_meta FROM effect_intents WHERE domain=? AND effect_id=? AND receipt IS NULL",
+                (domain, effect_id)).fetchone()
+            return json.loads(row[0]) if row and row[0] else None
 
     def close(self):
         self._db.close()
@@ -216,6 +229,42 @@ class DurableEffectService(EffectService):
         entry = self._journal.lookup(domain, effect_id)
         return _restored_effect(entry[1]) if entry and entry[1] is not None else None
 
+    def reconcile(self, request: EffectRequest, *, domain: str,
+                  now: datetime | None = None) -> EffectReceipt:
+        """Host-only read of a known fake provider action; never retries it."""
+        if not isinstance(request, EffectRequest):
+            raise TypeError("effect request required")
+        identifier = _validated_identity(request)
+        with self._lock:
+            entry = self._journal.lookup(domain, identifier)
+            if entry is None or entry[0] != "unknown" or entry[1] is not None:
+                raise ValueError("reconciliation requires a pending intent")
+            metadata = self._journal.intent_metadata(domain, identifier)
+            if metadata is None:
+                raise EffectUncertain("pending intent lacks original audit metadata")
+            prior = _restored_effect(metadata)
+            if (prior.effect_id != identifier or prior.domain != domain or
+                    prior.kind != request.kind or prior.destination != request.destination or
+                    prior.trace != request.trace or prior.status != "unknown" or
+                    prior.error != "pending" or prior.external_ref is not None):
+                raise EffectUncertain("pending intent audit metadata conflicts with request")
+            provider = self._executors.get(request.kind)
+            if type(provider) is not IdempotentProviderEmulator:
+                raise EffectUncertain("no queryable fake provider for pending intent")
+            ref = provider.lookup(request)
+            if ref is None:
+                raise EffectUncertain("provider has no conclusive record; outcome remains unknown")
+            recorded_at = now or datetime.now(timezone.utc)
+            if recorded_at.tzinfo is None or recorded_at.utcoffset() is None:
+                raise ValueError("reconciliation time must be timezone aware")
+            receipt = replace(prior, status="succeeded", external_ref=ref,
+                              error=None, recorded_at=recorded_at)
+            try:
+                self._journal.finish(domain, identifier, _encoded_effect(receipt))
+            except Exception as exc:
+                raise EffectUncertain("reconciliation receipt could not be durably recorded") from exc
+            return receipt
+
     def execute(self, request: EffectRequest, authority: AuthorityStore, effect_handle: object, *,
                 principal: str, domain: str, agent: str,
                 disclosure_handle: object | None = None,
@@ -238,7 +287,10 @@ class DurableEffectService(EffectService):
                 return EffectOutcome(_restored_effect(previous[1]), True, check.checked_at)
             if self._policy is not None:
                 self._policy.evaluate(request, evidence, now=check.checked_at)
-            if not self._journal.begin(domain, identifier):
+            pending = EffectReceipt(identifier, domain, request.kind, request.destination,
+                                    "unknown", None, "pending", check.capability_ids,
+                                    check.checked_at, request.trace)
+            if not self._journal.begin(domain, identifier, _encoded_effect(pending)):
                 # A competing host process may have inserted after lookup.
                 previous = self._journal.lookup(domain, identifier)
                 if previous is None or previous[1] is None:
