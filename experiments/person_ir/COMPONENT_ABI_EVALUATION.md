@@ -12,7 +12,7 @@ The [Component Model WIT reference](https://component-model.bytecodealliance.org
 
 The `value-json` and `payload-json` fields are a deliberately conservative transport choice. They avoid encoding PersonIR graph nodes or domain-specific `Payment`/`Calendar` types in WIT, but force the host to parse, bound, copy, and validate JSON at every submission. They also leave transformation lineage opaque: source refs describe what the component read, while the host cannot infer its intermediate computation from WIT alone. The existing Python `ComponentSession` similarly records reads but cannot verify arbitrary internal calculations. If full lineage is a required product feature, compare the cost of instrumentation or a typed host value API against PersonIR's closed graph trace rather than assuming parity.
 
-## Fair executable comparison required before a final decision
+## Fair executable comparison required to reopen the compiler decision
 
 | Gate | Same test for both approaches | Status |
 |---|---|---|
@@ -25,4 +25,4 @@ The `value-json` and `payload-json` fields are a deliberately conservative trans
 
 The generic core-WASM host performs `field` and `pair` operations on host-owned values so it can carry source labels and reject unknown handles. This makes provenance inspectable at the price of exposing data manipulation through host calls, much like an IR interpreter. The guest can also run equality checks internally, leaving that intermediate step opaque unless a use-time host policy repeats the relevant relation. The Python bridge must know the academic and email output shapes to reject a forged or misbound request. These are concrete costs for comparing a generic capability interface with the closed graph.
 
-An executed WIT baseline may show that ordinary code plus host capabilities is sufficient, or expose a real explanation/static-check advantage for a restricted IR. The provisional compiler hold in `BASELINE_COMPARISON.md` remains warranted by the evidence already collected; the WIT candidate itself does not raise the experiment's completion percentage.
+An executed WIT baseline may show that ordinary code plus host capabilities is sufficient, or expose a real explanation/static-check advantage for a restricted IR. The [current No-Go decision](PERSON_IR_DECISION.md) would be reopened only with affirmative comparable evidence; the WIT candidate itself is not such evidence.

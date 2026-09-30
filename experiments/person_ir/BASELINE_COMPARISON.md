@@ -1,6 +1,6 @@
-# Conventional host API comparison — provisional
+# Conventional host API comparison — scoped experimental evidence
 
-Read [PERSON_IR_SPEC.md](PERSON_IR_SPEC.md) for the implemented subset and [THREAT_MODEL.md](THREAT_MODEL.md) for the supported and rejected claims. The comparison below is evidence for a provisional decision, not a complete security proof.
+Read [PERSON_IR_SPEC.md](PERSON_IR_SPEC.md) for the implemented subset, [THREAT_MODEL.md](THREAT_MODEL.md) for the supported and rejected claims, and [PERSON_IR_DECISION.md](PERSON_IR_DECISION.md) for the scoped decision. The comparison below is evidence for that decision, not a complete security proof.
 
 ## Comparator and scope
 
@@ -65,4 +65,4 @@ Graphs and manifests were constructed outside the measured call; neither case co
 
 The seven PersonIR slices show useful explicit requests and inspectable lineage, but the five examples do not demonstrate safe cross-domain generality. The package boundary handles previously reproduced source/manifest gaps on one trusted entry path; direct service forgery remains. Optional host policy and joint-grant checks reject the named use-time counterexamples without adding domain nodes to IR. The comparator can express academic and email flows with existing host policy, and ordinary code can state recipient equality more directly. No measured or semantic advantage currently justifies a new source language/compiler.
 
-**Provisional decision: hold compiler work.** Continue LifeHub as an open capability host, integrate the package/input boundary and policy lifecycle, and wire joint domain policy into real host entry points. Then evaluate a general component ABI (preferably WASM Component/WIT), authenticated grant restoration/cross-process revocation, and a real effect adapter with reconciliation before a final POP/PersonIR Go/No-Go. The durable and host-policy probes close local gaps but do not remove those gates. This is not a decision to abandon LifeHub or a proof that a better PersonIR is impossible.
+**Decision: No-Go for a new PersonIR compiler in this scope.** The [decision record](PERSON_IR_DECISION.md) applies the original experiment plan's gates and reduces PersonIR to an optional data-only explanation/automation format. Continue LifeHub as an open capability host; integrate the package/input boundary and policy lifecycle and wire joint domain policy into actual entry points. A running general Component/WIT baseline, authenticated grant/evidence handoff, and real effect adapter remain independent follow-up investigations and product safety work. This is not a decision to abandon LifeHub or a proof that a better PersonIR is impossible.

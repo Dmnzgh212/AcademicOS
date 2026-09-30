@@ -1,5 +1,7 @@
 # PersonIR falsification and experiment plan
 
+**Experiment outcome (2026-09-30):** [scoped decision record](../../../experiments/person_ir/PERSON_IR_DECISION.md) — No-Go for a new PersonIR source language/compiler on the evidence from this prototype. Retain an optional data-only IR for inspectable flows; continue LifeHub as a capability host. The preferred WIT binary comparator and real-provider safety trials remain open follow-up work, and the decision does not claim they were completed. The plan below is preserved as the original evaluation rubric.
+
 ## Goal
 
 Determine whether a small PersonIR provides a genuine semantic advantage for LifeHub or merely repackages conventional capability/runtime patterns.

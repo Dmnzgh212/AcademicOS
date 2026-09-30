@@ -33,14 +33,14 @@ The trusted host, its Python process, SQLite files, policy configuration, provid
 | “The local commit is versioned, audited, and checked against live grants.” | Supported in the tested host services, including the durable SQLite variant. This is conventional MVCC/capability design. |
 | “Shared writes require independent principals.” | Supported for `shared:` stores with host-configured principals and their tested direct/restart paths; not established across all LifeHub domains. |
 | “External effects are exactly once.” | Rejected as a general claim. Same-ID replay is blocked in the fake host; the local provider simulator can reconcile one interrupted action. Real provider semantics remain unknown. |
-| “PersonIR warrants a new language/compiler.” | Not supported by the current baseline. Host policies provide most demonstrated enforcement, and the isolated comparison is not yet feature-complete. Compiler work remains on hold pending decision gates. |
+| “PersonIR warrants a new language/compiler.” | Not supported by the current baseline. [The scoped decision](PERSON_IR_DECISION.md) is No-Go for a new compiler now; reopen only after affirmative comparative evidence. |
 
 ## Remaining falsification gates
 
 1. Compare a general isolated component interface with the same grants, policy, effects, trace explanations, and examples. Measure complexity and developer work alongside overhead.
 2. Demonstrate trusted evidence origin and policy approval/versioning at actual host entry points, including protected-output handling and request/session binding.
 3. Exercise cross-process revocation and a real provider's idempotency and status query, including outages and ambiguous responses. Never infer a failed action solely from an absent response.
-4. Decide whether at least three heterogeneous scenarios gain a semantic or enforcement advantage from the small IR rather than ordinary host APIs. Record negative findings and a final Go/No-Go decision.
+4. Reopen the [No-Go decision](PERSON_IR_DECISION.md) only if new evidence shows an advantage in at least three heterogeneous scenarios under a comparable isolated host.
 
 This ledger is evidence-limited. Passing local tests narrows the threat model; it does not make the open gates true.
 
@@ -54,5 +54,6 @@ This ledger is evidence-limited. Passing local tests narrows the threat model; i
 | Shared principal policy, persistence, and legacy denial | `tests/test_joint.py` |
 | Durable intent, fake provider query, absent record, and revoked replay | `tests/test_durable_effect_service.py` |
 | Narrow core-WASM boundary and restart probes | `tests/test_recovery_wasm.py`, `tests/test_wasm_bridge.py` |
+| Shared core-WASM host imports for academic and email | `tests/test_wasm_generic.py` |
 
 Run from repository root: `python -m unittest discover -s experiments/person_ir/tests -q`. The test names and assertions, rather than this summary, define what was actually exercised.

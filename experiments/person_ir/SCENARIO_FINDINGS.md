@@ -24,4 +24,4 @@ The same small graph and request primitives can **represent data movement** in f
 
 Do not add `Payment`, `Thermostat`, or `Course` node kinds to make the tests green. The generic host checks cover the named examples but need a trusted evidence and policy lifecycle, enforced shared-domain routing, and comparison against a general isolated component ABI. Their location in the host currently weighs against a unique PersonIR-language advantage.
 
-These examples do not test untrusted native execution, source authenticity, durable recovery, or real provider idempotency. They also do not provide a conventional-runtime baseline. The Go/No-Go decision remains open.
+These scenario examples alone do not test untrusted native execution, source authenticity, durable recovery, or real provider idempotency. The separate baseline and recovery probes are documented in [BASELINE_COMPARISON.md](BASELINE_COMPARISON.md). The scoped compiler decision is [No-Go](PERSON_IR_DECISION.md); real-provider and product integration questions remain open.
