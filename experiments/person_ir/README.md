@@ -4,7 +4,7 @@ This is an isolated falsification experiment, not a source language or a replace
 
 [PERSON_IR_SPEC.md](PERSON_IR_SPEC.md) describes the exact executable subset and host transitions. [THREAT_MODEL.md](THREAT_MODEL.md) records the attacker boundary, narrowed claims, and remaining falsification gates. Neither document is a formal security proof.
 
-[COMPONENT_ABI_EVALUATION.md](COMPONENT_ABI_EVALUATION.md) records the unexecuted WIT interface candidate and the acceptance criteria for a fair general component comparison. The `.wit` file is a design artifact; existing core-WASM examples remain the only executable isolated modules in this directory.
+[COMPONENT_ABI_EVALUATION.md](COMPONENT_ABI_EVALUATION.md) records the unexecuted WIT interface candidate and the acceptance criteria for a fair general component comparison. The `.wit` file is a design artifact; `wasm_generic.mjs` now runs academic and email core-WASM modules against one common set of host imports, with a trusted Python bridge into the normal services. Neither module is a Component Model binary.
 
 ## Executable contract
 
