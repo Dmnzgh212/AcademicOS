@@ -49,6 +49,12 @@ These are narrow structural checks, not a general information-flow theorem. The 
 
 `tests/test_hostile_extension.py` covers the planned rejection matrix and deliberately reproduces three missing boundaries. [HOSTILE_FINDINGS.md](HOSTILE_FINDINGS.md) separates graph-only rejection from host integration gaps and direct Python API forgery. A passing test that demonstrates a gap must not be counted as a defended attack.
 
+## Host-approved package binding probe
+
+`package.py` introduces `PackageManifest` and `PackageRunner` for a trusted host invocation. A host-approved manifest lists exact source names, commit targets, effect kind/destination pairs, and disclosure destination/purpose pairs. Binding snapshots the graph and rejects nodes outside those scopes; running filters an overprovided observation map down to the graph's approved inputs and assigns the host-approved producer/version. `tests/test_package.py` covers those checks and graph mutation after binding. The host must separately authorize every commit/effect through live grants.
+
+The manifest is not self-authenticating, and this probe is not wired into LifeHub plugin discovery or service APIs. `Interpreter.run` remains directly callable by trusted research code without a manifest. Never expose the raw interpreter, mutable host authority store, effect service, or protected local outputs to arbitrary native extensions.
+
 ## What the first slice can and cannot establish
 
 The verifier rejects unknown operations, malformed graphs, invalid dataflow edges, and structurally direct protected effects. The interpreter records traceable proposals, commit requests, disclosures, and effects. The host checks authority, can apply an in-memory state mutation, and can run only fake effects. The interpreter itself neither commits nor executes. Durable persistence, real effect adapters, general information-flow enforcement, and provenance authentication are **not implemented**. A `CommitRequest` is never a commit by itself; a `DisclosureRequest` is never authority.

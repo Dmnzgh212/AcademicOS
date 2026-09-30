@@ -13,7 +13,7 @@ The Python sample functions run in the host process and are **not safe untrusted
 | Academic proposal | Explicit source/select/join/derive/propose/commit graph | Ordinary code reads two declared inputs and proposes a value | Same host version and authority semantics; no unique advantage shown. |
 | Email egress | Verifier finds direct protected flow before execution; host checks disclosure and effect grants | Session conservatively marks all reads protected and requires disclosure at effect call; same grants | Graph offers earlier structural rejection and finer lineage, but same host owns actual authority. |
 | Recipient equality | Current graph cannot express equality of recipient data and sink config | Component code compares them before request | Generic predicates or host contract validation needed in IR. |
-| Package source/scope declaration | Missing from graph experiment | Manifest and session check names/scopes at calls | Baseline sketch closes two integration gaps at its mediated API. It has no OS sandbox. |
+| Package source/scope declaration | `PackageRunner` now binds a host-approved manifest to graph source names, commit targets, effect scopes, and disclosure purposes | Manifest and session check names/scopes at calls | Both mediated APIs can check declared scopes; neither proves package authenticity or protects direct host service calls. |
 | Provenance | Node trace on values and receipts | Host records reads and request construction; opaque code internals are not traced | PersonIR provides finer inspectable dataflow for its tiny closed op set. |
 | Payment/device/shared authority | Missing freshness, predicates, bounds, quorum | Could be programmed or enforced in host policy, but not implemented/tested here | Neither prototype proves these scenarios safe. |
 | Execution isolation | No arbitrary code in serialized graph; trusted Python host | Sample Python code runs in host process; a separate core-WASM module has only two declared imports | Core-WASM import routing is exercised, but full component isolation and feature parity remain untested. |
@@ -32,6 +32,8 @@ This is core WASM with a deliberately tiny numeric ABI, not a WASM Component/WIT
 
 The baseline deliberately reuses the experimental request dataclasses and host services, so equality of enforcement in these tests is by construction. It demonstrates that the useful policy checks can live in an ordinary host API; it does **not** establish that a complete WASM/WIT component has identical usability, provenance, or cost.
 
+`PackageRunner` snapshots the verified graph and filters overprovided host observations. Its manifest is an independent **host approval**, not an extension-authored authority token. The bare interpreter remains an experimental API without this binding, and the LifeHub loader and service entry points do not yet require it. A host that hands the result (including protected local outputs) directly to a plugin still violates the intended data boundary.
+
 ## Local overhead probe
 
 Run `python -m experiments.person_ir.benchmark`. On this execution environment, one run with five repeats of 2,000 operations each returned median microseconds per request construction:
@@ -45,6 +47,6 @@ Graphs and manifests were constructed outside the measured call; neither case co
 
 ## Decision gate
 
-The seven PersonIR slices show useful explicit requests and inspectable lineage, but the five examples do not demonstrate safe cross-domain generality. Hostile tests expose source/manifest binding gaps. The comparator can express academic and email flows with existing host policy, and ordinary code can state recipient equality more directly. No measured or semantic advantage currently justifies a new source language/compiler.
+The seven PersonIR slices show useful explicit requests and inspectable lineage, but the five examples do not demonstrate safe cross-domain generality. The new package boundary handles previously reproduced source/manifest gaps on one trusted entry path; direct service forgery and domain preconditions remain. The comparator can express academic and email flows with existing host policy, and ordinary code can state recipient equality more directly. No measured or semantic advantage currently justifies a new source language/compiler.
 
 **Provisional decision: hold compiler work.** Continue LifeHub as an open capability host, repair the package/input boundary, and test generic policy preconditions and multi-principal grants. Then evaluate a feature-comparable isolated component (preferably WASM Component/WIT), durable authority, and a real effect adapter with reconciliation before a final POP/PersonIR Go/No-Go. This is not a decision to abandon LifeHub or a proof that a better PersonIR is impossible.
