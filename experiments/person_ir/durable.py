@@ -11,6 +11,7 @@ from .effects import (EffectOutcome, EffectReceipt, EffectRejected, EffectServic
                       EffectUncertain, InvalidEffect, _validated_identity)
 from .model import EffectRequest
 from .model import TraceStep
+from .policy import EffectPolicy, Evidence
 from .state import CommitReceipt, StateStore
 
 
@@ -205,8 +206,8 @@ class DurableEffectService(EffectService):
     reconciliation, while completed receipts replay after another live grant check.
     """
 
-    def __init__(self, path: str, executors: dict):
-        super().__init__(executors)
+    def __init__(self, path: str, executors: dict, *, policy: EffectPolicy | None = None):
+        super().__init__(executors, policy=policy)
         self._journal = DurableEffectJournal(path)
 
     def receipt(self, domain: str, effect_id: str) -> EffectReceipt | None:
@@ -216,7 +217,8 @@ class DurableEffectService(EffectService):
     def execute(self, request: EffectRequest, authority: AuthorityStore, effect_handle: object, *,
                 principal: str, domain: str, agent: str,
                 disclosure_handle: object | None = None,
-                context: str | None = None, now: datetime | None = None) -> EffectOutcome:
+                context: str | None = None, now: datetime | None = None,
+                evidence: dict[str, Evidence] | None = None) -> EffectOutcome:
         if not isinstance(request, EffectRequest) or not isinstance(authority, AuthorityStore):
             raise TypeError("effect request and trusted authority store required")
         with authority._lock, self._lock:
@@ -227,7 +229,15 @@ class DurableEffectService(EffectService):
             executor = self._executors.get(request.kind)
             if executor is None:
                 raise InvalidEffect("no host executor for effect kind")
+            previous = self._journal.lookup(domain, identifier)
+            if previous is not None:
+                if previous[1] is None:
+                    raise EffectUncertain("pending effect outcome unknown; reconcile before retry")
+                return EffectOutcome(_restored_effect(previous[1]), True, check.checked_at)
+            if self._policy is not None:
+                self._policy.evaluate(request, evidence, now=check.checked_at)
             if not self._journal.begin(domain, identifier):
+                # A competing host process may have inserted after lookup.
                 previous = self._journal.lookup(domain, identifier)
                 if previous is None or previous[1] is None:
                     raise EffectUncertain("pending effect outcome unknown; reconcile before retry")

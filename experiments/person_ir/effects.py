@@ -7,6 +7,7 @@ from typing import Any
 
 from .authority import AuthorityStore
 from .model import EffectRequest, TraceStep, effect_identity
+from .policy import EffectPolicy, Evidence
 from .runtime import _json_value
 
 
@@ -97,12 +98,16 @@ def _validated_identity(request: EffectRequest) -> str:
 class EffectService:
     """Trusted host API. The IR can only produce requests, never call executors."""
 
-    def __init__(self, executors: dict[str, FakeExecutor]):
+    def __init__(self, executors: dict[str, FakeExecutor], *,
+                 policy: EffectPolicy | None = None):
         if type(executors) is not dict or not executors or any(
                 type(kind) is not str or type(executor) is not FakeExecutor
                 for kind, executor in executors.items()):
             raise ValueError("only explicit host fake executors are supported")
         self._executors = executors.copy()
+        if policy is not None and not isinstance(policy, EffectPolicy):
+            raise TypeError("host effect policy required")
+        self._policy = policy
         self._ledger: dict[tuple[str, str], EffectReceipt] = {}
         self._lock = RLock()
 
@@ -113,7 +118,8 @@ class EffectService:
     def execute(self, request: EffectRequest, authority: AuthorityStore, effect_handle: object, *,
                 principal: str, domain: str, agent: str,
                 disclosure_handle: object | None = None,
-                context: str | None = None, now: datetime | None = None) -> EffectOutcome:
+                context: str | None = None, now: datetime | None = None,
+                evidence: dict[str, Evidence] | None = None) -> EffectOutcome:
         if not isinstance(request, EffectRequest) or not isinstance(authority, AuthorityStore):
             raise TypeError("effect request and trusted authority store required")
         # Live grant check and local ledger/action are serialized with revocation.
@@ -130,6 +136,8 @@ class EffectService:
             executor = self._executors.get(request.kind)
             if executor is None:
                 raise InvalidEffect("no host executor for effect kind")
+            if self._policy is not None:
+                self._policy.evaluate(request, evidence, now=check.checked_at)
             try:
                 external_ref = executor.perform(request)
                 status, error = "succeeded", None

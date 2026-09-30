@@ -55,13 +55,17 @@ These are narrow structural checks, not a general information-flow theorem. The 
 
 The manifest is not self-authenticating, and this probe is not wired into LifeHub plugin discovery or service APIs. `Interpreter.run` remains directly callable by trusted research code without a manifest. Never expose the raw interpreter, mutable host authority store, effect service, or protected local outputs to arbitrary native extensions.
 
+## Generic host policy and shared grants
+
+`policy.py` defines host-approved use-time checks for numeric bounds, payload-field comparison, destination equality, and a fresh current observation matching a payload field and source reference. An optional `EffectPolicy` on the in-memory or durable fake-effect service checks **new actions** after authority/identity validation; replay of a completed receipt still checks live grants. `joint.py` requires independent live commit grants from host-specified principals for a shared-domain proposal. These are ordinary host controls usable with either PersonIR or conventional component requests. They do not authenticate evidence sources or providers, persist both joint grant IDs in the underlying receipt, or solve cross-process revocation/action races. See [SCENARIO_FINDINGS.md](SCENARIO_FINDINGS.md).
+
 ## What the first slice can and cannot establish
 
 The verifier rejects unknown operations, malformed graphs, invalid dataflow edges, and structurally direct protected effects. The interpreter records traceable proposals, commit requests, disclosures, and effects. The host checks authority, can apply an in-memory state mutation, and can run only fake effects. The interpreter itself neither commits nor executes. Durable persistence, real effect adapters, general information-flow enforcement, and provenance authentication are **not implemented**. A `CommitRequest` is never a commit by itself; a `DisclosureRequest` is never authority.
 
 Threat model for this slice: an untrusted **serialized graph** run by a trusted Python host. Executing arbitrary third-party Python in the host process to construct a graph would bypass this boundary. The model does not claim process isolation, a secure package sandbox, protection from malicious host code, or absence of covert channels.
 
-Next: a general WASM Component/WIT ABI, authenticated grant restoration and cross-process revocation, and a real provider recovery evaluation before a final Go/No-Go. Do not infer a new-language advantage from these primitives alone; the comparison criteria are in `docs/lifehub/research/PERSON_IR_EXPERIMENT_PLAN.md`.
+Next: a general WASM Component/WIT ABI, authenticated grant restoration and cross-process revocation, durable joint audit, and a real provider recovery evaluation before a final Go/No-Go. Do not infer a new-language advantage from these primitives alone; the comparison criteria are in `docs/lifehub/research/PERSON_IR_EXPERIMENT_PLAN.md`.
 
 ## Provisional baseline
 
