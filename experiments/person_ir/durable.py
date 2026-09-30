@@ -1,12 +1,12 @@
 """SQLite recovery probes for local state and uncertain external-effect intents."""
 
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from datetime import datetime
 import json
 import sqlite3
 from threading import RLock
 
-from .authority import AuthorityStore
+from .authority import AuthorityError, AuthorityStore, Grant, _CapabilityHandle
 from .effects import (EffectOutcome, EffectReceipt, EffectRejected, EffectService,
                       EffectUncertain, InvalidEffect, _validated_identity)
 from .model import EffectRequest
@@ -16,6 +16,74 @@ from .state import CommitReceipt, StateStore
 
 def _dump(value):
     return json.dumps(value, sort_keys=True, separators=(",", ":"))
+
+
+class DurableAuthorityStore(AuthorityStore):
+    """Host-only SQLite grant registry with fresh object handles on restart.
+
+    The host must authenticate its own startup/session before distributing any
+    recovered handles. A grant ID or serialized description is never accepted
+    directly by check_* APIs.
+    """
+
+    def __init__(self, path: str):
+        super().__init__()
+        self._db = sqlite3.connect(path, isolation_level=None, timeout=5)
+        self._db.execute(
+            "CREATE TABLE IF NOT EXISTS authority_grants "
+            "(capability_id TEXT PRIMARY KEY, grant_json TEXT NOT NULL, revoked INTEGER NOT NULL)")
+        for identifier, encoded, revoked in self._db.execute(
+                "SELECT capability_id, grant_json, revoked FROM authority_grants"):
+            fields = json.loads(encoded)
+            fields["issued_at"] = datetime.fromisoformat(fields["issued_at"])
+            fields["expires_at"] = (datetime.fromisoformat(fields["expires_at"])
+                                    if fields["expires_at"] else None)
+            grant = Grant(**(fields | {"revoked": bool(revoked)}))
+            handle = _CapabilityHandle()
+            self._handles[handle] = identifier
+            self._grants[identifier] = grant
+
+    def host_handles(self) -> dict[str, object]:
+        """Trusted startup handoff only; never expose this map to extensions."""
+        with self._lock:
+            return {identifier: handle for handle, identifier in self._handles.items()}
+
+    def issue(self, **kwargs) -> object:
+        with self._lock:
+            handle = super().issue(**kwargs)
+            grant = self.describe(handle)
+            encoded = asdict(grant)
+            encoded["issued_at"] = grant.issued_at.isoformat()
+            encoded["expires_at"] = grant.expires_at.isoformat() if grant.expires_at else None
+            try:
+                self._db.execute("INSERT INTO authority_grants VALUES (?, ?, 0)",
+                                 (grant.capability_id, _dump(encoded)))
+            except BaseException:
+                self._handles.pop(handle)
+                self._grants.pop(grant.capability_id)
+                raise
+            return handle
+
+    def revoke(self, capability_id: str) -> None:
+        with self._lock:
+            if capability_id not in self._grants:
+                raise AuthorityError("unknown capability id")
+            self._db.execute("UPDATE authority_grants SET revoked=1 WHERE capability_id=?",
+                             (capability_id,))
+            super().revoke(capability_id)
+
+    def _check(self, handle, **kwargs) -> str:
+        grant = self.describe(handle)
+        row = self._db.execute(
+            "SELECT revoked FROM authority_grants WHERE capability_id=?",
+            (grant.capability_id,)).fetchone()
+        if row is None:
+            raise AuthorityError("grant missing from durable registry")
+        self._grants[grant.capability_id] = replace(grant, revoked=bool(row[0]))
+        return super()._check(handle, **kwargs)
+
+    def close(self):
+        self._db.close()
 
 
 class DurableStateStore(StateStore):
@@ -48,7 +116,11 @@ class DurableStateStore(StateStore):
             return super().snapshot()
 
     def commit(self, request, authority, handle, **kwargs):
-        with self._lock:
+        if not isinstance(authority, AuthorityStore):
+            raise TypeError("trusted authority store required")
+        # Preserve the authority -> state -> SQLite lock order used by the
+        # in-memory store, including when grants share this SQLite database.
+        with authority._lock, self._lock:
             self._db.execute("BEGIN IMMEDIATE")
             try:
                 self._reload()
