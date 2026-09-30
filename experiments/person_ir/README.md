@@ -2,6 +2,8 @@
 
 This is an isolated falsification experiment, not a source language or a replacement for the LifeHub kernel. Run `python -m unittest discover -s experiments/person_ir/tests -v` from the repository root. `examples/academic.py` computes a local study-block proposal from two host observations.
 
+[PERSON_IR_SPEC.md](PERSON_IR_SPEC.md) describes the exact executable subset and host transitions. [THREAT_MODEL.md](THREAT_MODEL.md) records the attacker boundary, narrowed claims, and remaining falsification gates. Neither document is a formal security proof.
+
 ## Executable contract
 
 - The host supplies `Observation(value, source, label)` and a state `base_version`. `Graph.from_json(text)` loads `Node(id, op, inputs, config)` records in topological order. No node can hold a user-defined transform or callback. Inputs are restricted to copied JSON values. A Python constructor is also available for trusted experiments.

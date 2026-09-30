@@ -1,5 +1,7 @@
 # Conventional host API comparison — provisional
 
+Read [PERSON_IR_SPEC.md](PERSON_IR_SPEC.md) for the implemented subset and [THREAT_MODEL.md](THREAT_MODEL.md) for the supported and rejected claims. The comparison below is evidence for a provisional decision, not a complete security proof.
+
 ## Comparator and scope
 
 `baseline.py` sketches a conventional capability-limited **host interface**: a component manifest declares readable observations, commit targets, and effect scopes; a session exposes `read`, `propose`, and `effect` calls. Trusted sample component functions implement the academic and email examples. The host can reuse the same `AuthorityStore`, `StateStore`, and `EffectService` as PersonIR. This intentionally holds authorization, version checks, and fake execution constant while comparing the programming interface.
