@@ -34,6 +34,7 @@ This ledger prevents research hypotheses from silently becoming product facts.
 | Authority should be explicitly delegated and revocable | Product/system thesis on prior-art foundations | Test integration with state/effects/provenance. |
 | Observation -> Interpretation -> Proposal -> Authority is useful | Combination hypothesis | Test across non-calendar domains. |
 | A new source-language syntax is required | Not established | Do not build parser/compiler first. |
+| This PersonIR prototype justifies beginning a source-language compiler | Rejected for the current scope (2026-09-30) | [Decision record](../../../experiments/person_ir/PERSON_IR_DECISION.md): no affirmative semantic/enforcement advantage over the conventional host comparator; retain an optional data-only IR. Reopen only with comparable isolated evidence. |
 | A small verified PersonIR may be useful | Research hypothesis | Build verifier/interpreter experiment first. |
 | PersonIR can statically infer all permissions | Invalid if stated absolutely | Dynamic state and revocation require runtime enforcement. |
 | Verified IR automatically makes the system secure | Invalid | Verifier/runtime/OS remain part of the trusted computing base. |
