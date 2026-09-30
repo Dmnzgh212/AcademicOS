@@ -2,7 +2,7 @@
 // Its entire host ABI is read(index) -> i32 and propose(course, slot) -> void.
 import { pathToFileURL } from "node:url";
 
-const uleb = (value) => {
+export const uleb = (value) => {
   const bytes = [];
   do {
     let byte = value & 127;
@@ -12,12 +12,12 @@ const uleb = (value) => {
   } while (value);
   return bytes;
 };
-const str = (value) => {
+export const str = (value) => {
   const bytes = [...new TextEncoder().encode(value)];
   return [...uleb(bytes.length), ...bytes];
 };
-const section = (id, bytes) => [id, ...uleb(bytes.length), ...bytes];
-const vector = (...entries) => [...uleb(entries.length), ...entries.flat()];
+export const section = (id, bytes) => [id, ...uleb(bytes.length), ...bytes];
+export const vector = (...entries) => [...uleb(entries.length), ...entries.flat()];
 
 export function moduleBytes(readIndices = [0, 1]) {
   // read: (i32) -> i32; propose: (i32, i32) -> (); run: () -> ()

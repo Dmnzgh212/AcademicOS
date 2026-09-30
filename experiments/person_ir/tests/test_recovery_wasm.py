@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 
 from experiments.person_ir import AuthorityStore, Interpreter, Observation
 from experiments.person_ir.durable import DurableEffectJournal, DurableStateStore
-from experiments.person_ir.examples import academic
+from experiments.person_ir.examples import academic, email
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -15,15 +15,42 @@ NOW = datetime(2026, 9, 29, tzinfo=timezone.utc)
 
 
 class CoreWasmBaselineTests(unittest.TestCase):
-    def run_case(self, name):
-        result = subprocess.run(["node", "experiments/person_ir/wasm_baseline.mjs", name],
+    def run_case(self, module, name):
+        result = subprocess.run(["node", f"experiments/person_ir/{module}.mjs", name],
                                 cwd=ROOT, text=True, capture_output=True, check=True)
         return json.loads(result.stdout)
 
     def test_isolated_academic_and_host_denials(self):
-        self.assertEqual(self.run_case("academic")["proposal"]["value"], [2110, 4])
-        self.assertIn("source not declared", self.run_case("undeclared")["error"])
-        self.assertIn("commit target not declared", self.run_case("no_commit")["error"])
+        self.assertEqual(self.run_case("wasm_baseline", "academic")["proposal"]["value"], [2110, 4])
+        self.assertIn("source not declared", self.run_case("wasm_baseline", "undeclared")["error"])
+        self.assertIn("commit target not declared", self.run_case("wasm_baseline", "no_commit")["error"])
+
+    def test_email_request_parity_and_hostile_module_denials(self):
+        wasm = self.run_case("wasm_email", "email")
+        self.assertTrue(wasm["ok"])
+        destination = "alice@example.com"
+        graph = Interpreter().run(email.program(destination), {
+            "context": Observation("meeting", "context:1", "protected"),
+            "draft": Observation("hello", "draft:1", "protected"),
+            "recipient": Observation(destination, "recipient:1"),
+        }, base_version=0, producer="mail@1", intent_id="send:1").effects[0]
+        request = wasm["request"]
+        self.assertEqual(request["payload"], graph.payload)
+        self.assertEqual(request["destination"], graph.destination)
+        self.assertEqual(request["label"], graph.label)
+        self.assertEqual(request["disclosure_purpose"], graph.disclosure.purpose)
+        self.assertEqual(set(request["sources"]), set(graph.sources))
+        for scenario, expected in (
+            ("mismatch", "unreachable"),
+            ("no_disclosure", "disclosure not declared"),
+            ("no_effect", "effect scope not declared"),
+            ("undeclared", "source not declared"),
+            ("forged_handle", "request value does not match observed source"),
+        ):
+            with self.subTest(scenario=scenario):
+                denied = self.run_case("wasm_email", scenario)
+                self.assertFalse(denied["ok"])
+                self.assertIn(expected, denied["error"])
 
 
 class RecoveryTests(unittest.TestCase):
