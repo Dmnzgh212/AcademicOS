@@ -1,6 +1,7 @@
 // A core-WASM email component with opaque value handles. Host imports are its
 // only access to observations and request construction; no email is sent here.
 import { pathToFileURL } from "node:url";
+import { readFileSync } from "node:fs";
 import { section, str, uleb, vector } from "./wasm_baseline.mjs";
 
 export function emailModuleBytes(readIndices = [0, 1, 2], forgeHandle = false) {
@@ -96,6 +97,15 @@ export async function runEmail({ manifest, observations, destination,
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const scenario = process.argv[2] || "email";
+  if (scenario === "--json") {
+    try {
+      const config = JSON.parse(readFileSync(0, "utf8"));
+      process.stdout.write(JSON.stringify({ ok: true, request: await runEmail(config) }) + "\n");
+    } catch (error) {
+      process.stdout.write(JSON.stringify({ ok: false, error: error.message }) + "\n");
+    }
+    process.exit(0);
+  }
   const destination = "alice@example.com";
   const config = {
     manifest: {
