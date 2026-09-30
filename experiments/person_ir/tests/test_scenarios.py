@@ -1,7 +1,7 @@
 import unittest
 from datetime import datetime, timedelta, timezone
 
-from experiments.person_ir import (AuthorityStore, EffectService, FakeExecutor,
+from experiments.person_ir import (AuthorityError, AuthorityStore, EffectService, FakeExecutor,
                                    Interpreter, Observation, StaleProposal,
                                    StateStore)
 from experiments.person_ir.examples import academic, collaboration, email, home, payment
@@ -101,17 +101,16 @@ class ScenarioTests(unittest.TestCase):
         self.assertEqual(executor.actions[0].payload[0], {"celsius": 20})
         self.assertEqual(executor.actions[0].payload[1], {"cool_above_celsius": 25})
 
-    def test_shared_state_accepts_one_grant_without_second_principal_known_gap(self):
-        state, authority = StateStore("shared:team"), AuthorityStore()
+    def test_shared_state_rejects_one_grant_at_storage_boundary(self):
+        state = StateStore("shared:team", required_principals=("person:1", "person:2"))
+        authority = AuthorityStore()
         item = collaboration.request(["person:2"])  # an unverified data claim
         one_person = grant(authority, domain="shared:team", agent="collab@1",
                            operation="commit", resource="shared_document")
-        result = state.commit(item, authority, one_person,
-                              principal=PRINCIPAL, agent="collab@1", now=NOW)
-        self.assertTrue(result.receipt.applied)
-        self.assertEqual(state.snapshot().values["shared_document"][1], ["person:2"])
-        # No second capability or authenticated vote was checked.
-        self.assertEqual(result.checked_capability_id, authority.describe(one_person).capability_id)
+        with self.assertRaisesRegex(AuthorityError, "required principal"):
+            state.commit(item, authority, one_person,
+                         principal=PRINCIPAL, agent="collab@1", now=NOW)
+        self.assertEqual(state.snapshot().version, 0)
 
 
 if __name__ == "__main__":

@@ -91,12 +91,36 @@ class DurableAuthorityStore(AuthorityStore):
 class DurableStateStore(StateStore):
     """A single-domain SQLite-backed version and receipt ledger."""
 
-    def __init__(self, path: str, domain: str, initial: dict | None = None):
-        super().__init__(domain, initial)
+    def __init__(self, path: str, domain: str, initial: dict | None = None, *,
+                 required_principals: tuple[str, ...] | None = None):
+        super().__init__(domain, initial, required_principals=required_principals)
         self._db = sqlite3.connect(path, isolation_level=None, timeout=5)
+        self._db.execute("CREATE TABLE IF NOT EXISTS state_policies "
+                         "(domain TEXT PRIMARY KEY, principals TEXT NOT NULL)")
         self._db.execute("CREATE TABLE IF NOT EXISTS state (domain TEXT PRIMARY KEY, version INTEGER NOT NULL, vals TEXT NOT NULL)")
         self._db.execute("CREATE TABLE IF NOT EXISTS commits (domain TEXT NOT NULL, proposal_id TEXT NOT NULL, receipt TEXT NOT NULL, PRIMARY KEY(domain, proposal_id))")
-        self._db.execute("INSERT OR IGNORE INTO state VALUES (?, 0, ?)", (domain, _dump(self._values)))
+        try:
+            self._db.execute("BEGIN IMMEDIATE")
+            policy = self._db.execute(
+                "SELECT principals FROM state_policies WHERE domain=?", (domain,)).fetchone()
+            existing = self._db.execute(
+                "SELECT version FROM state WHERE domain=?", (domain,)).fetchone()
+            old_receipt = self._db.execute(
+                "SELECT 1 FROM commits WHERE domain=? LIMIT 1", (domain,)).fetchone()
+            if policy is None and existing is not None and (existing[0] != 0 or old_receipt):
+                raise ValueError("cannot assign policy to legacy state with commits")
+            encoded = _dump(required_principals)
+            if policy is not None and policy[0] != encoded:
+                raise ValueError("stored state principal policy mismatch")
+            self._db.execute("INSERT OR IGNORE INTO state_policies VALUES (?, ?)",
+                             (domain, encoded))
+            self._db.execute("INSERT OR IGNORE INTO state VALUES (?, 0, ?)",
+                             (domain, _dump(self._values)))
+            self._db.execute("COMMIT")
+        except BaseException:
+            self._db.execute("ROLLBACK")
+            self._db.close()
+            raise
         self._reload()
 
     def _reload(self):

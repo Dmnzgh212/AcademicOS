@@ -50,17 +50,31 @@ class CommitOutcome:
 class StateStore:
     """Trusted host API; not directly exposed to IR or third-party Python."""
 
-    def __init__(self, domain: str, initial: dict[str, Any] | None = None):
+    def __init__(self, domain: str, initial: dict[str, Any] | None = None, *,
+                 required_principals: tuple[str, ...] | None = None):
         if type(domain) is not str or not domain.strip():
             raise ValueError("domain required")
+        if (required_principals is not None and
+                (type(required_principals) is not tuple or len(required_principals) < 2 or
+                 len(set(required_principals)) != len(required_principals) or
+                 any(type(item) is not str or not item.strip()
+                     for item in required_principals))):
+            raise ValueError("at least two distinct required principals expected")
+        if domain.startswith("shared:") and required_principals is None:
+            raise ValueError("shared domain requires joint principal policy")
         state = {} if initial is None else _json_value(initial)
         if type(state) is not dict:
             raise ValueError("initial state must be an object")
         self.domain = domain
+        self._required_principals = required_principals
         self._values = state
         self._version = 0
         self._ledger: dict[str, CommitReceipt] = {}
         self._lock = RLock()
+
+    @property
+    def required_principals(self) -> tuple[str, ...] | None:
+        return self._required_principals
 
     def snapshot(self) -> StateSnapshot:
         """Trusted host read; a future state-view API needs separate read authority."""
@@ -81,6 +95,8 @@ class StateStore:
         principals = (principal, *(item[0] for item in additional_grants))
         if len(set(principals)) != len(principals):
             raise AuthorityError("distinct principals required")
+        if self.required_principals is not None and principals != self.required_principals:
+            raise AuthorityError("exact required principal grants missing")
         # Lock order is authority -> state. Revocation cannot interleave with the
         # final check and this in-process mutation; no external effect is involved.
         with authority._lock, self._lock:

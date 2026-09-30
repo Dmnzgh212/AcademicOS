@@ -35,6 +35,8 @@ class JointCommitService:
             raise TypeError("host state, authority, handles and commit request required")
         if set(handles) != set(self.required_principals):
             raise AuthorityError("exact required principal grants missing")
+        if state.required_principals != self.required_principals:
+            raise AuthorityError("state principal policy differs from joint gate")
         outcome = state.commit(
             request, authority, handles[self.required_principals[0]],
             principal=self.required_principals[0], agent=agent,

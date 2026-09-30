@@ -57,7 +57,7 @@ The manifest is not self-authenticating, and this probe is not wired into LifeHu
 
 ## Generic host policy and shared grants
 
-`policy.py` defines host-approved use-time checks for numeric bounds, payload-field comparison, destination equality, and a fresh current observation matching a payload field and source reference. An optional `EffectPolicy` on the in-memory or durable fake-effect service checks **new actions** after authority/identity validation; replay of a completed receipt still checks live grants. `joint.py` requires independent live commit grants from host-specified principals for a shared-domain proposal. The state transaction now checks every co-signer and persists all checked grant IDs in its receipt, including after restart. These are ordinary host controls usable with either PersonIR or conventional component requests. They do not authenticate evidence sources or providers, force all shared-domain writes through the joint gate, or solve cross-process revocation/action races. See [SCENARIO_FINDINGS.md](SCENARIO_FINDINGS.md).
+`policy.py` defines host-approved use-time checks for numeric bounds, payload-field comparison, destination equality, and a fresh current observation matching a payload field and source reference. An optional `EffectPolicy` on the in-memory or durable fake-effect service checks **new actions** after authority/identity validation; replay of a completed receipt still checks live grants. `joint.py` requires independent live commit grants from host-specified principals for a shared-domain proposal. A `shared:` state domain must be constructed with `required_principals`; its normal commit path checks the exact set of co-signers and persists all checked grant IDs in its receipt. SQLite also stores the domain policy and rejects a mismatched restart. These are ordinary host controls usable with either PersonIR or conventional component requests. They do not authenticate evidence sources or providers, enforce governance for arbitrary domain names without host configuration, or solve cross-process revocation/action races. See [SCENARIO_FINDINGS.md](SCENARIO_FINDINGS.md).
 
 ## What the first slice can and cannot establish
 
@@ -65,7 +65,7 @@ The verifier rejects unknown operations, malformed graphs, invalid dataflow edge
 
 Threat model for this slice: an untrusted **serialized graph** run by a trusted Python host. Executing arbitrary third-party Python in the host process to construct a graph would bypass this boundary. The model does not claim process isolation, a secure package sandbox, protection from malicious host code, or absence of covert channels.
 
-Next: a general WASM Component/WIT ABI, authenticated grant restoration and cross-process revocation, enforced shared-domain routing, and a real provider recovery evaluation before a final Go/No-Go. Do not infer a new-language advantage from these primitives alone; the comparison criteria are in `docs/lifehub/research/PERSON_IR_EXPERIMENT_PLAN.md`.
+Next: a general WASM Component/WIT ABI, authenticated grant restoration and cross-process revocation, policy configuration across real LifeHub entry points, and a real provider recovery evaluation before a final Go/No-Go. Do not infer a new-language advantage from these primitives alone; the comparison criteria are in `docs/lifehub/research/PERSON_IR_EXPERIMENT_PLAN.md`.
 
 ## Provisional baseline
 
