@@ -1,10 +1,15 @@
 """SQLite recovery probes for local state and uncertain external-effect intents."""
 
 from dataclasses import asdict
+from datetime import datetime
 import json
 import sqlite3
 from threading import RLock
 
+from .authority import AuthorityStore
+from .effects import (EffectOutcome, EffectReceipt, EffectRejected, EffectService,
+                      EffectUncertain, InvalidEffect, _validated_identity)
+from .model import EffectRequest
 from .model import TraceStep
 from .state import CommitReceipt, StateStore
 
@@ -101,3 +106,76 @@ class DurableEffectJournal:
 
     def close(self):
         self._db.close()
+
+
+def _encoded_effect(receipt: EffectReceipt) -> dict:
+    result = asdict(receipt)
+    result["recorded_at"] = receipt.recorded_at.isoformat()
+    return result
+
+
+def _restored_effect(data: dict) -> EffectReceipt:
+    try:
+        result = data.copy()
+        result["recorded_at"] = datetime.fromisoformat(result["recorded_at"])
+        result["authority_ids"] = tuple(result["authority_ids"])
+        result["trace"] = tuple(TraceStep(**(step | {"input_ids": tuple(step["input_ids"])}))
+                                for step in result["trace"])
+        return EffectReceipt(**result)
+    except (KeyError, TypeError, ValueError) as exc:
+        raise EffectUncertain("journal entry lacks a complete effect receipt") from exc
+
+
+class DurableEffectService(EffectService):
+    """Fake effects with a durable intent-before-action boundary.
+
+    A pending intent may already have acted. Replays raise EffectUncertain until
+    reconciliation, while completed receipts replay after another live grant check.
+    """
+
+    def __init__(self, path: str, executors: dict):
+        super().__init__(executors)
+        self._journal = DurableEffectJournal(path)
+
+    def receipt(self, domain: str, effect_id: str) -> EffectReceipt | None:
+        entry = self._journal.lookup(domain, effect_id)
+        return _restored_effect(entry[1]) if entry and entry[1] is not None else None
+
+    def execute(self, request: EffectRequest, authority: AuthorityStore, effect_handle: object, *,
+                principal: str, domain: str, agent: str,
+                disclosure_handle: object | None = None,
+                context: str | None = None, now: datetime | None = None) -> EffectOutcome:
+        if not isinstance(request, EffectRequest) or not isinstance(authority, AuthorityStore):
+            raise TypeError("effect request and trusted authority store required")
+        with authority._lock, self._lock:
+            check = authority.check_effect_request(
+                request, effect_handle, principal=principal, domain=domain, agent=agent,
+                disclosure_handle=disclosure_handle, context=context, now=now)
+            identifier = _validated_identity(request)
+            executor = self._executors.get(request.kind)
+            if executor is None:
+                raise InvalidEffect("no host executor for effect kind")
+            if not self._journal.begin(domain, identifier):
+                previous = self._journal.lookup(domain, identifier)
+                if previous is None or previous[1] is None:
+                    raise EffectUncertain("pending effect outcome unknown; reconcile before retry")
+                return EffectOutcome(_restored_effect(previous[1]), True, check.checked_at)
+            # The committed journal row exists before the fake external action.
+            try:
+                external_ref = executor.perform(request)
+                status, error = "succeeded", None
+            except EffectRejected as exc:
+                external_ref, status, error = None, "failed", str(exc)
+            except Exception as exc:
+                external_ref, status, error = None, "unknown", type(exc).__name__
+            receipt = EffectReceipt(identifier, domain, request.kind, request.destination,
+                                    status, external_ref, error, check.capability_ids,
+                                    check.checked_at, request.trace)
+            try:
+                self._journal.finish(domain, identifier, _encoded_effect(receipt))
+            except Exception as exc:
+                raise EffectUncertain("effect outcome could not be durably recorded") from exc
+            return EffectOutcome(receipt, False, check.checked_at)
+
+    def close(self):
+        self._journal.close()

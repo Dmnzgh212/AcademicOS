@@ -1,7 +1,10 @@
 import unittest
 from datetime import datetime, timezone
+from pathlib import Path
+import tempfile
 
 from experiments.person_ir import AuthorityError, AuthorityStore, EffectService, FakeExecutor, Observation
+from experiments.person_ir.durable import DurableEffectService
 from experiments.person_ir.package import PackageManifest
 from experiments.person_ir.wasm_bridge import (WasmRequestRejected, _materialize_email,
                                                 email_request_from_wasm)
@@ -59,6 +62,26 @@ class WasmHostBridgeTests(unittest.TestCase):
             service.execute(item, authority, send, **ACTOR,
                             disclosure_handle=disclose, now=NOW)
         self.assertEqual(executor.actions, [])
+
+    def test_wasm_request_receipt_survives_service_restart(self):
+        item = email_request_from_wasm(MANIFEST, OBS, DEST, intent_id="durable:1")
+        authority = AuthorityStore()
+        send = grant(authority, "effect:email")
+        disclose = grant(authority, "disclose", "send requested email")
+        kwargs = dict(authority=authority, effect_handle=send, disclosure_handle=disclose,
+                      now=NOW, **ACTOR)
+        with tempfile.TemporaryDirectory() as directory:
+            path = str(Path(directory) / "effects.sqlite")
+            first_service = DurableEffectService(path, {"email": FakeExecutor()})
+            first = first_service.execute(item, **kwargs)
+            first_service.close()
+            second_executor = FakeExecutor()
+            restarted = DurableEffectService(path, {"email": second_executor})
+            replay = restarted.execute(item, **kwargs)
+            self.assertTrue(replay.replayed)
+            self.assertEqual(replay.receipt, first.receipt)
+            self.assertEqual(second_executor.actions, [])
+            restarted.close()
 
     def test_host_rejects_missing_manifest_disclosure_and_tampered_response(self):
         unapproved = PackageManifest("mail@1", MANIFEST.sources, frozenset(),

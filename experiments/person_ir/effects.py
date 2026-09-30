@@ -72,6 +72,28 @@ class EffectOutcome:
     checked_at: datetime
 
 
+def _validated_identity(request: EffectRequest) -> str:
+    try:
+        payload = _json_value(request.payload)
+        if (type(request.producer) is not str or not request.producer.strip() or
+                type(request.node_id) is not str or not request.node_id.strip() or
+                type(request.intent_id) is not str or not request.intent_id.strip() or
+                type(request.sources) is not frozenset or
+                any(type(source) is not str for source in request.sources)):
+            raise ValueError("invalid effect metadata")
+        expected = effect_identity(
+            producer=request.producer, node_id=request.node_id,
+            intent_id=request.intent_id, kind=request.kind,
+            destination=request.destination, payload=payload, label=request.label,
+            disclosure_purpose=request.disclosure.purpose if request.disclosure else None,
+            sources=request.sources, trace=request.trace)
+    except (TypeError, ValueError) as exc:
+        raise InvalidEffect("malformed effect request") from exc
+    if expected != request.effect_id:
+        raise InvalidEffect("effect content changed since creation")
+    return expected
+
+
 class EffectService:
     """Trusted host API. The IR can only produce requests, never call executors."""
 
@@ -100,24 +122,7 @@ class EffectService:
             check = authority.check_effect_request(
                 request, effect_handle, principal=principal, domain=domain, agent=agent,
                 disclosure_handle=disclosure_handle, context=context, now=now)
-            try:
-                payload = _json_value(request.payload)
-                if (type(request.producer) is not str or not request.producer.strip() or
-                        type(request.node_id) is not str or not request.node_id.strip() or
-                        type(request.intent_id) is not str or not request.intent_id.strip() or
-                        type(request.sources) is not frozenset or
-                        any(type(source) is not str for source in request.sources)):
-                    raise ValueError("invalid effect metadata")
-                expected = effect_identity(
-                    producer=request.producer, node_id=request.node_id,
-                    intent_id=request.intent_id, kind=request.kind,
-                    destination=request.destination, payload=payload, label=request.label,
-                    disclosure_purpose=request.disclosure.purpose if request.disclosure else None,
-                    sources=request.sources, trace=request.trace)
-            except (TypeError, ValueError) as exc:
-                raise InvalidEffect("malformed effect request") from exc
-            if expected != request.effect_id:
-                raise InvalidEffect("effect content changed since creation")
+            expected = _validated_identity(request)
             key = (domain, expected)
             previous = self._ledger.get(key)
             if previous is not None:
