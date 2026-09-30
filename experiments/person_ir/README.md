@@ -4,6 +4,8 @@ This is an isolated falsification experiment, not a source language or a replace
 
 [PERSON_IR_SPEC.md](PERSON_IR_SPEC.md) describes the exact executable subset and host transitions. [THREAT_MODEL.md](THREAT_MODEL.md) records the attacker boundary, narrowed claims, and remaining falsification gates. Neither document is a formal security proof.
 
+[COMPONENT_ABI_EVALUATION.md](COMPONENT_ABI_EVALUATION.md) records the unexecuted WIT interface candidate and the acceptance criteria for a fair general component comparison. The `.wit` file is a design artifact; existing core-WASM examples remain the only executable isolated modules in this directory.
+
 ## Executable contract
 
 - The host supplies `Observation(value, source, label)` and a state `base_version`. `Graph.from_json(text)` loads `Node(id, op, inputs, config)` records in topological order. No node can hold a user-defined transform or callback. Inputs are restricted to copied JSON values. A Python constructor is also available for trusted experiments.

@@ -1,0 +1,46 @@
+package lifehub:person-comparator@0.1.0;
+
+// Candidate interface for an isolated conventional component. This file has
+// not been compiled or run: the local environment has no Component/WIT tools.
+interface host {
+    record observation {
+        value-json: string,
+        source-ref: string,
+        protected: bool,
+    }
+
+    record proposal-request {
+        target: string,
+        value-json: string,
+        base-version: u64,
+    }
+
+    record effect-request {
+        kind: string,
+        destination: string,
+        payload-json: string,
+        disclosure-purpose: option<string>,
+        intent-id: string,
+    }
+
+    variant rejection {
+        undeclared-source,
+        undeclared-target,
+        undeclared-effect,
+        disclosure-required,
+        invalid-value,
+        other(string),
+    }
+
+    // Inputs and provenance claims come from the trusted host.
+    read: func(name: string) -> result<observation, rejection>;
+
+    // These submit inert requests. Neither function grants authority or acts.
+    propose: func(request: proposal-request) -> result<string, rejection>;
+    request-effect: func(request: effect-request) -> result<string, rejection>;
+}
+
+world candidate {
+    import host;
+    export run: func() -> result<list<string>, string>;
+}
