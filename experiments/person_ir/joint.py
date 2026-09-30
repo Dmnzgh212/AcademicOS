@@ -35,16 +35,11 @@ class JointCommitService:
             raise TypeError("host state, authority, handles and commit request required")
         if set(handles) != set(self.required_principals):
             raise AuthorityError("exact required principal grants missing")
-        # Serialize in-process revocation with every check and the local commit.
-        with authority._lock:
-            checks = [authority.check_commit_request(
-                request, handles[principal], principal=principal, domain=state.domain,
-                agent=agent, context=context, now=now)
-                for principal in self.required_principals]
-            outcome = state.commit(
-                request, authority, handles[self.required_principals[0]],
-                principal=self.required_principals[0], agent=agent,
-                context=context, now=now)
-            return JointCommitOutcome(
-                outcome, self.required_principals,
-                tuple(check.capability_ids[0] for check in checks))
+        outcome = state.commit(
+            request, authority, handles[self.required_principals[0]],
+            principal=self.required_principals[0], agent=agent,
+            context=context, now=now,
+            additional_grants=tuple((principal, handles[principal])
+                                    for principal in self.required_principals[1:]))
+        return JointCommitOutcome(outcome, self.required_principals,
+                                  outcome.receipt.authority_ids)

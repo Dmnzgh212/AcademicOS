@@ -109,6 +109,8 @@ class DurableStateStore(StateStore):
             item["sources"] = frozenset(item["sources"])
             item["trace"] = tuple(TraceStep(**(step | {"input_ids": tuple(step["input_ids"])}))
                                   for step in item["trace"])
+            if "authority_ids" in item:
+                item["authority_ids"] = tuple(item["authority_ids"])
             self._ledger[identifier] = CommitReceipt(**item)
 
     def snapshot(self):

@@ -5,7 +5,7 @@ from datetime import datetime
 from threading import RLock
 from typing import Any
 
-from .authority import AuthorityStore
+from .authority import AuthorityError, AuthorityStore
 from .model import CommitRequest, TraceStep, proposal_identity
 from .runtime import _json_value
 
@@ -36,6 +36,7 @@ class CommitReceipt:
     sources: frozenset[str]
     trace: tuple[TraceStep, ...]
     authority_id: str
+    authority_ids: tuple[str, ...] = ()  # primary plus co-signers; old receipts may omit
 
 
 @dataclass(frozen=True)
@@ -68,15 +69,30 @@ class StateStore:
 
     def commit(self, request: CommitRequest, authority: AuthorityStore, handle: object, *,
                principal: str, agent: str, context: str | None = None,
-               now: datetime | None = None) -> CommitOutcome:
+               now: datetime | None = None,
+               additional_grants: tuple[tuple[str, object], ...] = ()) -> CommitOutcome:
         if not isinstance(authority, AuthorityStore) or not isinstance(request, CommitRequest):
             raise TypeError("trusted authority store and commit request required")
+        if (type(additional_grants) is not tuple or
+                any(type(item) is not tuple or len(item) != 2 or
+                    type(item[0]) is not str or not item[0].strip()
+                    for item in additional_grants)):
+            raise AuthorityError("invalid co-signer grants")
+        principals = (principal, *(item[0] for item in additional_grants))
+        if len(set(principals)) != len(principals):
+            raise AuthorityError("distinct principals required")
         # Lock order is authority -> state. Revocation cannot interleave with the
         # final check and this in-process mutation; no external effect is involved.
         with authority._lock, self._lock:
             check = authority.check_commit_request(request, handle, principal=principal,
                                                    domain=self.domain, agent=agent,
                                                    context=context, now=now)
+            co_checks = [authority.check_commit_request(
+                request, co_handle, principal=co_principal, domain=self.domain,
+                agent=agent, context=context, now=now)
+                for co_principal, co_handle in additional_grants]
+            checked_ids = (check.capability_ids[0],
+                           *(co_check.capability_ids[0] for co_check in co_checks))
             proposal = request.proposal
             try:
                 value = _json_value(proposal.value)
@@ -98,6 +114,8 @@ class StateStore:
                 raise InvalidProposal("proposal content changed since creation")
             previous = self._ledger.get(expected_id)
             if previous is not None:
+                if len(previous.authority_ids or (previous.authority_id,)) != len(checked_ids):
+                    raise AuthorityError("same number of live co-signer grants required for replay")
                 return CommitOutcome(previous, True, check.checked_at, check.capability_ids[0])
             if proposal.base_version != self._version:
                 raise StaleProposal(f"expected state version {proposal.base_version}, current {self._version}")
@@ -109,6 +127,6 @@ class StateStore:
                 self._version += 1
             receipt = CommitReceipt(expected_id, self.domain, proposal.target,
                                     old_version, self._version, applied, proposal.sources,
-                                    proposal.trace, check.capability_ids[0])
+                                    proposal.trace, check.capability_ids[0], checked_ids)
             self._ledger[expected_id] = receipt
             return CommitOutcome(receipt, False, check.checked_at, check.capability_ids[0])
