@@ -1,0 +1,33 @@
+# LifeHub package installation (first slice)
+
+Installable packages are ZIP files containing a versioned `plugin.toml` at the archive root.
+They may include static assets and synthetic `seed.json`. Nothing in the ZIP is executed.
+
+```bash
+lifehub review-package ./example.zip
+lifehub install-package ./example.zip --approve-hash <sha256-content>
+lifehub plugins --plugins data/lifehub-installed
+lifehub serve --plugins data/lifehub-installed
+lifehub uninstall-package demo.example
+```
+
+`review-package` prints the plugin identity, version, requested permissions, contributions,
+and a canonical SHA-256 content digest. Review those permissions and pass that exact digest
+to `install-package`. The installer reads the ZIP again, rejects unsafe paths, symlinks,
+duplicate entries and oversized contents, then stores an approval tied to the installed
+package's version and bytes. It refuses a changed archive and refuses to replace an
+installed ID. To change a package, uninstall it and review/install the new ZIP; the old
+cross-plugin read grants are cleared by uninstall. Local records are retained.
+
+The managed directory uses the same database as the LifeHub commands (default
+`data/lifehub.db`). Pass matching `--db` and `--plugins data/lifehub-installed` when
+opening the installed packages. LifeHub verifies package contents on discovery and on
+host-mediated storage/network calls. The database records the managed directory so
+removing its marker does not turn a previously managed directory into a trusted demo
+directory. The repository's `lifehub_plugins` remains a development/demo directory.
+
+This is an approval gate for host-mediated, declarative packages. It is not a sandbox:
+untrusted native Python, JavaScript, or binaries are not launched. A future executable
+plugin runtime needs process isolation and capability mediation before it can be enabled.
+Changes by another process between a verification and a file read remain outside the
+guarantees of this initial filesystem-backed slice.

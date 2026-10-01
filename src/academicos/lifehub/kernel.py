@@ -5,6 +5,7 @@ from pathlib import Path
 
 from academicos.lifehub.manifest import PluginManifest
 from academicos.lifehub.network import EgressGateway
+from academicos.lifehub.packages import PackageInstaller
 from academicos.lifehub.registry import PluginBundle, PluginRegistry, RegisteredExtension
 from academicos.lifehub.store import LifeStore, namespace_allowed
 
@@ -23,10 +24,17 @@ class LifeHub:
         db_path: str | Path = "data/lifehub.db",
         plugins_path: str | Path = "lifehub_plugins",
     ) -> None:
-        self.registry = PluginRegistry(plugins_path)
         self.store = LifeStore(db_path)
-        self.bundles = self.registry.discover()
+        self.packages = PackageInstaller(plugins_path, self.store)
+        self.registry = PluginRegistry(
+            plugins_path, verify=self.packages.verify, managed=self.packages.is_managed()
+        )
+        self.registry.discover()
         self.store.sync_workspace_extensions(self.registry)
+
+    @property
+    def bundles(self) -> tuple[PluginBundle, ...]:
+        return self.registry.discover()
 
     def close(self) -> None:
         self.store.close()
@@ -41,10 +49,14 @@ class LifeHub:
         return self.registry.extensions(point)
 
     def scoped_store(self, plugin_id: str):  # noqa: ANN201
-        return self.store.scoped(self.bundle(plugin_id).manifest)
+        return self.store.scoped(
+            self.bundle(plugin_id).manifest, verify=lambda: self.bundle(plugin_id)
+        )
 
     def egress(self, plugin_id: str) -> EgressGateway:
-        return EgressGateway(self.store, self.bundle(plugin_id).manifest)
+        return EgressGateway(
+            self.store, self.bundle(plugin_id).manifest, verify=lambda: self.bundle(plugin_id)
+        )
 
     def grant_read(self, plugin_id: str, namespace: str) -> None:
         manifest = self.bundle(plugin_id).manifest
@@ -61,13 +73,13 @@ class LifeHub:
 
     def seed_declared_data(self) -> int:
         inserted = 0
-        for bundle in self.bundles:
+        for bundle in self.registry.discover():
             if not bundle.seed_file.exists():
                 continue
             payload = json.loads(bundle.seed_file.read_text(encoding="utf-8"))
             if not isinstance(payload, list):
                 raise ValueError(f"{bundle.seed_file} must contain a JSON list")
-            scoped = self.store.scoped(bundle.manifest)
+            scoped = self.scoped_store(bundle.manifest.id)
             for item in payload:
                 if not isinstance(item, dict):
                     raise ValueError(f"invalid seed item in {bundle.seed_file}")

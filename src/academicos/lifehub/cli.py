@@ -5,12 +5,65 @@ from pathlib import Path
 import typer
 
 from academicos.lifehub.kernel import LifeHub
+from academicos.lifehub.packages import PackageInstaller
+from academicos.lifehub.store import LifeStore
 from academicos.lifehub.web import serve
 
 app = typer.Typer(help="LifeHub: local-first open extension host for personal computing.")
 
 DEFAULT_DB = Path("data/lifehub.db")
 DEFAULT_PLUGINS = Path("lifehub_plugins")
+DEFAULT_INSTALLED = Path("data/lifehub-installed")
+
+
+@app.command("review-package")
+def review_package(archive: Path) -> None:
+    """Inspect a local ZIP and print the exact digest required for approval."""
+    store = LifeStore(":memory:")
+    try:
+        review = PackageInstaller(DEFAULT_INSTALLED, store).review(archive)
+        manifest = review.manifest
+        typer.echo(f"{manifest.id} {manifest.version} · {manifest.name} · files={review.files}")
+        typer.echo(f"sha256-content: {review.content_hash}")
+        for name, values in manifest.permissions.model_dump().items():
+            typer.echo(f"  {name}: {', '.join(map(str, values)) or 'none'}")
+        for contribution in manifest.contributes:
+            typer.echo(f"  contributes: {contribution.point}:{contribution.id}")
+    finally:
+        store.close()
+
+
+@app.command("install-package")
+def install_package(
+    archive: Path,
+    approve_hash: str = typer.Option(..., "--approve-hash"),
+    db: Path = typer.Option(DEFAULT_DB, "--db"),
+    installed: Path = typer.Option(DEFAULT_INSTALLED, "--installed"),
+) -> None:
+    """Install only the bytes reviewed and explicitly approved by digest."""
+    store = LifeStore(db)
+    try:
+        review = PackageInstaller(installed, store).install(archive, approved_hash=approve_hash)
+        typer.echo(
+            f"Installed {review.manifest.id} {review.manifest.version} · {review.content_hash}"
+        )
+    finally:
+        store.close()
+
+
+@app.command("uninstall-package")
+def uninstall_package(
+    plugin_id: str,
+    db: Path = typer.Option(DEFAULT_DB, "--db"),
+    installed: Path = typer.Option(DEFAULT_INSTALLED, "--installed"),
+) -> None:
+    """Remove an installed package and its cross-plugin read grants."""
+    store = LifeStore(db)
+    try:
+        PackageInstaller(installed, store).uninstall(plugin_id)
+        typer.echo(f"Uninstalled {plugin_id}")
+    finally:
+        store.close()
 
 
 @app.command("init")
@@ -43,8 +96,12 @@ def plugins(
         for bundle in hub.bundles:
             manifest = bundle.manifest
             typer.echo(f"{manifest.id} {manifest.version} · {manifest.name} · {manifest.api}")
-            typer.echo(f"  storage_write: {', '.join(manifest.permissions.storage_write) or 'none'}")
-            typer.echo(f"  storage_read(requested): {', '.join(manifest.permissions.storage_read) or 'none'}")
+            typer.echo(
+                f"  storage_write: {', '.join(manifest.permissions.storage_write) or 'none'}"
+            )
+            typer.echo(
+                f"  storage_read(requested): {', '.join(manifest.permissions.storage_read) or 'none'}"
+            )
             typer.echo(
                 f"  network_retrieval: {', '.join(manifest.permissions.network_retrieval) or 'none'}"
             )
@@ -191,7 +248,9 @@ def doctor(
                 f"hosts={len(manifest.permissions.network_retrieval)}"
             )
         typer.echo("PASS policy           local persistence; retrieval-only egress broker")
-        typer.echo("NOTE executable third-party runtime remains disabled until OS-level sandboxing exists")
+        typer.echo(
+            "NOTE executable third-party runtime remains disabled until OS-level sandboxing exists"
+        )
     finally:
         hub.close()
 
