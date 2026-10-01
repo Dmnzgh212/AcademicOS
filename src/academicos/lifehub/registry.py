@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Callable
 
 from academicos.lifehub.manifest import ExtensionContribution, PluginManifest, load_manifest
 
@@ -31,12 +32,26 @@ class RegisteredExtension:
 class PluginRegistry:
     """Discovers plugin packages and indexes arbitrary extension points."""
 
-    def __init__(self, root: str | Path = "lifehub_plugins") -> None:
+    def __init__(
+        self,
+        root: str | Path = "lifehub_plugins",
+        *,
+        verify: Callable[[Path, PluginManifest], None] | None = None,
+        managed: bool = False,
+    ) -> None:
         self.root = Path(root)
+        self._verify = verify
+        self._managed = managed
         self._bundles: tuple[PluginBundle, ...] | None = None
         self._extensions: tuple[RegisteredExtension, ...] | None = None
 
     def discover(self) -> tuple[PluginBundle, ...]:
+        managed = self._managed or (self.root / ".lifehub-managed").exists()
+        if managed and self._verify is None:
+            raise PermissionError("managed plugin directory requires approval verification")
+        if managed:
+            self._bundles = None
+            self._extensions = None
         if self._bundles is not None:
             return self._bundles
         if not self.root.exists():
@@ -47,7 +62,14 @@ class PluginRegistry:
         found: dict[str, PluginBundle] = {}
         extensions: list[RegisteredExtension] = []
         for manifest_path in sorted(self.root.glob("*/plugin.toml")):
+            if managed and (manifest_path.parent.is_symlink() or manifest_path.is_symlink()):
+                raise PermissionError(
+                    f"installed plugin manifest path is a symlink: {manifest_path}"
+                )
             manifest = load_manifest(manifest_path)
+            if managed:
+                assert self._verify is not None
+                self._verify(manifest_path.parent, manifest)
             if manifest.id in found:
                 raise ValueError(f"duplicate plugin id: {manifest.id}")
             bundle = PluginBundle(manifest_path.parent, manifest)

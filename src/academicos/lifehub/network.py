@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import fnmatch
+from typing import Callable
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
@@ -17,18 +18,29 @@ class EgressGateway:
     sandbox for arbitrary executable plugin code.
     """
 
-    def __init__(self, store: LifeStore, manifest: PluginManifest) -> None:
+    def __init__(
+        self,
+        store: LifeStore,
+        manifest: PluginManifest,
+        *,
+        verify: Callable[[], None] | None = None,
+    ) -> None:
         self.store = store
         self.manifest = manifest
+        self._verify = verify
 
     def authorize(self, url: str, *, method: str = "GET") -> None:
+        if self._verify is not None:
+            self._verify()
         parsed = urlparse(url)
         normalized_method = method.upper()
         host = (parsed.hostname or "").lower()
         allowed = False
         try:
             if normalized_method not in {"GET", "HEAD"}:
-                raise PermissionError("LifeHub egress is retrieval-only; request bodies are not allowed")
+                raise PermissionError(
+                    "LifeHub egress is retrieval-only; request bodies are not allowed"
+                )
             if parsed.username or parsed.password:
                 raise PermissionError("credentials embedded in URLs are not allowed")
             if parsed.query:
