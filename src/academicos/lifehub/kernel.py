@@ -8,6 +8,7 @@ from academicos.lifehub.network import EgressGateway
 from academicos.lifehub.packages import PackageInstaller
 from academicos.lifehub.registry import PluginBundle, PluginRegistry, RegisteredExtension
 from academicos.lifehub.store import LifeStore, namespace_allowed
+from academicos.lifehub.wasm import WasmRunner
 
 
 class LifeHub:
@@ -57,6 +58,22 @@ class LifeHub:
         return EgressGateway(
             self.store, self.bundle(plugin_id).manifest, verify=lambda: self.bundle(plugin_id)
         )
+
+    def run_wasm(self, ref: str) -> int:
+        """Run one approved, read-only WebAssembly contribution without WASI."""
+        extension = self.extension(ref)
+        bundle = self.bundle(extension.plugin_id)
+        if extension.contribution.entrypoint != "lifehub.wasm":
+            raise ValueError(f"extension is not a WebAssembly entrypoint: {ref}")
+        if not self.packages.is_managed():
+            raise PermissionError("WebAssembly execution requires an installed, approved package")
+        module_name = extension.contribution.config.get("module")
+        if not isinstance(module_name, str) or not module_name.endswith(".wasm"):
+            raise ValueError("WebAssembly contribution needs a .wasm module path")
+        files = self.packages.approved_files(bundle.root, bundle.manifest)
+        if module_name not in files:
+            raise ValueError("WebAssembly module is not in the approved package")
+        return WasmRunner(self.scoped_store(extension.plugin_id)).run(files[module_name])
 
     def grant_read(self, plugin_id: str, namespace: str) -> None:
         manifest = self.bundle(plugin_id).manifest

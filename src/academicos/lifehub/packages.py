@@ -179,6 +179,10 @@ class PackageInstaller:
         return review
 
     def verify(self, root: Path, manifest: PluginManifest) -> None:
+        self.approved_files(root, manifest)
+
+    def approved_files(self, root: Path, manifest: PluginManifest) -> dict[str, bytes]:
+        """Return one verified snapshot so callers need not reopen an asset after checking it."""
         if root.is_symlink() or root.name != manifest.id:
             raise PermissionError(f"invalid installed plugin path: {root}")
         row = self.store.conn.execute(
@@ -187,8 +191,10 @@ class PackageInstaller:
         ).fetchone()
         if row is None or row["version"] != manifest.version:
             raise PermissionError(f"plugin has no matching approval: {manifest.id}")
-        if _digest(_directory_files(root)) != row["content_hash"]:
+        files = _directory_files(root)
+        if _digest(files) != row["content_hash"]:
             raise PermissionError(f"installed plugin changed after approval: {manifest.id}")
+        return files
 
     def uninstall(self, plugin_id: str) -> None:
         row = self.store.conn.execute(
