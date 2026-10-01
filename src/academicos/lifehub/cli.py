@@ -66,6 +66,20 @@ def uninstall_package(
         store.close()
 
 
+@app.command("run-wasm")
+def run_wasm(
+    ref: str,
+    db: Path = typer.Option(DEFAULT_DB, "--db"),
+    installed: Path = typer.Option(DEFAULT_INSTALLED, "--installed"),
+) -> None:
+    """Run one approved, read-only WebAssembly extension."""
+    hub = LifeHub(db_path=db, plugins_path=installed)
+    try:
+        typer.echo(f"Result: {hub.run_wasm(ref)}")
+    finally:
+        hub.close()
+
+
 @app.command("init")
 def init(
     db: Path = typer.Option(DEFAULT_DB, "--db"),
@@ -248,9 +262,8 @@ def doctor(
                 f"hosts={len(manifest.permissions.network_retrieval)}"
             )
         typer.echo("PASS policy           local persistence; retrieval-only egress broker")
-        typer.echo(
-            "NOTE executable third-party runtime remains disabled until OS-level sandboxing exists"
-        )
+        typer.echo("NOTE approved read-only core-Wasm extensions run without WASI")
+        typer.echo("NOTE arbitrary native code and external effects remain disabled")
     finally:
         hub.close()
 

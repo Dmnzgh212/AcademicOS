@@ -26,8 +26,9 @@ host-mediated storage/network calls. The database records the managed directory 
 removing its marker does not turn a previously managed directory into a trusted demo
 directory. The repository's `lifehub_plugins` remains a development/demo directory.
 
-This is an approval gate for host-mediated, declarative packages. It is not a sandbox:
-untrusted native Python, JavaScript, or binaries are not launched. A future executable
-plugin runtime needs process isolation and capability mediation before it can be enabled.
+This is an approval gate for host-mediated packages. Approved core-WebAssembly modules
+can be run through the restricted, read-only runtime described in `WASM_RUNTIME.md`.
+Untrusted native Python, JavaScript, and binaries are not launched. A future executable
+runtime for those formats needs a separate isolation model.
 Changes by another process between a verification and a file read remain outside the
 guarantees of this initial filesystem-backed slice.
