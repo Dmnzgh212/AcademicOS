@@ -2,6 +2,7 @@
 
 from .model import Node, Program
 from .authority import AuthorityRegistry, Capability, CapabilityInfo
+from .effects import EffectLedger, Outcome
 from .runtime import Intent, Interpreter, Result, Value
 from .state import StateSnapshot, VersionedState
 from .verifier import VerificationError, verify
@@ -12,6 +13,8 @@ __all__ = [
     "AuthorityRegistry",
     "Capability",
     "CapabilityInfo",
+    "EffectLedger",
+    "Outcome",
     "Node",
     "Program",
     "Result",
