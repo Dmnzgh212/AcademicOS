@@ -39,7 +39,7 @@ academicos-changes = "academicos.calendar.change_cli:app"
 lifehub = "academicos.lifehub.cli:app"
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "experiments/person_ir/tests"]
 
 [tool.ruff]
 line-length = 100
