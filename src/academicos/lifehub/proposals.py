@@ -38,7 +38,9 @@ class ProposalService:
         ids: list[int] = []
         now = datetime.now(UTC).isoformat()
         conn = self.store.conn
-        conn.execute("BEGIN IMMEDIATE")
+        own_transaction = not conn.in_transaction
+        if own_transaction:
+            conn.execute("BEGIN IMMEDIATE")
         try:
             approved = conn.execute(
                 "SELECT content_hash FROM lifehub_installed_packages WHERE plugin_id=?",
@@ -83,9 +85,11 @@ class ProposalService:
                     ),
                 )
                 ids.append(cursor.lastrowid)
-            conn.commit()
+            if own_transaction:
+                conn.commit()
         except BaseException:
-            conn.rollback()
+            if own_transaction:
+                conn.rollback()
             raise
         return ids
 

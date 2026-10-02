@@ -6,6 +6,7 @@ import json
 import typer
 
 from academicos.lifehub.kernel import LifeHub
+from academicos.lifehub.effects import EffectService
 from academicos.lifehub.packages import PackageInstaller
 from academicos.lifehub.proposals import ProposalService
 from academicos.lifehub.store import LifeStore
@@ -28,7 +29,11 @@ def review_package(archive: Path) -> None:
         typer.echo(f"{manifest.id} {manifest.version} · {manifest.name} · files={review.files}")
         typer.echo(f"sha256-content: {review.content_hash}")
         for name, values in manifest.permissions.model_dump().items():
-            typer.echo(f"  {name}: {', '.join(map(str, values)) or 'none'}")
+            if name == "effect_request":
+                formatted = ", ".join(f"{item['kind']} -> {item['destination']}" for item in values)
+            else:
+                formatted = ", ".join(map(str, values))
+            typer.echo(f"  {name}: {formatted or 'none'}")
         for contribution in manifest.contributes:
             typer.echo(f"  contributes: {contribution.point}:{contribution.id}")
     finally:
@@ -74,12 +79,14 @@ def run_wasm(
     db: Path = typer.Option(DEFAULT_DB, "--db"),
     installed: Path = typer.Option(DEFAULT_INSTALLED, "--installed"),
 ) -> None:
-    """Run one approved WebAssembly extension and stage its proposals."""
+    """Run one approved WebAssembly extension and stage its requests."""
     hub = LifeHub(db_path=db, plugins_path=installed)
     try:
         typer.echo(f"Result: {hub.run_wasm(ref)}")
         if hub.last_proposal_ids:
             typer.echo(f"Pending proposals: {', '.join(map(str, hub.last_proposal_ids))}")
+        if hub.last_effect_ids:
+            typer.echo(f"Pending effects: {', '.join(map(str, hub.last_effect_ids))}")
     finally:
         hub.close()
 
@@ -130,6 +137,79 @@ def reject_proposal(
         store.close()
 
 
+@app.command("effects")
+def effects(
+    status: str = typer.Option("pending", "--status"),
+    db: Path = typer.Option(DEFAULT_DB, "--db"),
+) -> None:
+    """Inspect destination, purpose and full disclosure payload."""
+    store = LifeStore(db)
+    try:
+        for item in EffectService(store).list(status):
+            typer.echo(
+                f"#{item['id']} · {item['status']} · {item['plugin_id']} · "
+                f"{item['kind']} -> {item['destination']}"
+            )
+            typer.echo(f"  purpose: {item['purpose']}")
+            typer.echo(f"  package: {item['package_hash']}")
+            typer.echo(
+                f"  payload: {json.dumps(item['payload'], sort_keys=True, ensure_ascii=False)}"
+            )
+    finally:
+        store.close()
+
+
+@app.command("approve-effect")
+def approve_effect(
+    request_id: int,
+    db: Path = typer.Option(DEFAULT_DB, "--db"),
+    installed: Path = typer.Option(DEFAULT_INSTALLED, "--installed"),
+) -> None:
+    """Approve one inspected disclosure request without executing it."""
+    hub = LifeHub(db_path=db, plugins_path=installed)
+    try:
+        hub.approve_effect(request_id)
+        typer.echo(f"Effect #{request_id}: approved, not dispatched")
+    finally:
+        hub.close()
+
+
+@app.command("reject-effect")
+def reject_effect(request_id: int, db: Path = typer.Option(DEFAULT_DB, "--db")) -> None:
+    """Reject an unattempted effect request."""
+    store = LifeStore(db)
+    try:
+        EffectService(store).reject(request_id)
+        typer.echo(f"Effect #{request_id}: rejected")
+    finally:
+        store.close()
+
+
+@app.command("dispatch-fake-effect")
+def dispatch_fake_effect(
+    request_id: int,
+    db: Path = typer.Option(DEFAULT_DB, "--db"),
+    installed: Path = typer.Option(DEFAULT_INSTALLED, "--installed"),
+) -> None:
+    """Dispatch an approved test.record request to the local fake executor only."""
+    hub = LifeHub(db_path=db, plugins_path=installed)
+    try:
+        typer.echo(f"Effect #{request_id}: {hub.dispatch_effect(request_id)}")
+    finally:
+        hub.close()
+
+
+@app.command("mark-effect-unknown")
+def mark_effect_unknown(request_id: int, db: Path = typer.Option(DEFAULT_DB, "--db")) -> None:
+    """Mark an interrupted in-flight request unknown after its worker has stopped."""
+    store = LifeStore(db)
+    try:
+        EffectService(store).mark_unknown(request_id)
+        typer.echo(f"Effect #{request_id}: unknown; no automatic retry")
+    finally:
+        store.close()
+
+
 @app.command("init")
 def init(
     db: Path = typer.Option(DEFAULT_DB, "--db"),
@@ -172,6 +252,16 @@ def plugins(
             typer.echo(
                 f"  localhost_ports: "
                 f"{', '.join(str(p) for p in manifest.permissions.localhost_ports) or 'none'}"
+            )
+            typer.echo(
+                "  effect_request: "
+                + (
+                    ", ".join(
+                        f"{item.kind} -> {item.destination}"
+                        for item in manifest.permissions.effect_request
+                    )
+                    or "none"
+                )
             )
             typer.echo(
                 "  contributes: "

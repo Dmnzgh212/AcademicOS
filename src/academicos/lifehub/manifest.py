@@ -7,6 +7,20 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
+class EffectPermission(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: str
+    destination: str
+
+    @field_validator("kind", "destination")
+    @classmethod
+    def nonempty(cls, value: str) -> str:
+        if not value or any(ch.isspace() for ch in value):
+            raise ValueError("effect kind/destination must be nonempty without whitespace")
+        return value
+
+
 class PermissionSpec(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -14,6 +28,7 @@ class PermissionSpec(BaseModel):
     storage_write: list[str] = Field(default_factory=list)
     network_retrieval: list[str] = Field(default_factory=list)
     localhost_ports: list[int] = Field(default_factory=list)
+    effect_request: list[EffectPermission] = Field(default_factory=list)
 
     @field_validator("localhost_ports")
     @classmethod

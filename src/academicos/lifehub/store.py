@@ -66,6 +66,32 @@ CREATE TABLE IF NOT EXISTS lifehub_change_proposals (
 CREATE INDEX IF NOT EXISTS idx_lifehub_proposals_status
     ON lifehub_change_proposals(status, id);
 
+CREATE TABLE IF NOT EXISTS lifehub_effect_requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    request_hash TEXT NOT NULL UNIQUE,
+    plugin_id TEXT NOT NULL,
+    package_hash TEXT NOT NULL,
+    extension_ref TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    destination TEXT NOT NULL,
+    purpose TEXT NOT NULL,
+    payload_json TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    requested_at TEXT NOT NULL,
+    approved_at TEXT,
+    attempted_at TEXT,
+    resolved_at TEXT,
+    outcome_json TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_lifehub_effect_status
+    ON lifehub_effect_requests(status, id);
+
+CREATE TABLE IF NOT EXISTS lifehub_fake_effect_deliveries (
+    request_id INTEGER PRIMARY KEY,
+    payload_json TEXT NOT NULL,
+    delivered_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS lifehub_workspace_items (
     workspace_id TEXT NOT NULL,
     extension_ref TEXT NOT NULL,

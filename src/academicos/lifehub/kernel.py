@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from academicos.lifehub.manifest import PluginManifest
+from academicos.lifehub.effects import EffectService
 from academicos.lifehub.network import EgressGateway
 from academicos.lifehub.packages import PackageInstaller
 from academicos.lifehub.proposals import ProposalService
@@ -29,7 +30,9 @@ class LifeHub:
         self.store = LifeStore(db_path)
         self.packages = PackageInstaller(plugins_path, self.store)
         self.proposals = ProposalService(self.store)
+        self.effects = EffectService(self.store)
         self.last_proposal_ids: list[int] = []
+        self.last_effect_ids: list[int] = []
         self.registry = PluginRegistry(
             plugins_path, verify=self.packages.verify, managed=self.packages.is_managed()
         )
@@ -76,8 +79,9 @@ class LifeHub:
         files = self.packages.approved_files(bundle.root, bundle.manifest)
         if module_name not in files:
             raise ValueError("WebAssembly module is not in the approved package")
-        runner = WasmRunner(self.scoped_store(extension.plugin_id))
+        runner = WasmRunner(self.scoped_store(extension.plugin_id), bundle.manifest, self.effects)
         self.last_proposal_ids = []
+        self.last_effect_ids = []
         result = runner.run(files[module_name])
         approved = self.store.conn.execute(
             "SELECT content_hash FROM lifehub_installed_packages WHERE plugin_id=?",
@@ -86,10 +90,44 @@ class LifeHub:
         if approved is None:
             raise PermissionError("package approval was revoked during execution")
         self.packages.verify(bundle.root, bundle.manifest)
-        self.last_proposal_ids = self.proposals.submit(
-            bundle.manifest.id, approved["content_hash"], ref, runner.proposals
-        )
+        conn = self.store.conn
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            proposal_ids = self.proposals.submit(
+                bundle.manifest.id, approved["content_hash"], ref, runner.proposals
+            )
+            effect_ids = self.effects.submit(
+                bundle.manifest, approved["content_hash"], ref, runner.effect_requests
+            )
+            conn.commit()
+        except BaseException:
+            conn.rollback()
+            raise
+        self.last_proposal_ids = proposal_ids
+        self.last_effect_ids = effect_ids
         return result
+
+    def approve_effect(self, request_id: int) -> None:
+        request = self.effects.get(request_id)
+        bundle = self.bundle(request["plugin_id"])
+        approved = self.store.conn.execute(
+            "SELECT content_hash FROM lifehub_installed_packages WHERE plugin_id=?",
+            (bundle.manifest.id,),
+        ).fetchone()
+        if approved is None:
+            raise PermissionError("package is no longer approved")
+        self.effects.approve(request_id, bundle.manifest, approved["content_hash"])
+
+    def dispatch_effect(self, request_id: int) -> str:
+        request = self.effects.get(request_id)
+        bundle = self.bundle(request["plugin_id"])
+        approved = self.store.conn.execute(
+            "SELECT content_hash FROM lifehub_installed_packages WHERE plugin_id=?",
+            (bundle.manifest.id,),
+        ).fetchone()
+        if approved is None:
+            raise PermissionError("package is no longer approved")
+        return self.effects.dispatch(request_id, bundle.manifest, approved["content_hash"])
 
     def approve_proposal(self, proposal_id: int) -> str:
         proposal = self.proposals.get(proposal_id)

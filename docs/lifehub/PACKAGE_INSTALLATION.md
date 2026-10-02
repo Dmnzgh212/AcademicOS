@@ -30,6 +30,8 @@ This is an approval gate for host-mediated packages. Approved core-WebAssembly m
 can be run through the restricted runtime described in `WASM_RUNTIME.md`. Modules can
 stage local change proposals; only the separate host decision described in
 `PROPOSAL_COMMIT.md` writes the proposed record.
+Declared external effect requests enter a separate review and recovery ledger in
+`EFFECT_LEDGER.md`; this release only supplies a local fake executor.
 Untrusted native Python, JavaScript, and binaries are not launched. A future executable
 runtime for those formats needs a separate isolation model.
 Changes by another process between a verification and a file read remain outside the
