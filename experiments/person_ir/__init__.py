@@ -3,6 +3,7 @@
 from .model import Node, Program
 from .authority import AuthorityRegistry, Capability, CapabilityInfo
 from .runtime import Intent, Interpreter, Result, Value
+from .state import StateSnapshot, VersionedState
 from .verifier import VerificationError, verify
 
 __all__ = [
@@ -14,7 +15,9 @@ __all__ = [
     "Node",
     "Program",
     "Result",
+    "StateSnapshot",
     "Value",
+    "VersionedState",
     "VerificationError",
     "verify",
 ]
