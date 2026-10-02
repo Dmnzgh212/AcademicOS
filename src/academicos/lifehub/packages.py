@@ -210,6 +210,11 @@ class PackageInstaller:
                 (datetime.now(UTC).isoformat(), plugin_id),
             )
             self.store.conn.execute(
+                """UPDATE lifehub_effect_requests SET status='invalidated', resolved_at=?
+                WHERE plugin_id=? AND status IN ('pending', 'approved')""",
+                (datetime.now(UTC).isoformat(), plugin_id),
+            )
+            self.store.conn.execute(
                 "DELETE FROM lifehub_installed_packages WHERE plugin_id=?", (plugin_id,)
             )
             self.store.conn.execute(

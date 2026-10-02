@@ -26,7 +26,7 @@ marked `already_recorded` with no new record. Repeating an approval cannot appen
 twice. Rejection records `rejected`; uninstall marks pending proposals `invalidated`.
 Decisions remain in the database as an audit trail.
 
-This flow handles **local append-only records**. It does not approve email, payments,
-network disclosure, device control, or other external effects. Those need a separate
-authority and retry protocol. Direct native host APIs and legacy demo seeding remain
-trusted host code; untrusted core-Wasm has no direct mutation import.
+This flow handles **local append-only records**. External effect requests use the
+separate ledger in `EFFECT_LEDGER.md`; only its fake executor is implemented. Direct
+native host APIs and legacy demo seeding remain trusted host code; untrusted core-Wasm
+has no direct mutation import.

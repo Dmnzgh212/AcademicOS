@@ -12,7 +12,7 @@ package snapshot. Start it explicitly with:
 lifehub run-wasm demo.example:worker --db data/lifehub.db --installed data/lifehub-installed
 ```
 
-The module exports `memory` and `run: () -> i32`. It may import two host
+The module exports `memory` and `run: () -> i32`. It may import three host
 functions. `lifehub.read_json: (i32, i32, i32, i32) -> i32` takes
 `namespace_ptr, namespace_len, output_ptr, output_capacity`. The function serializes
 up to eight latest records as a JSON array into guest memory and returns the byte count.
@@ -22,12 +22,17 @@ existing `grant-read` flow. `lifehub.propose_json: (i32, i32, i32, i32, i32, i32
 takes `namespace_ptr, namespace_len, record_key_ptr, record_key_len, payload_ptr,
 payload_len`. The payload must be a JSON object. It returns the number of proposals
 staged during this invocation. This import never writes a record. See
-`PROPOSAL_COMMIT.md` for the separate review and commit flow. There is no WASI linkage,
-filesystem access, network access, direct write API, or external effect API. A result
-integer stays in the local caller.
+`PROPOSAL_COMMIT.md` for the separate review and commit flow.
+`lifehub.request_effect_json: (i32, i32) -> i32` takes the pointer and length of
+a JSON object with `kind`, `destination`, `purpose`, and `payload` keys. It stages
+an external effect request and returns the number staged in this run. See
+`EFFECT_LEDGER.md` for the review and fake execution flow. There is no WASI linkage,
+filesystem access, network access, direct write API, or direct external effect API.
+A result integer stays in the local caller.
 
 The execution limit is one million Wasm fuel units; guest memory is limited to 8 MiB,
-module bytes to 2 MiB, a host IO call to 64 KiB, and one invocation to eight proposals.
+module bytes to 2 MiB, a host IO call to 64 KiB, and one invocation to eight proposals
+and four effect requests.
 A module that traps or exceeds its budget returns an error and no staged proposal is
 saved. This is a small, testable execution boundary, not yet a complete plugin runtime
 with UI activation, durable jobs, or effects.
