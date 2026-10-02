@@ -1,4 +1,4 @@
-# PersonIR experiment, slices 1–2
+# PersonIR experiment, slices 1–3
 
 This is the executable falsification experiment from
 `docs/lifehub/research/PERSON_IR_EXPERIMENT_PLAN.md`. It is separate from the
@@ -21,9 +21,26 @@ optional activation context, and revocation status. An intent can be checked wit
 `require_intent` at use time. Read, commit and effect operations are distinct;
 serialized IDs and reconstructed handles fail registry identity checks. Graph data
 cannot carry a handle. This is an in-process experiment: arbitrary native Python
-with access to the trusted host/registry remains outside its threat model. No
-commit or external executor has been connected to this check yet, and a successful
-check must be repeated by the eventual host executor immediately before use.
+with access to the trusted host/registry remains outside its threat model. The
+commit path checks the capability at use; an external executor is not connected.
+
+Slice 3 connects commit requests to a separate host-owned SQLite store. The host
+reads a state snapshot, gives only its JSON value to the interpreter, and prepares
+a durable proposal bound to the snapshot's version and content hash. An explicit
+commit checks the current capability, principal/domain, target, and base version
+inside an immediate transaction. Stale proposals do not overwrite current state;
+repeat evaluation deduplicates the same proposal, and repeat commit does not append
+another version. Rejecting a proposal changes only its decision row. A trusted host
+must bind the snapshot it read to the input passed to the interpreter; this
+experiment does not authenticate arbitrary Python `Intent` objects from native
+code. The capability registry is in memory and must survive for a pending grant to
+remain usable after restarting the SQLite store.
+
+**Baseline comparison:** The version/hash check, transaction, deduplication and
+proposal status are conventional MVCC/CAS and idempotency patterns. This slice
+does not establish a novel PersonIR advantage. The open question is whether the
+full composition with authority, provenance and effects is clearer or more
+enforceable than the same mechanisms in the conventional Wasm host.
 
 This slice deliberately supports only `identity` and `get` transforms, and a
 two-value join. If representative programs need arbitrary Python callbacks, that
@@ -35,7 +52,7 @@ Run tests from the repository root:
 python -m pytest -q experiments/person_ir/tests
 ```
 
-Next slices: stale-state commits, fake effect executor,
+Next slices: fake effect executor,
 provenance/information-flow checks, heterogeneous scenarios, then comparison with
 the existing conventional Wasm capability host. No claim of a new language or
-compiler follows from this first slice.
+compiler follows from these slices.
