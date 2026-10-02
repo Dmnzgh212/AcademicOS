@@ -6,6 +6,7 @@ from pathlib import Path
 from academicos.lifehub.manifest import PluginManifest
 from academicos.lifehub.network import EgressGateway
 from academicos.lifehub.packages import PackageInstaller
+from academicos.lifehub.proposals import ProposalService
 from academicos.lifehub.registry import PluginBundle, PluginRegistry, RegisteredExtension
 from academicos.lifehub.store import LifeStore, namespace_allowed
 from academicos.lifehub.wasm import WasmRunner
@@ -27,6 +28,8 @@ class LifeHub:
     ) -> None:
         self.store = LifeStore(db_path)
         self.packages = PackageInstaller(plugins_path, self.store)
+        self.proposals = ProposalService(self.store)
+        self.last_proposal_ids: list[int] = []
         self.registry = PluginRegistry(
             plugins_path, verify=self.packages.verify, managed=self.packages.is_managed()
         )
@@ -60,7 +63,7 @@ class LifeHub:
         )
 
     def run_wasm(self, ref: str) -> int:
-        """Run one approved, read-only WebAssembly contribution without WASI."""
+        """Run approved WebAssembly and persist proposals only after successful return."""
         extension = self.extension(ref)
         bundle = self.bundle(extension.plugin_id)
         if extension.contribution.entrypoint != "lifehub.wasm":
@@ -73,7 +76,31 @@ class LifeHub:
         files = self.packages.approved_files(bundle.root, bundle.manifest)
         if module_name not in files:
             raise ValueError("WebAssembly module is not in the approved package")
-        return WasmRunner(self.scoped_store(extension.plugin_id)).run(files[module_name])
+        runner = WasmRunner(self.scoped_store(extension.plugin_id))
+        self.last_proposal_ids = []
+        result = runner.run(files[module_name])
+        approved = self.store.conn.execute(
+            "SELECT content_hash FROM lifehub_installed_packages WHERE plugin_id=?",
+            (bundle.manifest.id,),
+        ).fetchone()
+        if approved is None:
+            raise PermissionError("package approval was revoked during execution")
+        self.packages.verify(bundle.root, bundle.manifest)
+        self.last_proposal_ids = self.proposals.submit(
+            bundle.manifest.id, approved["content_hash"], ref, runner.proposals
+        )
+        return result
+
+    def approve_proposal(self, proposal_id: int) -> str:
+        proposal = self.proposals.get(proposal_id)
+        bundle = self.bundle(proposal["plugin_id"])
+        approved = self.store.conn.execute(
+            "SELECT content_hash FROM lifehub_installed_packages WHERE plugin_id=?",
+            (bundle.manifest.id,),
+        ).fetchone()
+        if approved is None:
+            raise PermissionError("package is no longer approved")
+        return self.proposals.approve(proposal_id, bundle.manifest, approved["content_hash"])
 
     def grant_read(self, plugin_id: str, namespace: str) -> None:
         manifest = self.bundle(plugin_id).manifest

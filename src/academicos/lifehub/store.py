@@ -49,6 +49,23 @@ CREATE TABLE IF NOT EXISTS lifehub_managed_roots (
     path TEXT PRIMARY KEY
 );
 
+CREATE TABLE IF NOT EXISTS lifehub_change_proposals (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    plugin_id TEXT NOT NULL,
+    package_hash TEXT NOT NULL,
+    extension_ref TEXT NOT NULL,
+    namespace TEXT NOT NULL,
+    record_key TEXT NOT NULL,
+    payload_json TEXT NOT NULL,
+    base_record_id INTEGER,
+    status TEXT NOT NULL DEFAULT 'pending',
+    created_at TEXT NOT NULL,
+    decided_at TEXT,
+    committed_record_id INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_lifehub_proposals_status
+    ON lifehub_change_proposals(status, id);
+
 CREATE TABLE IF NOT EXISTS lifehub_workspace_items (
     workspace_id TEXT NOT NULL,
     extension_ref TEXT NOT NULL,
@@ -151,6 +168,13 @@ class LifeStore:
             }
             for row in rows
         ]
+
+    def latest_record_id(self, namespace: str, record_key: str) -> int | None:
+        row = self.conn.execute(
+            "SELECT MAX(id) AS id FROM lifehub_records WHERE namespace=? AND record_key=?",
+            (namespace, record_key),
+        ).fetchone()
+        return row["id"]
 
     def grant(self, plugin_id: str, capability: str, resource: str) -> None:
         with self.conn:
@@ -306,12 +330,7 @@ class ScopedStore:
         observed_at: str | None = None,
         source: str | None = None,
     ) -> bool:
-        if self._verify is not None:
-            self._verify()
-        if not namespace_allowed(namespace, self._manifest.permissions.storage_write):
-            raise PermissionError(
-                f"plugin {self._manifest.id} cannot write namespace {namespace!r}"
-            )
+        self.assert_writable(namespace)
         return self._store.append_record(
             plugin_id=self._manifest.id,
             namespace=namespace,
@@ -320,6 +339,18 @@ class ScopedStore:
             observed_at=observed_at,
             source=source,
         )
+
+    def assert_writable(self, namespace: str) -> None:
+        if self._verify is not None:
+            self._verify()
+        if not namespace_allowed(namespace, self._manifest.permissions.storage_write):
+            raise PermissionError(
+                f"plugin {self._manifest.id} cannot write namespace {namespace!r}"
+            )
+
+    def write_base(self, namespace: str, record_key: str) -> int | None:
+        self.assert_writable(namespace)
+        return self._store.latest_record_id(namespace, record_key)
 
     def read(self, namespace: str, *, limit: int = 8) -> list[dict[str, Any]]:
         if self._verify is not None:

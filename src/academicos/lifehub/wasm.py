@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import json
 
+from academicos.lifehub.proposals import ProposedChange
 from academicos.lifehub.store import ScopedStore
 
 MAX_MODULE_BYTES = 2 * 1024 * 1024
 MAX_IO_BYTES = 64 * 1024
 MAX_MEMORY_BYTES = 8 * 1024 * 1024
 FUEL = 1_000_000
+MAX_PROPOSALS = 8
 
 
 class WasmRunner:
@@ -17,8 +19,10 @@ class WasmRunner:
 
     def __init__(self, scoped: ScopedStore) -> None:
         self.scoped = scoped
+        self.proposals: list[ProposedChange] = []
 
     def run(self, module_bytes: bytes) -> int:
+        self.proposals = []
         try:
             import wasmtime
         except ImportError as exc:
@@ -30,17 +34,22 @@ class WasmRunner:
         config.consume_fuel = True
         engine = wasmtime.Engine(config)
         module = wasmtime.Module(engine, module_bytes)
-        signature = wasmtime.FuncType([wasmtime.ValType.i32()] * 4, [wasmtime.ValType.i32()])
+        read_signature = wasmtime.FuncType([wasmtime.ValType.i32()] * 4, [wasmtime.ValType.i32()])
+        propose_signature = wasmtime.FuncType(
+            [wasmtime.ValType.i32()] * 6, [wasmtime.ValType.i32()]
+        )
+        signatures = {"read_json": read_signature, "propose_json": propose_signature}
         for item in module.imports:
-            if item.module != "lifehub" or item.name != "read_json":
+            if item.module != "lifehub" or item.name not in signatures:
                 raise PermissionError(f"unavailable WebAssembly import: {item.module}.{item.name}")
+            signature = signatures[item.name]
             if not isinstance(item.type, wasmtime.FuncType) or (
                 [str(value) for value in item.type.params]
                 != [str(value) for value in signature.params]
                 or [str(value) for value in item.type.results]
                 != [str(value) for value in signature.results]
             ):
-                raise ValueError("unsupported read_json import signature")
+                raise ValueError(f"unsupported {item.name} import signature")
 
         store = wasmtime.Store(engine)
         store.set_limits(memory_size=MAX_MEMORY_BYTES, instances=1, memories=1, tables=0)
@@ -64,7 +73,36 @@ class WasmRunner:
             memory.write(caller, output, out_ptr)
             return len(output)
 
-        linker.define_func("lifehub", "read_json", signature, read_json, access_caller=True)
+        def propose_json(
+            caller,
+            name_ptr: int,
+            name_len: int,
+            key_ptr: int,
+            key_len: int,
+            payload_ptr: int,
+            payload_len: int,
+        ) -> int:
+            memory = caller.get("memory")
+            if not isinstance(memory, wasmtime.Memory):
+                raise ValueError("plugin must export linear memory")
+            if len(self.proposals) >= MAX_PROPOSALS:
+                raise ValueError("too many proposals in one run")
+            namespace = _guest_bytes(memory, caller, name_ptr, name_len).decode("utf-8")
+            record_key = _guest_bytes(memory, caller, key_ptr, key_len).decode("utf-8")
+            raw = _guest_bytes(memory, caller, payload_ptr, payload_len).decode("utf-8")
+            if not namespace or not record_key:
+                raise ValueError("proposal needs namespace and record key")
+            payload = json.loads(raw, parse_constant=lambda value: _invalid_json(value))
+            if not isinstance(payload, dict):
+                raise ValueError("proposal payload must be a JSON object")
+            base = self.scoped.write_base(namespace, record_key)
+            self.proposals.append(ProposedChange(namespace, record_key, payload, base))
+            return len(self.proposals)
+
+        linker.define_func("lifehub", "read_json", read_signature, read_json, access_caller=True)
+        linker.define_func(
+            "lifehub", "propose_json", propose_signature, propose_json, access_caller=True
+        )
         instance = linker.instantiate(store, module)
         exports = instance.exports(store)
         memory = exports.get("memory")
@@ -81,3 +119,7 @@ def _guest_bytes(memory, caller, ptr: int, length: int) -> bytes:
     if ptr < 0 or length < 0 or length > MAX_IO_BYTES or ptr > memory.data_len(caller) - length:
         raise ValueError("WebAssembly memory access out of bounds")
     return bytes(memory.read(caller, ptr, ptr + length))
+
+
+def _invalid_json(value: str) -> None:
+    raise ValueError(f"nonfinite JSON number is not supported: {value}")

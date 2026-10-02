@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from pathlib import Path
+import json
 
 import typer
 
 from academicos.lifehub.kernel import LifeHub
 from academicos.lifehub.packages import PackageInstaller
+from academicos.lifehub.proposals import ProposalService
 from academicos.lifehub.store import LifeStore
 from academicos.lifehub.web import serve
 
@@ -72,12 +74,60 @@ def run_wasm(
     db: Path = typer.Option(DEFAULT_DB, "--db"),
     installed: Path = typer.Option(DEFAULT_INSTALLED, "--installed"),
 ) -> None:
-    """Run one approved, read-only WebAssembly extension."""
+    """Run one approved WebAssembly extension and stage its proposals."""
     hub = LifeHub(db_path=db, plugins_path=installed)
     try:
         typer.echo(f"Result: {hub.run_wasm(ref)}")
+        if hub.last_proposal_ids:
+            typer.echo(f"Pending proposals: {', '.join(map(str, hub.last_proposal_ids))}")
     finally:
         hub.close()
+
+
+@app.command("proposals")
+def proposals(db: Path = typer.Option(DEFAULT_DB, "--db")) -> None:
+    """Inspect full pending proposals before making a commit decision."""
+    store = LifeStore(db)
+    try:
+        for item in ProposalService(store).list():
+            typer.echo(
+                f"#{item['id']} · {item['plugin_id']} · {item['extension_ref']} · "
+                f"{item['namespace']}/{item['record_key']} · base={item['base_record_id']}"
+            )
+            typer.echo(f"  package: {item['package_hash']}")
+            typer.echo(
+                f"  payload: {json.dumps(item['payload'], ensure_ascii=False, sort_keys=True)}"
+            )
+    finally:
+        store.close()
+
+
+@app.command("approve-proposal")
+def approve_proposal(
+    proposal_id: int,
+    db: Path = typer.Option(DEFAULT_DB, "--db"),
+    installed: Path = typer.Option(DEFAULT_INSTALLED, "--installed"),
+) -> None:
+    """Commit one reviewed proposal if package authority and target version still match."""
+    hub = LifeHub(db_path=db, plugins_path=installed)
+    try:
+        typer.echo(f"Proposal #{proposal_id}: {hub.approve_proposal(proposal_id)}")
+    finally:
+        hub.close()
+
+
+@app.command("reject-proposal")
+def reject_proposal(
+    proposal_id: int,
+    db: Path = typer.Option(DEFAULT_DB, "--db"),
+) -> None:
+    """Reject one pending proposal without reading or activating its package."""
+    store = LifeStore(db)
+    try:
+        ProposalService(store).reject(proposal_id)
+        typer.echo(f"Proposal #{proposal_id}: rejected")
+    finally:
+        store.close()
 
 
 @app.command("init")
@@ -262,7 +312,8 @@ def doctor(
                 f"hosts={len(manifest.permissions.network_retrieval)}"
             )
         typer.echo("PASS policy           local persistence; retrieval-only egress broker")
-        typer.echo("NOTE approved read-only core-Wasm extensions run without WASI")
+        typer.echo("NOTE approved core-Wasm extensions run without WASI")
+        typer.echo("NOTE local proposals require a separate commit decision")
         typer.echo("NOTE arbitrary native code and external effects remain disabled")
     finally:
         hub.close()
