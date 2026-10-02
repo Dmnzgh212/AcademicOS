@@ -205,6 +205,11 @@ class PackageInstaller:
         destination = self.root / plugin_id
         with self.store.conn:
             self.store.conn.execute(
+                """UPDATE lifehub_change_proposals SET status='invalidated', decided_at=?
+                WHERE plugin_id=? AND status='pending'""",
+                (datetime.now(UTC).isoformat(), plugin_id),
+            )
+            self.store.conn.execute(
                 "DELETE FROM lifehub_installed_packages WHERE plugin_id=?", (plugin_id,)
             )
             self.store.conn.execute(

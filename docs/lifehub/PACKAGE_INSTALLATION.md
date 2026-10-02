@@ -27,7 +27,9 @@ removing its marker does not turn a previously managed directory into a trusted 
 directory. The repository's `lifehub_plugins` remains a development/demo directory.
 
 This is an approval gate for host-mediated packages. Approved core-WebAssembly modules
-can be run through the restricted, read-only runtime described in `WASM_RUNTIME.md`.
+can be run through the restricted runtime described in `WASM_RUNTIME.md`. Modules can
+stage local change proposals; only the separate host decision described in
+`PROPOSAL_COMMIT.md` writes the proposed record.
 Untrusted native Python, JavaScript, and binaries are not launched. A future executable
 runtime for those formats needs a separate isolation model.
 Changes by another process between a verification and a file read remain outside the
