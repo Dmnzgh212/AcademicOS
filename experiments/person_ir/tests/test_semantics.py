@@ -46,7 +46,7 @@ def test_effect_is_only_a_request_and_protected_input_needs_disclosure() -> None
         "disclosed",
         "declassify",
         ("draft",),
-        {"destination": "recipient@example.org", "purpose": "Send draft"},
+        {"destination": "recipient@example.org", "scope": "whole_value", "purpose": "Send draft"},
     )
     program = Program(
         "email",
@@ -110,7 +110,11 @@ def test_disclosing_one_join_input_does_not_release_another() -> None:
                 "released_a",
                 "declassify",
                 ("a",),
-                {"destination": "recipient@example.org", "purpose": "Send a"},
+                {
+                    "destination": "recipient@example.org",
+                    "scope": "whole_value",
+                    "purpose": "Send a",
+                },
             ),
             Node("combined", "join", ("released_a", "b")),
             Node(

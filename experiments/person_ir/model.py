@@ -18,3 +18,4 @@ class Node:
 class Program:
     name: str
     nodes: tuple[Node, ...]
+    version: str = "0"

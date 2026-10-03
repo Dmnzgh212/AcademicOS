@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import Any, Mapping
 
 from .model import Program
+from .provenance import Evidence, Trace
 from .verifier import verify
 
 
@@ -17,6 +18,7 @@ class Value:
     sources: frozenset[str]
     label: str
     disclosures: tuple[tuple[str, str], ...] = ()
+    trace: Trace | None = None
 
 
 @dataclass(frozen=True)
@@ -28,6 +30,7 @@ class Intent:
     parameters: dict[str, str]
     label: str
     disclosures: tuple[tuple[str, str], ...]
+    trace: Trace | None = None
 
 
 @dataclass(frozen=True)
@@ -42,6 +45,7 @@ class Interpreter:
         program: Program,
         observations: Mapping[str, Any],
         state_views: Mapping[str, Any] | None = None,
+        evidence: Mapping[str, Evidence] | None = None,
     ) -> Result:
         verify(program)
 
@@ -54,6 +58,7 @@ class Interpreter:
         nodes_by_id = {node.id: node for node in program.nodes}
         intents: list[Intent] = []
         state_views = state_views or {}
+        evidence = evidence or {}
         for node in program.nodes:
             p = node.parameters
             if node.kind in {"observe", "state_view"}:
@@ -61,8 +66,17 @@ class Interpreter:
                 host_values = observations if node.kind == "observe" else state_views
                 if source not in host_values:
                     raise KeyError(f"missing host input: {source}")
+                origin = evidence.get(source) or Evidence(
+                    source, f"unverified:{source}", "unverified-host", "unknown"
+                )
+                if type(origin) is not Evidence or origin.source != source:
+                    raise ValueError(f"{node.id}: mismatched evidence source")
+                origin.validate()
+                if origin.security_label is not None and origin.security_label != p["label"]:
+                    raise ValueError(f"{node.id}: graph label disagrees with host evidence")
+                trace = Trace(program.name, program.version, (origin,), (f"{node.id}:{node.kind}",))
                 values[node.id] = Value(
-                    snapshot(host_values[source]), frozenset({source}), p["label"]
+                    snapshot(host_values[source]), frozenset({source}), p["label"], trace=trace
                 )
                 continue
             parents = [values[ref] for ref in node.inputs]
@@ -74,7 +88,13 @@ class Interpreter:
                     data = snapshot(parent.data[p["key"]])
                 else:
                     data = snapshot(parent.data)
-                values[node.id] = Value(data, parent.sources, parent.label, parent.disclosures)
+                values[node.id] = Value(
+                    data,
+                    parent.sources,
+                    parent.label,
+                    parent.disclosures,
+                    parent.trace.step(f"{node.id}:transform:{p['op']}:{p['key']}"),
+                )
             elif node.kind == "join":
                 other = parents[1]
                 values[node.id] = Value(
@@ -82,10 +102,15 @@ class Interpreter:
                     parent.sources | other.sources,
                     "protected" if "protected" in {parent.label, other.label} else "public",
                     parent.disclosures + other.disclosures,
+                    parent.trace.join(other.trace, f"{node.id}:join"),
                 )
             elif node.kind == "derive":
                 values[node.id] = Value(
-                    snapshot(parent.data), parent.sources, parent.label, parent.disclosures
+                    snapshot(parent.data),
+                    parent.sources,
+                    parent.label,
+                    parent.disclosures,
+                    parent.trace.step(f"{node.id}:derive"),
                 )
             elif node.kind == "declassify":
                 values[node.id] = Value(
@@ -93,11 +118,17 @@ class Interpreter:
                     parent.sources,
                     "public",
                     parent.disclosures + ((p["destination"], p["purpose"]),),
+                    parent.trace.step(f"{node.id}:declassify").release(
+                        p["destination"], p["scope"], p["purpose"]
+                    ),
                 )
             else:
                 if node.kind == "effect_request" and (
                     parent.label == "protected"
-                    or any(destination != p["destination"] for destination, _ in parent.disclosures)
+                    or any(
+                        (destination, purpose) != (p["destination"], p["purpose"])
+                        for destination, purpose in parent.disclosures
+                    )
                 ):
                     raise ValueError("protected effect needs matching disclosure")
                 parameters = (
@@ -107,7 +138,11 @@ class Interpreter:
                 )
                 if node.kind == "propose":
                     values[node.id] = Value(
-                        snapshot(parent.data), parent.sources, parent.label, parent.disclosures
+                        snapshot(parent.data),
+                        parent.sources,
+                        parent.label,
+                        parent.disclosures,
+                        parent.trace.step(f"{node.id}:propose"),
                     )
                 else:
                     intents.append(
@@ -119,6 +154,7 @@ class Interpreter:
                             parameters,
                             parent.label,
                             parent.disclosures,
+                            parent.trace.step(f"{node.id}:{node.kind}"),
                         )
                     )
         return Result(copy.deepcopy(values), tuple(copy.deepcopy(intents)))

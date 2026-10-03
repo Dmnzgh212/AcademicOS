@@ -1,6 +1,7 @@
 """Experimental PersonIR; deliberately separate from the LifeHub kernel."""
 
 from .model import Node, Program
+from .provenance import Evidence, Trace
 from .authority import AuthorityRegistry, Capability, CapabilityInfo
 from .effects import EffectLedger, Outcome
 from .runtime import Intent, Interpreter, Result, Value
@@ -14,11 +15,13 @@ __all__ = [
     "Capability",
     "CapabilityInfo",
     "EffectLedger",
+    "Evidence",
     "Outcome",
     "Node",
     "Program",
     "Result",
     "StateSnapshot",
+    "Trace",
     "Value",
     "VersionedState",
     "VerificationError",
