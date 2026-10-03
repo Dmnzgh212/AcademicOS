@@ -7,6 +7,7 @@ import pytest
 
 from experiments.person_ir import (
     AuthorityRegistry,
+    Evidence,
     EffectLedger,
     Interpreter,
     Node,
@@ -27,6 +28,7 @@ def _request(text: str):
                 ("draft",),
                 {
                     "destination": "friend@example.org",
+                    "scope": "whole_value",
                     "purpose": "Share selected note",
                 },
             ),
@@ -42,7 +44,17 @@ def _request(text: str):
             ),
         ),
     )
-    return Interpreter().run(program, {"draft": {"text": text}}).intents[0]
+    return (
+        Interpreter()
+        .run(
+            program,
+            {"draft": {"text": text}},
+            evidence={
+                "draft": Evidence("draft", f"draft:{text}", "host-fixture", "1", "protected")
+            },
+        )
+        .intents[0]
+    )
 
 
 def _grant(authority, intent):

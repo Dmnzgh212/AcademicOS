@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
@@ -51,9 +51,16 @@ class VersionedState:
                 namespace TEXT NOT NULL, record_key TEXT NOT NULL,
                 base_version INTEGER NOT NULL, base_hash TEXT,
                 payload_json TEXT NOT NULL, sources_json TEXT NOT NULL,
-                status TEXT NOT NULL DEFAULT 'pending', committed_version INTEGER
+                status TEXT NOT NULL DEFAULT 'pending', committed_version INTEGER,
+                trace_json TEXT, authority_id TEXT
             );
         """)
+        columns = {
+            row["name"] for row in self.conn.execute("PRAGMA table_info(person_ir_proposals)")
+        }
+        for name in ("trace_json", "authority_id"):
+            if name not in columns:
+                self.conn.execute(f"ALTER TABLE person_ir_proposals ADD COLUMN {name} TEXT")
 
     def close(self) -> None:
         self.conn.close()
@@ -96,6 +103,7 @@ class VersionedState:
             raise PermissionError("snapshot was modified after reading")
         payload = _json(intent.data)
         sources = _json(sorted(intent.sources))
+        trace = _json(asdict(intent.trace)) if intent.trace else None
         identity = _hash(
             _json(
                 [
@@ -107,6 +115,7 @@ class VersionedState:
                     snapshot.content_hash,
                     payload,
                     sources,
+                    trace,
                 ]
             )
         )
@@ -114,8 +123,8 @@ class VersionedState:
             self.conn.execute(
                 """INSERT OR IGNORE INTO person_ir_proposals (
                     identity_hash, principal, domain, namespace, record_key, base_version,
-                    base_hash, payload_json, sources_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    base_hash, payload_json, sources_json, trace_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     identity,
                     principal,
@@ -126,6 +135,7 @@ class VersionedState:
                     snapshot.content_hash,
                     payload,
                     sources,
+                    trace,
                 ),
             )
             row = self.conn.execute(
@@ -142,6 +152,7 @@ class VersionedState:
         return dict(row) | {
             "payload": json.loads(row["payload_json"]),
             "sources": json.loads(row["sources_json"]),
+            "trace": json.loads(row["trace_json"]) if row["trace_json"] else None,
         }
 
     def reject(self, proposal_id: int) -> None:
@@ -169,7 +180,7 @@ class VersionedState:
             if proposal["principal"] != principal or proposal["domain"] != domain:
                 raise PermissionError("proposal principal or domain mismatch")
             resource = _json([proposal["namespace"], proposal["record_key"]])
-            authority.require(
+            grant = authority.require(
                 handle,
                 principal=principal,
                 domain=domain,
@@ -211,8 +222,8 @@ class VersionedState:
                 ),
             )
             self.conn.execute(
-                "UPDATE person_ir_proposals SET status='committed', committed_version=? WHERE id=?",
-                (next_version, proposal_id),
+                "UPDATE person_ir_proposals SET status='committed', committed_version=?, authority_id=? WHERE id=?",
+                (next_version, grant.capability_id, proposal_id),
             )
             self.conn.commit()
             return "committed"

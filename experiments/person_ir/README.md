@@ -1,4 +1,4 @@
-# PersonIR experiment, slices 1–4
+# PersonIR experiment, slices 1–5
 
 This is the executable falsification experiment from
 `docs/lifehub/research/PERSON_IR_EXPERIMENT_PLAN.md`. It is separate from the
@@ -58,6 +58,24 @@ call. A trusted host may inject a test executor, but untrusted IR cannot supply
 one. Authorization and delivery durability are conventional capability and
 outbox/idempotency patterns, not evidence of novelty by themselves.
 
+Slice 5 propagates a trace of host-asserted observation IDs, producers/versions,
+program version, node identities, disclosure destination/scope/purpose and any
+state version supplied by the host. Commit and effect rows retain that trace and
+the capability ID used at the actual decision/dispatch. A nondeterministic or AI
+result must enter as a host observation carrying an execution ID; this tiny IR
+has no arbitrary nondeterministic transform callback. The verifier propagates
+protected labels across joins and rejects an external sink unless the entire
+value has a matching whole-value disclosure. The interpreter compares graph
+source labels with host evidence. The effect ledger refuses sources without a
+host label or a matching disclosure path.
+
+These checks depend on a trusted host providing honest evidence and binding the
+state version to its snapshot. They do not authenticate arbitrary native Python
+objects, prove what an opaque producer actually did, prevent covert channels,
+or make a disclosure marker itself into authority. The explicit effect grant and
+host executor remain the use-time authority boundary. No partial-value
+declassification is modeled; the verifier rejects unsupported scopes.
+
 This slice deliberately supports only `identity` and `get` transforms, and a
 two-value join. If representative programs need arbitrary Python callbacks, that
 counts against this IR design rather than justifying an unsafe escape hatch.
@@ -68,6 +86,6 @@ Run tests from the repository root:
 python -m pytest -q experiments/person_ir/tests
 ```
 
-Next slices: provenance/information-flow checks, heterogeneous scenarios, then comparison with
+Next slices: heterogeneous scenarios, then comparison with
 the existing conventional Wasm capability host. No claim of a new language or
 compiler follows from these slices.

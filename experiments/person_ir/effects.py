@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Callable
 
@@ -43,12 +43,17 @@ class EffectLedger:
                 kind TEXT NOT NULL, destination TEXT NOT NULL, purpose TEXT NOT NULL,
                 payload_json TEXT NOT NULL, sources_json TEXT NOT NULL,
                 disclosures_json TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending',
-                outcome_json TEXT
+                outcome_json TEXT, trace_json TEXT,
+                approved_capability_id TEXT, dispatch_capability_id TEXT
             );
             CREATE TABLE IF NOT EXISTS person_ir_fake_deliveries (
                 request_id INTEGER PRIMARY KEY, payload_json TEXT NOT NULL
             );
         """)
+        columns = {row["name"] for row in self.conn.execute("PRAGMA table_info(person_ir_effects)")}
+        for name in ("trace_json", "approved_capability_id", "dispatch_capability_id"):
+            if name not in columns:
+                self.conn.execute(f"ALTER TABLE person_ir_effects ADD COLUMN {name} TEXT")
 
     def close(self) -> None:
         self.conn.close()
@@ -76,12 +81,26 @@ class EffectLedger:
         if (
             intent.label not in {"public", "protected"}
             or intent.label == "protected"
-            or any(target != destination for target, _ in intent.disclosures)
+            or any(
+                (target, reason) != (destination, purpose) for target, reason in intent.disclosures
+            )
         ):
             raise PermissionError("protected payload requires a matching disclosure path")
+        if intent.trace is None or any(
+            origin.producer == "unverified-host" or origin.security_label is None
+            for origin in intent.trace.evidence
+        ):
+            raise PermissionError("external effect requires host-labeled evidence")
+        if any(
+            origin.security_label == "protected" for origin in intent.trace.evidence
+        ) and not any(
+            release == (destination, "whole_value", purpose) for release in intent.trace.disclosures
+        ):
+            raise PermissionError("protected evidence requires explicit disclosure")
         payload = _json(intent.data)
         sources = _json(sorted(intent.sources))
         disclosures = _json(intent.disclosures)
+        trace = _json(asdict(intent.trace)) if intent.trace else None
         identity = hashlib.sha256(
             _json(
                 [
@@ -93,6 +112,7 @@ class EffectLedger:
                     payload,
                     sources,
                     disclosures,
+                    trace,
                 ]
             ).encode()
         ).hexdigest()
@@ -100,8 +120,8 @@ class EffectLedger:
             self.conn.execute(
                 """INSERT OR IGNORE INTO person_ir_effects(
                     identity_hash, principal, domain, kind, destination, purpose,
-                    payload_json, sources_json, disclosures_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    payload_json, sources_json, disclosures_json, trace_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     identity,
                     principal,
@@ -112,6 +132,7 @@ class EffectLedger:
                     payload,
                     sources,
                     disclosures,
+                    trace,
                 ),
             )
             row = self.conn.execute(
@@ -129,6 +150,7 @@ class EffectLedger:
             "payload": json.loads(row["payload_json"]),
             "sources": json.loads(row["sources_json"]),
             "disclosures": json.loads(row["disclosures_json"]),
+            "trace": json.loads(row["trace_json"]) if row["trace_json"] else None,
             "outcome": json.loads(row["outcome_json"]) if row["outcome_json"] else None,
         }
 
@@ -141,10 +163,10 @@ class EffectLedger:
         principal: str,
         domain: str,
         context: str | None,
-    ) -> None:
+    ) -> str:
         if row["principal"] != principal or row["domain"] != domain:
             raise PermissionError("request principal or domain mismatch")
-        authority.require(
+        grant = authority.require(
             handle,
             principal=principal,
             domain=domain,
@@ -152,6 +174,7 @@ class EffectLedger:
             resource=_json([row["kind"], row["destination"]]),
             context=context,
         )
+        return grant.capability_id
 
     def approve(
         self,
@@ -166,13 +189,14 @@ class EffectLedger:
         self.conn.execute("BEGIN IMMEDIATE")
         try:
             row = self.get(request_id)
-            self._require(
+            grant_id = self._require(
                 row, authority, handle, principal=principal, domain=domain, context=context
             )
             if row["status"] != "pending":
                 raise ValueError("request is not pending")
             self.conn.execute(
-                "UPDATE person_ir_effects SET status='approved' WHERE id=?", (request_id,)
+                "UPDATE person_ir_effects SET status='approved', approved_capability_id=? WHERE id=?",
+                (grant_id, request_id),
             )
             self.conn.commit()
         except BaseException:
@@ -201,13 +225,14 @@ class EffectLedger:
         self.conn.execute("BEGIN IMMEDIATE")
         try:
             row = self.get(request_id)
-            self._require(
+            grant_id = self._require(
                 row, authority, handle, principal=principal, domain=domain, context=context
             )
             if row["status"] != "approved":
                 raise ValueError("request is not approved or was already attempted")
             self.conn.execute(
-                "UPDATE person_ir_effects SET status='in_flight' WHERE id=?", (request_id,)
+                "UPDATE person_ir_effects SET status='in_flight', dispatch_capability_id=? WHERE id=?",
+                (grant_id, request_id),
             )
             self.conn.commit()
         except BaseException:

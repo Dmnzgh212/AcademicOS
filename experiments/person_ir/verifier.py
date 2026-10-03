@@ -18,7 +18,7 @@ SHAPES: dict[str, tuple[int, frozenset[str]]] = {
     "transform": (1, frozenset({"op", "key"})),
     "join": (2, frozenset()),
     "derive": (1, frozenset()),
-    "declassify": (1, frozenset({"destination", "purpose"})),
+    "declassify": (1, frozenset({"destination", "scope", "purpose"})),
     "propose": (1, frozenset({"namespace", "key"})),
     "commit_request": (1, frozenset()),
     "effect_request": (1, frozenset({"kind", "destination", "purpose"})),
@@ -32,7 +32,10 @@ def verify(program: Program) -> None:
         raise VerificationError("program must have a name")
     if not program.nodes:
         raise VerificationError("program has no nodes")
+    if type(program.version) is not str or not program.version:
+        raise VerificationError("program must have a version")
     seen: dict[str, str] = {}
+    flows: dict[str, tuple[bool, frozenset[tuple[str, str]]]] = {}
     for node in program.nodes:
         if not isinstance(node.id, str) or not node.id or node.id in seen:
             raise VerificationError("node IDs must be unique nonempty strings")
@@ -58,6 +61,8 @@ def verify(program: Program) -> None:
             raise VerificationError(f"{node.id}: unknown label")
         if node.kind == "transform" and node.parameters["op"] not in {"identity", "get"}:
             raise VerificationError(f"{node.id}: unknown transform")
+        if node.kind == "declassify" and node.parameters["scope"] != "whole_value":
+            raise VerificationError(f"{node.id}: only whole_value disclosure is modeled")
         if (
             node.kind == "transform"
             and node.parameters["op"] == "identity"
@@ -65,6 +70,24 @@ def verify(program: Program) -> None:
         ):
             raise VerificationError(f"{node.id}: identity key must be '-'")
         seen[node.id] = node.kind
+        if node.kind in {"observe", "state_view"}:
+            flows[node.id] = (node.parameters["label"] == "protected", frozenset())
+        elif node.kind == "join":
+            left, right = (flows[ref] for ref in node.inputs)
+            flows[node.id] = (left[0] or right[0], left[1] | right[1])
+        elif node.kind == "declassify":
+            _, prior = flows[node.inputs[0]]
+            flows[node.id] = (
+                False,
+                prior | {(node.parameters["destination"], node.parameters["purpose"])},
+            )
+        elif node.kind == "effect_request":
+            protected, disclosed = flows[node.inputs[0]]
+            target = (node.parameters["destination"], node.parameters["purpose"])
+            if protected or any(release != target for release in disclosed):
+                raise VerificationError(f"{node.id}: protected flow needs matching disclosure")
+        elif node.kind not in TERMINAL:
+            flows[node.id] = flows[node.inputs[0]]
     if not any(node.kind in TERMINAL for node in program.nodes):
         raise VerificationError("program has no output or request")
     # Never accept Python objects embedded as inputs or parameters.
