@@ -1,4 +1,4 @@
-# PersonIR experiment, slices 1–5
+# PersonIR experiment, slices 1–6
 
 This is the executable falsification experiment from
 `docs/lifehub/research/PERSON_IR_EXPERIMENT_PLAN.md`. It is separate from the
@@ -86,6 +86,7 @@ Run tests from the repository root:
 python -m pytest -q experiments/person_ir/tests
 ```
 
-Next slices: heterogeneous scenarios, then comparison with
-the existing conventional Wasm capability host. No claim of a new language or
+Slice 6 has five runnable graphs and boundary tests; see `SCENARIOS.md` for
+the observed successes and gaps. Next: hostile tests and comparison with the
+existing conventional Wasm capability host. No claim of a new language or
 compiler follows from these slices.
