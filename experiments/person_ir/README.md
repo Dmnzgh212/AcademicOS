@@ -88,6 +88,7 @@ python -m pytest -q experiments/person_ir/tests
 
 Slice 6 has five runnable graphs and boundary tests; see `SCENARIOS.md`.
 Slice 7 exercises eight hostile-extension classes and documents a native-host
-intent reconstruction bypass in `HOSTILE_FINDINGS.md`. The conventional Wasm
-capability baseline and comparison remain before a compiler decision. No claim
-of a new language or compiler follows from these slices.
+intent reconstruction bypass in `HOSTILE_FINDINGS.md`. `BASELINE_COMPARISON.md`
+compares a runnable conventional core-Wasm fake effect against the graph and
+records the decision to defer compiler work. No claim of a new language or
+compiler follows from these slices.
