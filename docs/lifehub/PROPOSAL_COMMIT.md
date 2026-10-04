@@ -1,5 +1,8 @@
 # Local proposal and commit flow
 
+> Architecture status (2026-10-03): this is a **conventional host-mediated write boundary**, not evidence that PersonIR/POP is necessary. The useful properties are staged mutation, package/scope revalidation, MVCC/CAS-style stale-write rejection, idempotency, and audit. Keep the mechanism independent of any particular review UI.
+
+
 Approved core-Wasm extensions may call `lifehub.propose_json`. This only stages a
 change in memory. If the module traps, runs out of fuel, or fails a permission check,
 the staged changes are discarded. After a successful run, the host saves pending
