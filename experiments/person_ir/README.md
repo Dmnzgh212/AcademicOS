@@ -1,5 +1,8 @@
 # PersonIR experiment, slices 1–7
 
+> Decision (2026-10-03): **do not start a new PersonIR source language/compiler on the current evidence.** The conventional core-Wasm baseline can express the key proposal/effect separation, while the hostile tests expose host-binding limits outside the graph verifier. Preserve this directory as falsification evidence and an optional declarative-layer experiment; do not promote it into the LifeHub kernel without new comparative evidence. See `PERSON_IR_DECISION.md` and `docs/lifehub/DIRECTION_AUDIT_2026-10-03.md`.
+
+
 This is the executable falsification experiment from
 `docs/lifehub/research/PERSON_IR_EXPERIMENT_PLAN.md`. It is separate from the
 LifeHub kernel. Graphs are constructed as immutable Python `Node`/`Program` data;
