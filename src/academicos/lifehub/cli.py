@@ -486,13 +486,13 @@ def call_service(
     installed: Path = typer.Option(DEFAULT_INSTALLED, "--installed"),
 ) -> None:
     """Call an authorized JSON computation service using a bounded local JSON file."""
-    from academicos.lifehub.wasm import MAX_IO_BYTES, _invalid_json
+    from academicos.lifehub.messages import MAX_IO_BYTES, decode_message
 
     with request_file.open("rb") as source:
         raw = source.read(MAX_IO_BYTES + 1)
     if len(raw) > MAX_IO_BYTES:
         raise ValueError("service request file exceeds IO limit")
-    request = json.loads(raw.decode("utf-8"), parse_constant=_invalid_json)
+    request = decode_message(raw)
     hub = LifeHub(db_path=db, plugins_path=installed)
     try:
         response = hub.call_service(caller, ref, request)

@@ -19,6 +19,12 @@ runtime bounds. Responses are released only after zero status, exactly one valid
 response, and a final package/grant check. Traps and failures discard responses.
 Each invocation has fresh memory and fuel.
 
+CLI requests, guest service requests and provider responses share the same JSON
+message validation. Nonfinite constants and exponent overflow are rejected;
+container nesting is limited to 64 levels, and parser nesting failures become
+validation errors. Guest requests are validated
+before invoking the bound provider callback.
+
 This execution profile links no storage, effects, filesystem, network, WASI or
 nested service-call imports, even if the provider manifest requests those rights.
 It is a bounded computation service. JSON data cannot carry executable callbacks

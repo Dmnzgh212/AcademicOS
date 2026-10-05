@@ -7,11 +7,11 @@ from typing import Callable, Any
 
 from academicos.lifehub.effects import EffectRequest, EffectService
 from academicos.lifehub.manifest import PluginManifest
+from academicos.lifehub.messages import MAX_IO_BYTES, decode_message, encode_message
 from academicos.lifehub.proposals import ProposedChange
 from academicos.lifehub.store import ScopedStore
 
 MAX_MODULE_BYTES = 2 * 1024 * 1024
-MAX_IO_BYTES = 64 * 1024
 MAX_MEMORY_BYTES = 8 * 1024 * 1024
 FUEL = 1_000_000
 MAX_PROPOSALS = 8
@@ -90,20 +90,10 @@ class WasmRunner:
             if not isinstance(memory, wasmtime.Memory):
                 raise ValueError("plugin must export linear memory")
             ref = _guest_bytes(memory, caller, ref_ptr, ref_len).decode("utf-8")
-            request = json.loads(
-                _guest_bytes(memory, caller, req_ptr, req_len).decode("utf-8"),
-                parse_constant=_invalid_json,
-            )
+            request = decode_message(_guest_bytes(memory, caller, req_ptr, req_len))
             _guest_bytes(memory, caller, out_ptr, out_cap)
             service_calls += 1
-            output = json.dumps(
-                self.service_call(ref, request),
-                ensure_ascii=False,
-                allow_nan=False,
-                separators=(",", ":"),
-            ).encode("utf-8")
-            if len(output) > MAX_IO_BYTES:
-                raise ValueError("service response exceeds IO limit")
+            output = encode_message(self.service_call(ref, request))
             if len(output) > out_cap:
                 return -len(output)
             memory.write(caller, output, out_ptr)
