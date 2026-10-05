@@ -17,6 +17,10 @@ def build(destination: Path) -> tuple[Path, Path]:
             archive.writestr("plugin.toml", (source / f"{name}.toml").read_bytes())
             if name == "provider":
                 archive.writestr("echo.wasm", wasmtime.wat2wasm((source / "echo.wat").read_text()))
+            else:
+                archive.writestr(
+                    "caller.wasm", wasmtime.wat2wasm((source / "caller.wat").read_text())
+                )
         paths.append(path)
     return tuple(paths)
 

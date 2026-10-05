@@ -129,3 +129,16 @@ module = "echo.wasm"
             hub.call_service(args[0], args[1], {})
     finally:
         hub.close()
+
+
+def test_service_requires_exported_memory_even_without_host_imports():
+    wasm = wasmtime.wat2wasm('(module (func (export "run") (result i32) (i32.const 0)))')
+    with pytest.raises(ValueError, match="must export memory"):
+        run_json_service(wasm, {})
+
+
+def test_service_fuel_exhaustion_terminates_guest():
+    wasm = wasmtime.wat2wasm("""(module (memory (export "memory") 1)
+      (func (export "run") (result i32) (loop $spin (br $spin)) (i32.const 0)))""")
+    with pytest.raises(wasmtime.Trap, match="fuel"):
+        run_json_service(wasm, {})

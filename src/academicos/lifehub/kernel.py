@@ -204,7 +204,14 @@ class LifeHub:
         files = self.packages.approved_files(bundle.root, bundle.manifest)
         if module_name not in files:
             raise ValueError("WebAssembly module is not in the approved package")
-        runner = WasmRunner(self.scoped_store(extension.plugin_id), bundle.manifest, self.effects)
+        runner = WasmRunner(
+            self.scoped_store(extension.plugin_id),
+            bundle.manifest,
+            self.effects,
+            service_call=lambda target, request: self.call_service(
+                bundle.manifest.id, target, request
+            ),
+        )
         self.last_proposal_ids = []
         self.last_effect_ids = []
         result = runner.run(files[module_name])
