@@ -49,3 +49,10 @@ def build_catalog(
             for item in extensions
         ],
     }
+
+
+def require_contract(contribution, supported: str) -> None:
+    """Consumers opt into exact contracts; omitted versions retain legacy behavior."""
+    declared = contribution.contract
+    if declared is not None and declared != supported:
+        raise ValueError(f"unsupported extension contract: {declared}; expected {supported}")

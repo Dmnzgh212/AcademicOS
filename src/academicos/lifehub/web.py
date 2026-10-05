@@ -102,6 +102,8 @@ def _extension_body(hub: LifeHub, extension: RegisteredExtension) -> str:
             "The v0.2 kernel preserves this contribution without forcing it into a built-in renderer."
             "</div>"
         )
+    if contribution.contract not in (None, "lifehub.primitive@1"):
+        return '<div class="empty">Unsupported surface contract.</div>'
     namespace = str(contribution.config.get("namespace", ""))
     records = hub.store.latest_records(namespace, limit=int(contribution.config.get("limit", 8)))
     return _primitive_payload(extension, records)
@@ -175,9 +177,13 @@ def render_review_inbox(hub: LifeHub) -> str:
 
 
 def render_workspace(hub: LifeHub, *, token: str, workspace_id: str = "home") -> str:
+    catalog = hub.catalog()
+    refs = {entry["ref"] for entry in catalog["extensions"]}
     cards: list[str] = []
     for item in hub.store.workspace_layout(workspace_id):
         if not item["visible"]:
+            continue
+        if str(item["extension_ref"]) not in refs:
             continue
         try:
             extension = hub.extension(str(item["extension_ref"]))
@@ -193,10 +199,10 @@ def render_workspace(hub: LifeHub, *, token: str, workspace_id: str = "home") ->
               <div class="surface-body">{_extension_body(hub, extension)}</div>
             </section>"""
         )
-    points = len(hub.registry.points())
+    points = len({entry["point"] for entry in catalog["extensions"]})
     return f"""<!doctype html><html lang="en" data-token="{_esc(token)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LifeHub</title><link rel="stylesheet" href="/assets/app.css"></head><body>
 <div class="shell"><header class="topbar"><div class="brand"><div class="mark">LH</div>LifeHub <span class="topmeta">extension host · local kernel</span></div><div class="actions"><a href="#reviews">Review inbox</a><button id="edit-toggle">Edit</button></div></header>
-<section class="hero"><div class="eyebrow">Workspace / Home</div><h1>A local host for whatever comes next.</h1><p>The board below is only one consumer of the extension registry. LifeHub Core does not define your life domains or a closed list of plugin types.</p><div class="status"><span class="pill">Local persistence</span><span class="pill neutral">{len(hub.bundles)} packages</span><span class="pill neutral">{len(hub.extensions())} extensions</span><span class="pill neutral">{points} extension points</span></div></section>
+<section class="hero"><div class="eyebrow">Workspace / Home</div><h1>A local host for whatever comes next.</h1><p>The board below is only one consumer of the extension registry. LifeHub Core does not define your life domains or a closed list of plugin types.</p><div class="status"><span class="pill">Local persistence</span><span class="pill neutral">{len(catalog["packages"])} packages</span><span class="pill neutral">{len(catalog["extensions"])} extensions</span><span class="pill neutral">{points} extension points</span></div></section>
 <div class="boardbar"><h2>Home</h2><div class="hint">temporary workspace consumer · Edit changes local layout only</div></div><main class="board">{"".join(cards)}</main>{render_review_inbox(hub)}<div class="footer">LifeHub Kernel v0.2 · personal and derived data remains local</div></div><script src="/assets/app.js"></script></body></html>"""
 
 

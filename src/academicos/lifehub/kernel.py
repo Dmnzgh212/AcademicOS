@@ -8,7 +8,7 @@ from academicos.lifehub.effects import EffectService
 from academicos.lifehub.network import EgressGateway
 from academicos.lifehub.packages import PackageInstaller
 from academicos.lifehub.proposals import ProposalService
-from academicos.lifehub.protocol import CATALOG_API, build_catalog
+from academicos.lifehub.protocol import CATALOG_API, build_catalog, require_contract
 from academicos.lifehub.registry import PluginBundle, PluginRegistry, RegisteredExtension
 from academicos.lifehub.store import LifeStore, namespace_allowed
 from academicos.lifehub.wasm import WasmRunner
@@ -73,6 +73,7 @@ class LifeHub:
     def run_wasm(self, ref: str) -> int:
         """Run approved WebAssembly and persist proposals only after successful return."""
         extension = self.extension(ref)
+        require_contract(extension.contribution, "lifehub.core-wasm@1")
         bundle = self.bundle(extension.plugin_id)
         if extension.contribution.entrypoint != "lifehub.wasm":
             raise ValueError(f"extension is not a WebAssembly entrypoint: {ref}")
