@@ -424,3 +424,54 @@ def catalog(
         typer.echo(json.dumps(hub.catalog(point=point), ensure_ascii=False))
     finally:
         hub.close()
+
+
+@app.command("review-service")
+def review_service(
+    caller: str,
+    ref: str,
+    contract: str,
+    db: Path = typer.Option(DEFAULT_DB, "--db"),
+    installed: Path = typer.Option(DEFAULT_INSTALLED, "--installed"),
+) -> None:
+    """Inspect provider permissions and exact package snapshots before granting."""
+    hub = LifeHub(db_path=db, plugins_path=installed)
+    try:
+        typer.echo(json.dumps(hub.review_service(caller, ref, contract), ensure_ascii=False))
+    finally:
+        hub.close()
+
+
+@app.command("grant-service")
+def grant_service(
+    caller: str,
+    ref: str,
+    contract: str,
+    approve_hash: str = typer.Option(..., "--approve-hash"),
+    db: Path = typer.Option(DEFAULT_DB, "--db"),
+    installed: Path = typer.Option(DEFAULT_INSTALLED, "--installed"),
+) -> None:
+    """Grant only the service snapshots explicitly reviewed by digest."""
+    hub = LifeHub(db_path=db, plugins_path=installed)
+    try:
+        hub.grant_service(caller, ref, contract, approved_digest=approve_hash)
+        typer.echo("Service activation granted.")
+    finally:
+        hub.close()
+
+
+@app.command("revoke-service")
+def revoke_service(
+    caller: str,
+    ref: str,
+    contract: str,
+    db: Path = typer.Option(DEFAULT_DB, "--db"),
+    installed: Path = typer.Option(DEFAULT_INSTALLED, "--installed"),
+) -> None:
+    """Revoke matching service grants, including obsolete package bindings."""
+    hub = LifeHub(db_path=db, plugins_path=installed)
+    try:
+        hub.revoke_service(caller, ref, contract)
+        typer.echo("Service activation revoked.")
+    finally:
+        hub.close()

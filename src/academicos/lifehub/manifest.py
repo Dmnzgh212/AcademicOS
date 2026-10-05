@@ -24,6 +24,7 @@ class EffectPermission(BaseModel):
 class PermissionSpec(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    service_call: list[str] = Field(default_factory=list)
     storage_read: list[str] = Field(default_factory=list)
     storage_write: list[str] = Field(default_factory=list)
     network_retrieval: list[str] = Field(default_factory=list)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 from pathlib import Path
 
 from academicos.lifehub.manifest import PluginManifest
@@ -69,6 +70,89 @@ class LifeHub:
         return EgressGateway(
             self.store, self.bundle(plugin_id).manifest, verify=lambda: self.bundle(plugin_id)
         )
+
+    def _service_binding(self, caller_id: str, ref: str, contract: str) -> str:
+        """Trusted host activation; identities must never come from untrusted payloads."""
+        if not self.packages.is_managed():
+            raise PermissionError("service activation requires approved installed packages")
+        caller = self.bundle(caller_id)
+        if ref not in caller.manifest.permissions.service_call:
+            raise PermissionError("caller did not request this exact service")
+        extension = self.extension(ref)
+        if extension.contribution.point != "lifehub.service":
+            raise ValueError("target is not a service contribution")
+        if extension.contribution.contract != contract:
+            raise ValueError("service contract mismatch")
+        require_contract(extension.contribution, "lifehub.core-wasm@1")
+        if extension.contribution.entrypoint != "lifehub.wasm":
+            raise ValueError("service activation supports core-Wasm only")
+        provider = self.bundle(extension.plugin_id)
+        digests = []
+        for bundle in (caller, provider):
+            self.packages.verify(bundle.root, bundle.manifest)
+            row = self.store.conn.execute(
+                "SELECT content_hash FROM lifehub_installed_packages WHERE plugin_id=?",
+                (bundle.manifest.id,),
+            ).fetchone()
+            if row is None:
+                raise PermissionError("service package approval missing")
+            digests.append(row["content_hash"])
+        return json.dumps([ref, contract, *digests], separators=(",", ":"))
+
+    def review_service(self, caller_id: str, ref: str, contract: str) -> dict:
+        binding = self._service_binding(caller_id, ref, contract)
+        parts = json.loads(binding)
+        provider_id = self.extension(ref).plugin_id
+        row = self.store.conn.execute(
+            "SELECT 1 FROM lifehub_permission_grants "
+            "WHERE plugin_id=? AND capability=? AND resource=?",
+            (caller_id, "service.activate", binding),
+        ).fetchone()
+        return {
+            "api": "lifehub.service-review@1",
+            "caller": caller_id,
+            "provider": provider_id,
+            "ref": ref,
+            "contract": contract,
+            "caller_digest": parts[2],
+            "provider_digest": parts[3],
+            "provider_requested_permissions": self.manifest(provider_id).permissions.model_dump(
+                mode="json"
+            ),
+            "granted": row is not None,
+            "approval_digest": hashlib.sha256(
+                json.dumps([caller_id, binding], separators=(",", ":")).encode()
+            ).hexdigest(),
+        }
+
+    def grant_service(
+        self, caller_id: str, ref: str, contract: str, *, approved_digest: str | None = None
+    ) -> None:
+        binding = self._service_binding(caller_id, ref, contract)
+        if approved_digest is not None:
+            review = self.review_service(caller_id, ref, contract)
+            if review["approval_digest"] != approved_digest:
+                raise PermissionError("service review changed; review again before granting")
+        self.store.grant(caller_id, "service.activate", binding)
+
+    def revoke_service(self, caller_id: str, ref: str, contract: str) -> None:
+        # Revocation works even if packages have changed or disappeared.
+        for grant in self.store.grants(caller_id):
+            if grant["capability"] == "service.activate":
+                parts = json.loads(grant["resource"])
+                if parts[:2] == [ref, contract]:
+                    self.store.revoke(caller_id, "service.activate", grant["resource"])
+
+    def activate_service(self, caller_id: str, ref: str, contract: str) -> int:
+        binding = self._service_binding(caller_id, ref, contract)
+        row = self.store.conn.execute(
+            "SELECT 1 FROM lifehub_permission_grants "
+            "WHERE plugin_id=? AND capability=? AND resource=?",
+            (caller_id, "service.activate", binding),
+        ).fetchone()
+        if row is None:
+            raise PermissionError("service activation is not granted for these package snapshots")
+        return self.run_wasm(ref)
 
     def run_wasm(self, ref: str) -> int:
         """Run approved WebAssembly and persist proposals only after successful return."""
