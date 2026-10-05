@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from typing import Callable, Any
 
 from academicos.lifehub.effects import EffectRequest, EffectService
 from academicos.lifehub.manifest import PluginManifest
@@ -15,6 +16,7 @@ MAX_MEMORY_BYTES = 8 * 1024 * 1024
 FUEL = 1_000_000
 MAX_PROPOSALS = 8
 MAX_EFFECT_REQUESTS = 4
+MAX_SERVICE_CALLS = 4
 
 
 class WasmRunner:
@@ -25,7 +27,9 @@ class WasmRunner:
         scoped: ScopedStore,
         manifest: PluginManifest | None = None,
         effects: EffectService | None = None,
+        service_call: Callable[[str, Any], Any] | None = None,
     ) -> None:
+        self.service_call = service_call
         self.scoped = scoped
         self.manifest = manifest
         self.effect_service = effects
@@ -52,6 +56,7 @@ class WasmRunner:
         )
         effect_signature = wasmtime.FuncType([wasmtime.ValType.i32()] * 2, [wasmtime.ValType.i32()])
         signatures = {
+            "call_service_json": propose_signature,
             "read_json": read_signature,
             "propose_json": propose_signature,
             "request_effect_json": effect_signature,
@@ -72,6 +77,37 @@ class WasmRunner:
         store.set_limits(memory_size=MAX_MEMORY_BYTES, instances=1, memories=1, tables=0)
         store.set_fuel(FUEL)
         linker = wasmtime.Linker(engine)
+
+        service_calls = 0
+
+        def call_service_json(caller, ref_ptr, ref_len, req_ptr, req_len, out_ptr, out_cap):
+            nonlocal service_calls
+            if self.service_call is None:
+                raise PermissionError("service calls are unavailable")
+            if service_calls >= MAX_SERVICE_CALLS:
+                raise ValueError("too many service calls in one run")
+            memory = caller.get("memory")
+            if not isinstance(memory, wasmtime.Memory):
+                raise ValueError("plugin must export linear memory")
+            ref = _guest_bytes(memory, caller, ref_ptr, ref_len).decode("utf-8")
+            request = json.loads(
+                _guest_bytes(memory, caller, req_ptr, req_len).decode("utf-8"),
+                parse_constant=_invalid_json,
+            )
+            _guest_bytes(memory, caller, out_ptr, out_cap)
+            service_calls += 1
+            output = json.dumps(
+                self.service_call(ref, request),
+                ensure_ascii=False,
+                allow_nan=False,
+                separators=(",", ":"),
+            ).encode("utf-8")
+            if len(output) > MAX_IO_BYTES:
+                raise ValueError("service response exceeds IO limit")
+            if len(output) > out_cap:
+                return -len(output)
+            memory.write(caller, output, out_ptr)
+            return len(output)
 
         def read_json(caller, name_ptr: int, name_len: int, out_ptr: int, out_cap: int) -> int:
             memory = caller.get("memory")
@@ -152,6 +188,13 @@ class WasmRunner:
             self.effect_requests.append(EffectRequest(kind, destination, purpose, payload))
             return len(self.effect_requests)
 
+        linker.define_func(
+            "lifehub",
+            "call_service_json",
+            propose_signature,
+            call_service_json,
+            access_caller=True,
+        )
         linker.define_func("lifehub", "read_json", read_signature, read_json, access_caller=True)
         linker.define_func(
             "lifehub", "propose_json", propose_signature, propose_json, access_caller=True

@@ -1,8 +1,8 @@
 # JSON service CLI round trip
 
 This example builds two packages: an echo computation service and a client
-manifest requesting that exact service. The client has no executable module;
-this demonstrates trusted local host orchestration, not a guest RPC bridge.
+manifest and core-Wasm module requesting that exact service. The client module
+uses a host-mediated guest service call bound to its installed package identity.
 
 After installing `.[dev,wasm]`, from the repository root:
 
@@ -26,7 +26,15 @@ lifehub call-service example.client example.echo:echo --request /tmp/request.jso
 lifehub revoke-service example.client example.echo:echo lifehub.service-json@1 --db /tmp/echo.db --installed /tmp/echo-installed
 ```
 
-The response is the same JSON value. Repeating the call after revocation fails.
+The response is the same JSON value. Before revoking, you can also run the Wasm
+client:
+
+```sh
+lifehub run-wasm example.client:invoke --db /tmp/echo.db --installed /tmp/echo-installed
+```
+
+It sends `{"message":"hello from Wasm"}` to the echo service and returns its
+response byte length (29). Both call routes fail after revocation.
 The CLI reads at most 64 KiB plus one byte to detect oversized files, rejects
 nonfinite/invalid JSON, and emits a response only after successful authorized
 execution. Input data is explicitly disclosed to the chosen provider by the
@@ -35,5 +43,5 @@ available to this service profile. No request or response is persisted.
 
 `tests/test_lifehub_echo_cli.py` builds these actual files and exercises installation,
 review, grant, call, oversized/nonfinite input rejection, and revocation through
-the CLI. The user-supplied caller ID in this CLI remains a trusted administrative
+the CLI, including the executable Wasm client. The user-supplied caller ID in this CLI remains a trusted administrative
 choice; it must not be copied into a future untrusted guest API.

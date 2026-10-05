@@ -35,6 +35,8 @@ def test_shipped_echo_packages_through_cli(tmp_path):
     request.write_text(json.dumps({"text": "中文", "value": 42}), encoding="utf-8")
     call = ["call-service", *args, "--request", str(request), *options]
     assert runner.invoke(app, call).exit_code != 0
+    guest_call = ["run-wasm", "example.client:invoke", *options]
+    assert runner.invoke(app, guest_call).exit_code != 0
     result = runner.invoke(app, ["review-service", *args, "lifehub.service-json@1", *options])
     assert result.exit_code == 0, result.output
     review = json.loads(result.output)
@@ -53,6 +55,9 @@ def test_shipped_echo_packages_through_cli(tmp_path):
     result = runner.invoke(app, call)
     assert result.exit_code == 0, result.output
     assert json.loads(result.output) == {"text": "中文", "value": 42}
+    result = runner.invoke(app, guest_call)
+    assert result.exit_code == 0, result.output
+    assert "Result: 29" in result.output
     request.write_text("x" * 65537)
     result = runner.invoke(app, call)
     assert result.exit_code != 0
@@ -63,3 +68,4 @@ def test_shipped_echo_packages_through_cli(tmp_path):
     assert result.exit_code == 0, result.output
     request.write_text("{}")
     assert runner.invoke(app, call).exit_code != 0
+    assert runner.invoke(app, guest_call).exit_code != 0
