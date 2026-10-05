@@ -2,20 +2,13 @@
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
-from academicos.lifehub.wasm import FUEL, MAX_IO_BYTES, MAX_MEMORY_BYTES, MAX_MODULE_BYTES
-from academicos.lifehub.wasm import _guest_bytes, _invalid_json
+from academicos.lifehub.wasm import FUEL, MAX_MEMORY_BYTES, MAX_MODULE_BYTES
+from academicos.lifehub.wasm import _guest_bytes
+from academicos.lifehub.messages import decode_message, encode_message
 
 SERVICE_JSON_CONTRACT = "lifehub.service-json@1"
-
-
-def encode_message(value: Any) -> bytes:
-    raw = json.dumps(value, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode()
-    if len(raw) > MAX_IO_BYTES:
-        raise ValueError("service message exceeds IO limit")
-    return raw
 
 
 def run_json_service(module_bytes: bytes, request: Any) -> Any:
@@ -62,9 +55,7 @@ def run_json_service(module_bytes: bytes, request: Any) -> Any:
         if responses:
             raise ValueError("service may return only one response")
         raw = _guest_bytes(memory_of(caller), caller, ptr, length)
-        output = json.loads(raw.decode("utf-8"), parse_constant=_invalid_json)
-        # Reject oversized canonical output as well as oversized guest bytes.
-        encode_message(output)
+        output = decode_message(raw)
         responses.append(output)
         return length
 
