@@ -10,9 +10,32 @@ import sys
 MAX_CATALOG_BYTES = 1024 * 1024
 
 
-def render(catalog: dict, *, style: str = "text") -> str:
+def validate_catalog(catalog: object) -> dict:
+    """Validate fields this shell consumes; preserve unknown protocol fields."""
+    if not isinstance(catalog, dict):
+        raise ValueError("catalog must be an object")
     if catalog.get("api") != "lifehub.catalog@1":
         raise ValueError("unsupported catalog API")
+    for key, required, optional in (
+        ("packages", ("id", "name"), ()),
+        ("extensions", ("ref", "plugin_id", "point"), ("contract", "entrypoint")),
+    ):
+        items = catalog.get(key)
+        if not isinstance(items, list):
+            raise ValueError(f"catalog {key} must be an array")
+        for item in items:
+            if not isinstance(item, dict):
+                raise ValueError(f"catalog {key} entries must be objects")
+            if any(not isinstance(item.get(field), str) for field in required):
+                raise ValueError(f"catalog {key} required fields must be strings")
+            if any(item.get(field) is not None and not isinstance(item[field], str)
+                   for field in optional):
+                raise ValueError(f"catalog {key} optional fields must be strings or null")
+    return catalog
+
+
+def render(catalog: dict, *, style: str = "text") -> str:
+    catalog = validate_catalog(catalog)
     packages = catalog["packages"]
     extensions = catalog["extensions"]
     names = {item["id"]: item["name"] for item in packages}
@@ -55,6 +78,12 @@ if __name__ == "__main__":
     parser.add_argument("--style", choices=("text", "html"), default="text")
     args = parser.parse_args()
     raw = sys.stdin.buffer.read(MAX_CATALOG_BYTES + 1)
-    if len(raw) > MAX_CATALOG_BYTES:
-        raise ValueError("catalog exceeds shell input limit")
-    print(render(json.loads(raw.decode("utf-8")), style=args.style))
+    try:
+        if len(raw) > MAX_CATALOG_BYTES:
+            raise ValueError("catalog exceeds shell input limit")
+        output = render(json.loads(raw.decode("utf-8")), style=args.style)
+    except (ValueError, RecursionError):
+        # Keep untrusted input and Python internals out of diagnostics.
+        print("Invalid or unsupported LifeHub catalog", file=sys.stderr)
+        sys.exit(2)
+    print(output)

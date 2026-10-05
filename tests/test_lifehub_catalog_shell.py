@@ -48,3 +48,20 @@ def test_shell_escapes_untrusted_metadata_and_rejects_wrong_version():
     assert "\\u001b" in shell.render(catalog)
     with pytest.raises(ValueError, match="unsupported catalog"):
         shell.render({"api": "lifehub.catalog@2"})
+
+
+@pytest.mark.parametrize("raw", [
+    b"null", b"[]", b"{", b"\xff", b"{}",
+    b'{"api":"lifehub.catalog@1","packages":{},"extensions":[]}',
+    b'{"api":"lifehub.catalog@1","packages":[null],"extensions":[]}',
+    b'{"api":"lifehub.catalog@1","packages":[{"id":1,"name":"x"}],"extensions":[]}',
+    b'{"api":"lifehub.catalog@1","packages":[],"extensions":[{"ref":"x","plugin_id":"x","point":"p","contract":1}]}',
+    b" " * (1024 * 1024 + 1),
+], ids=["null", "array", "syntax", "utf8", "missing", "shape", "entry", "field", "contract", "size"])
+def test_shell_invalid_input_has_no_partial_output_or_traceback(raw):
+    result = subprocess.run(
+        [sys.executable, "-I", str(SOURCE)], input=raw, capture_output=True,
+    )
+    assert result.returncode == 2
+    assert result.stdout == b""
+    assert result.stderr == b"Invalid or unsupported LifeHub catalog\n"
