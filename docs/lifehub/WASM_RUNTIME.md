@@ -1,5 +1,8 @@
 # LifeHub core-Wasm runtime
 
+> Architecture status (2026-10-03): this is the current **conventional executable plugin boundary** for LifeHub experiments. It is useful independently of PersonIR/POP and is the baseline against which a new IR must justify itself. Core Wasm is not being claimed as the final ABI; WIT/Component Model remains a possible future typed boundary.
+
+
 Install `academicos[wasm]` (or `academicos[dev,wasm]` for development). The runtime
 uses Wasmtime core modules. A package must be installed and approved in the managed
 directory; placing a module in the development/demo directory does not enable execution.

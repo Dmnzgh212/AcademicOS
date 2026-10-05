@@ -53,6 +53,7 @@ class ExtensionContribution(BaseModel):
     point: str
     title: str | None = None
     entrypoint: str | None = None
+    contract: str | None = None
     activation: list[str] = Field(default_factory=list)
     config: dict[str, Any] = Field(default_factory=dict)
 

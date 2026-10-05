@@ -1,0 +1,17 @@
+manifest_version = 1
+api = "lifehub@1"
+id = "example.reader"
+name = "Generic record reader"
+version = "1.0.0"
+
+[permissions]
+storage_read = ["sample"]
+
+[[contributes]]
+id = "read"
+point = "example.record-reader"
+entrypoint = "lifehub.wasm"
+contract = "lifehub.core-wasm@1"
+
+[contributes.config]
+module = "reader.wasm"

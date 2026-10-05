@@ -1,5 +1,8 @@
 # Explicit effect requests and uncertain outcomes
 
+> Architecture status (2026-10-03): this is **conventional host safety/recovery infrastructure**, not proof of an Effect-as-Data or PersonIR novelty claim. The useful properties are explicit staging, scope checks, separation of approval from dispatch, durable outcome state, idempotency, and conservative handling of uncertain external outcomes.
+
+
 An installed core-Wasm extension may request an effect only if its approved manifest
 declares the exact `kind` and `destination` pair:
 

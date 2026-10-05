@@ -280,15 +280,14 @@ def extensions(
     """Inspect the open extension registry, optionally filtering by extension point."""
     hub = LifeHub(db_path=db, plugins_path=plugins)
     try:
-        items = hub.extensions(point)
+        items = hub.catalog(point=point)["extensions"]
         if not items:
             typer.echo("No extensions found.")
             return
         for item in items:
-            contribution = item.contribution
             typer.echo(
-                f"{item.ref} · point={contribution.point} · "
-                f"entry={contribution.entrypoint or 'declarative'}"
+                f"{item['ref']} · point={item['point']} · "
+                f"entry={item['entrypoint'] or 'declarative'}"
             )
     finally:
         hub.close()
@@ -411,3 +410,17 @@ def doctor(
 
 if __name__ == "__main__":
     app()
+
+
+@app.command("catalog")
+def catalog(
+    point: str | None = typer.Option(None, "--point"),
+    db: Path = typer.Option(DEFAULT_DB, "--db"),
+    plugins: Path = typer.Option(DEFAULT_PLUGINS, "--plugins"),
+) -> None:
+    """Export the versioned JSON discovery contract for alternative local shells."""
+    hub = LifeHub(db_path=db, plugins_path=plugins)
+    try:
+        typer.echo(json.dumps(hub.catalog(point=point), ensure_ascii=False))
+    finally:
+        hub.close()
