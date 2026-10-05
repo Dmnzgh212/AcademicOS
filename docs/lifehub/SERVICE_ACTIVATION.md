@@ -33,3 +33,20 @@ The threat boundary remains approved package verification with same-user
 filesystem races outside current guarantees. This slice does not implement
 shared transaction semantics, delegation, recursive service calls, or automatic
 activation.
+
+## Local CLI review
+
+`lifehub review-service CALLER REF CONTRACT --db DB --installed PACKAGES`
+prints `lifehub.service-review@1` JSON with both package digests, provider
+requested permissions, current exact grant status, and an approval digest.
+It does not grant or execute. Use the returned digest with
+`lifehub grant-service CALLER REF CONTRACT --approve-hash DIGEST` (same DB/root).
+A stale digest is rejected if either approved package changed. The trusted
+in-process grant API can still be used by host code without a review digest;
+the CLI requires one. Requested permissions shown in review are not a list of
+currently effective storage grants.
+
+`lifehub revoke-service CALLER REF CONTRACT` (same DB/root) removes all matching
+bindings, including stale ones. Activation itself remains an in-process host API
+in this slice. This CLI is a trusted local administrative surface; caller IDs
+entered by the local operator are not authenticated guest identities.

@@ -1,4 +1,7 @@
 import zipfile
+import json
+from typer.testing import CliRunner
+from academicos.lifehub.cli import app
 
 import pytest
 
@@ -55,7 +58,20 @@ version = "1.0.0"
             hub.activate_service(*args)
         with pytest.raises(ValueError, match="contract mismatch"):
             hub.grant_service(args[0], args[1], "lifehub.core-wasm@2")
-        hub.grant_service(*args)
+        runner = CliRunner()
+        options = ["--db", str(db), "--installed", str(root)]
+        result = runner.invoke(app, ["review-service", *args, *options])
+        assert result.exit_code == 0, result.output
+        review = json.loads(result.output)
+        assert review["provider_requested_permissions"]["storage_read"] == ["public"]
+        assert review["granted"] is False
+        result = runner.invoke(app, ["grant-service", *args, "--approve-hash", "wrong", *options])
+        assert result.exit_code != 0
+        result = runner.invoke(
+            app, ["grant-service", *args, "--approve-hash", review["approval_digest"], *options]
+        )
+        assert result.exit_code == 0, result.output
+        assert hub.review_service(*args)["granted"] is True
         with pytest.raises(PermissionError, match="cannot read"):
             hub.activate_service(*args)
         hub.grant_read("sample.provider", "public")
@@ -75,6 +91,15 @@ version = "1.0.0"
         hub.packages.uninstall("sample.provider")
         assert not any(g["capability"] == "service.activate" for g in hub.store.grants())
         with pytest.raises(KeyError):
+            hub.activate_service(*args)
+        archive = tmp_path / "provider.zip"
+        with zipfile.ZipFile(archive, "a") as output:
+            output.writestr("release-note.txt", "new approved package content")
+        hub.packages.install(archive, approved_hash=hub.packages.review(archive).content_hash)
+        with pytest.raises(PermissionError, match="review changed"):
+            hub.grant_service(*args, approved_digest=review["approval_digest"])
+        assert hub.review_service(*args)["granted"] is False
+        with pytest.raises(PermissionError, match="not granted"):
             hub.activate_service(*args)
     finally:
         hub.close()

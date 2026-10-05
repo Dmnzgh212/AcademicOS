@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 from pathlib import Path
 
 from academicos.lifehub.manifest import PluginManifest
@@ -98,8 +99,40 @@ class LifeHub:
             digests.append(row["content_hash"])
         return json.dumps([ref, contract, *digests], separators=(",", ":"))
 
-    def grant_service(self, caller_id: str, ref: str, contract: str) -> None:
+    def review_service(self, caller_id: str, ref: str, contract: str) -> dict:
         binding = self._service_binding(caller_id, ref, contract)
+        parts = json.loads(binding)
+        provider_id = self.extension(ref).plugin_id
+        row = self.store.conn.execute(
+            "SELECT 1 FROM lifehub_permission_grants "
+            "WHERE plugin_id=? AND capability=? AND resource=?",
+            (caller_id, "service.activate", binding),
+        ).fetchone()
+        return {
+            "api": "lifehub.service-review@1",
+            "caller": caller_id,
+            "provider": provider_id,
+            "ref": ref,
+            "contract": contract,
+            "caller_digest": parts[2],
+            "provider_digest": parts[3],
+            "provider_requested_permissions": self.manifest(provider_id).permissions.model_dump(
+                mode="json"
+            ),
+            "granted": row is not None,
+            "approval_digest": hashlib.sha256(
+                json.dumps([caller_id, binding], separators=(",", ":")).encode()
+            ).hexdigest(),
+        }
+
+    def grant_service(
+        self, caller_id: str, ref: str, contract: str, *, approved_digest: str | None = None
+    ) -> None:
+        binding = self._service_binding(caller_id, ref, contract)
+        if approved_digest is not None:
+            review = self.review_service(caller_id, ref, contract)
+            if review["approval_digest"] != approved_digest:
+                raise PermissionError("service review changed; review again before granting")
         self.store.grant(caller_id, "service.activate", binding)
 
     def revoke_service(self, caller_id: str, ref: str, contract: str) -> None:
