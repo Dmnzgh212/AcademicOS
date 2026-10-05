@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import shutil
 import stat
@@ -204,6 +205,17 @@ class PackageInstaller:
             raise KeyError(plugin_id)
         destination = self.root / plugin_id
         with self.store.conn:
+            # Remove incoming service grants as well as the removed caller's grants.
+            for grant in self.store.grants():
+                if grant["capability"] != "service.activate":
+                    continue
+                binding = json.loads(grant["resource"])
+                if binding[0].split(":", 1)[0] == plugin_id:
+                    self.store.conn.execute(
+                        "DELETE FROM lifehub_permission_grants "
+                        "WHERE plugin_id=? AND capability=? AND resource=?",
+                        (grant["plugin_id"], grant["capability"], grant["resource"]),
+                    )
             self.store.conn.execute(
                 """UPDATE lifehub_change_proposals SET status='invalidated', decided_at=?
                 WHERE plugin_id=? AND status='pending'""",

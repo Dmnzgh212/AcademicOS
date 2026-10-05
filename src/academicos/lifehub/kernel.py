@@ -70,6 +70,57 @@ class LifeHub:
             self.store, self.bundle(plugin_id).manifest, verify=lambda: self.bundle(plugin_id)
         )
 
+    def _service_binding(self, caller_id: str, ref: str, contract: str) -> str:
+        """Trusted host activation; identities must never come from untrusted payloads."""
+        if not self.packages.is_managed():
+            raise PermissionError("service activation requires approved installed packages")
+        caller = self.bundle(caller_id)
+        if ref not in caller.manifest.permissions.service_call:
+            raise PermissionError("caller did not request this exact service")
+        extension = self.extension(ref)
+        if extension.contribution.point != "lifehub.service":
+            raise ValueError("target is not a service contribution")
+        if extension.contribution.contract != contract:
+            raise ValueError("service contract mismatch")
+        require_contract(extension.contribution, "lifehub.core-wasm@1")
+        if extension.contribution.entrypoint != "lifehub.wasm":
+            raise ValueError("service activation supports core-Wasm only")
+        provider = self.bundle(extension.plugin_id)
+        digests = []
+        for bundle in (caller, provider):
+            self.packages.verify(bundle.root, bundle.manifest)
+            row = self.store.conn.execute(
+                "SELECT content_hash FROM lifehub_installed_packages WHERE plugin_id=?",
+                (bundle.manifest.id,),
+            ).fetchone()
+            if row is None:
+                raise PermissionError("service package approval missing")
+            digests.append(row["content_hash"])
+        return json.dumps([ref, contract, *digests], separators=(",", ":"))
+
+    def grant_service(self, caller_id: str, ref: str, contract: str) -> None:
+        binding = self._service_binding(caller_id, ref, contract)
+        self.store.grant(caller_id, "service.activate", binding)
+
+    def revoke_service(self, caller_id: str, ref: str, contract: str) -> None:
+        # Revocation works even if packages have changed or disappeared.
+        for grant in self.store.grants(caller_id):
+            if grant["capability"] == "service.activate":
+                parts = json.loads(grant["resource"])
+                if parts[:2] == [ref, contract]:
+                    self.store.revoke(caller_id, "service.activate", grant["resource"])
+
+    def activate_service(self, caller_id: str, ref: str, contract: str) -> int:
+        binding = self._service_binding(caller_id, ref, contract)
+        row = self.store.conn.execute(
+            "SELECT 1 FROM lifehub_permission_grants "
+            "WHERE plugin_id=? AND capability=? AND resource=?",
+            (caller_id, "service.activate", binding),
+        ).fetchone()
+        if row is None:
+            raise PermissionError("service activation is not granted for these package snapshots")
+        return self.run_wasm(ref)
+
     def run_wasm(self, ref: str) -> int:
         """Run approved WebAssembly and persist proposals only after successful return."""
         extension = self.extension(ref)
