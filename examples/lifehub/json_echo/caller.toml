@@ -1,0 +1,7 @@
+manifest_version = 1
+api = "lifehub@1"
+id = "example.client"
+name = "JSON service client declaration"
+version = "1.0.0"
+[permissions]
+service_call = ["example.echo:echo"]
