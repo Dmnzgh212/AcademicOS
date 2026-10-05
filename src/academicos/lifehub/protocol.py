@@ -23,11 +23,12 @@ def build_catalog(
 
     Managed registries revalidate approved contents during discovery. Local paths
     and stored personal records are deliberately absent from this contract.
+    Both sections derive from one discovery result; this is not an atomic
+    filesystem snapshot or an authorization token for later execution.
     """
     if api != CATALOG_API:
         raise ValueError(f"unsupported catalog API: {api}")
     bundles = registry.discover()
-    extensions = registry.extensions(point)
     return {
         "api": CATALOG_API,
         "packages": [
@@ -42,11 +43,13 @@ def build_catalog(
         ],
         "extensions": [
             {
-                "ref": item.ref,
-                "plugin_id": item.plugin_id,
-                **item.contribution.model_dump(mode="json"),
+                "ref": f"{bundle.manifest.id}:{contribution.id}",
+                "plugin_id": bundle.manifest.id,
+                **contribution.model_dump(mode="json"),
             }
-            for item in extensions
+            for bundle in bundles
+            for contribution in bundle.manifest.contributes
+            if point is None or contribution.point == point
         ],
     }
 

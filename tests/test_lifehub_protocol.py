@@ -90,3 +90,33 @@ def test_web_shell_skips_incompatible_primitive_contract(tmp_path):
         assert "Local item" not in page
     finally:
         hub.close()
+
+
+def test_catalog_uses_one_discovery_result_and_refreshes_next_request(tmp_path, monkeypatch):
+    from academicos.lifehub.protocol import build_catalog
+    from academicos.lifehub.registry import PluginRegistry
+
+    plugin = _write_plugin(tmp_path)
+    manifest_path = plugin / "plugin.toml"
+    original = manifest_path.read_text()
+    registry = PluginRegistry(tmp_path, managed=True, verify=lambda root, manifest: None)
+    discover = registry.discover
+    scans = []
+
+    def discover_then_update():
+        bundles = discover()
+        scans.append(bundles)
+        if len(scans) == 1:
+            manifest_path.write_text(original.replace('sample.future', 'sample.updated'))
+        return bundles
+
+    monkeypatch.setattr(registry, "discover", discover_then_update)
+    first = build_catalog(registry)
+    assert len(scans) == 1
+    assert first["extensions"][1]["entrypoint"] == "sample.future"
+    assert all(item["plugin_id"] == first["packages"][0]["id"]
+               for item in first["extensions"])
+    second = build_catalog(registry, point="future.capability.that-core-does-not-know")
+    assert len(scans) == 2
+    assert second["extensions"][0]["entrypoint"] == "sample.updated"
+    assert first["extensions"][1]["entrypoint"] == "sample.future"
