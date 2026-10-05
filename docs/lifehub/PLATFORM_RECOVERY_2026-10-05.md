@@ -23,7 +23,8 @@ mechanisms plus selected direction documents from #16. It has no
 branches and draft PRs retain all experiment evidence, including both independent
 compiler No-Go findings. They have not been deleted, merged or retargeted.
 
-Platform validation uses `pytest -q` and `ruff check src tests`. Research validation
+Platform validation uses `python -m pytest -q` and
+`python -m ruff check src tests examples/lifehub`. Research validation
 belongs on its original branch, using explicit experiment paths. Do not merge the
 whole #16 stack into main merely to obtain its direction documents.
 
@@ -40,7 +41,11 @@ The catalog is an in-process interface, not an authenticated HTTP API or a WIT
 Component Model implementation. CLI/web shells can adopt it incrementally. Existing
 shells remain compatible.
 
-## Next bounded slices
+## Original next slices (recovery-time plan)
+
+The implemented follow-up slices and remaining gaps are recorded in
+[PLATFORM_STATUS.md](PLATFORM_STATUS.md). The list below is the original recovery
+plan, not a current backlog.
 
 1. Migrate shell discovery to the catalog, keeping rendering outside Core.
 2. Define contribution/service contract negotiation separately from package API
