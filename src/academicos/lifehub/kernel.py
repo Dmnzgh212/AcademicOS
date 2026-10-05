@@ -11,6 +11,7 @@ from academicos.lifehub.packages import PackageInstaller
 from academicos.lifehub.proposals import ProposalService
 from academicos.lifehub.protocol import CATALOG_API, build_catalog, require_contract
 from academicos.lifehub.registry import PluginBundle, PluginRegistry, RegisteredExtension
+from academicos.lifehub.service_runtime import SERVICE_JSON_CONTRACT, run_json_service
 from academicos.lifehub.store import LifeStore, namespace_allowed
 from academicos.lifehub.wasm import WasmRunner
 
@@ -83,7 +84,8 @@ class LifeHub:
             raise ValueError("target is not a service contribution")
         if extension.contribution.contract != contract:
             raise ValueError("service contract mismatch")
-        require_contract(extension.contribution, "lifehub.core-wasm@1")
+        if contract not in ("lifehub.core-wasm@1", SERVICE_JSON_CONTRACT):
+            raise ValueError("unsupported service contract")
         if extension.contribution.entrypoint != "lifehub.wasm":
             raise ValueError("service activation supports core-Wasm only")
         provider = self.bundle(extension.plugin_id)
@@ -144,6 +146,8 @@ class LifeHub:
                     self.store.revoke(caller_id, "service.activate", grant["resource"])
 
     def activate_service(self, caller_id: str, ref: str, contract: str) -> int:
+        if contract != "lifehub.core-wasm@1":
+            raise ValueError("activation requires core-Wasm contract")
         binding = self._service_binding(caller_id, ref, contract)
         row = self.store.conn.execute(
             "SELECT 1 FROM lifehub_permission_grants "
@@ -153,6 +157,37 @@ class LifeHub:
         if row is None:
             raise PermissionError("service activation is not granted for these package snapshots")
         return self.run_wasm(ref)
+
+    def call_service(self, caller_id: str, ref: str, request):
+        """Trusted-host JSON call; no ambient provider capabilities or guest identity input."""
+        contract = SERVICE_JSON_CONTRACT
+        binding = self._service_binding(caller_id, ref, contract)
+        row = self.store.conn.execute(
+            "SELECT 1 FROM lifehub_permission_grants "
+            "WHERE plugin_id=? AND capability=? AND resource=?",
+            (caller_id, "service.activate", binding),
+        ).fetchone()
+        if row is None:
+            raise PermissionError("service activation is not granted for these package snapshots")
+        extension = self.extension(ref)
+        bundle = self.bundle(extension.plugin_id)
+        files = self.packages.approved_files(bundle.root, bundle.manifest)
+        module_name = extension.contribution.config.get("module")
+        if not isinstance(module_name, str) or not module_name.endswith(".wasm"):
+            raise ValueError("service needs a .wasm module path")
+        if module_name not in files:
+            raise ValueError("service module is not in approved package")
+        output = run_json_service(files[module_name], request)
+        if self._service_binding(caller_id, ref, contract) != binding:
+            raise PermissionError("service package snapshots changed during execution")
+        row = self.store.conn.execute(
+            "SELECT 1 FROM lifehub_permission_grants "
+            "WHERE plugin_id=? AND capability=? AND resource=?",
+            (caller_id, "service.activate", binding),
+        ).fetchone()
+        if row is None:
+            raise PermissionError("service grant revoked during execution")
+        return output
 
     def run_wasm(self, ref: str) -> int:
         """Run approved WebAssembly and persist proposals only after successful return."""
