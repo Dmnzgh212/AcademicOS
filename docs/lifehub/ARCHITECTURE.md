@@ -1,4 +1,9 @@
-# LifeHub Core v0.1
+# LifeHub Core v0.1 — historical architecture
+
+This page records the initial implementation. For current platform contracts,
+ownership boundaries and runnable examples, read [PLATFORM_STATUS.md](PLATFORM_STATUS.md).
+The loopback web shell and widget model below are reference application choices,
+not mandatory interfaces for every LifeHub shell.
 
 LifeHub is an incubating local-first personal information platform. AcademicOS remains intact and can later become one LifeHub integration.
 
