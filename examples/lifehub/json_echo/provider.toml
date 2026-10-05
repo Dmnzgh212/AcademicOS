@@ -1,0 +1,13 @@
+manifest_version = 1
+api = "lifehub@1"
+id = "example.echo"
+name = "Bounded JSON echo"
+version = "1.0.0"
+
+[[contributes]]
+id = "echo"
+point = "lifehub.service"
+entrypoint = "lifehub.wasm"
+contract = "lifehub.service-json@1"
+[contributes.config]
+module = "echo.wasm"

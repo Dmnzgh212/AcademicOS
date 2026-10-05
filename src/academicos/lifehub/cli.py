@@ -475,3 +475,27 @@ def revoke_service(
         typer.echo("Service activation revoked.")
     finally:
         hub.close()
+
+
+@app.command("call-service")
+def call_service(
+    caller: str,
+    ref: str,
+    request_file: Path = typer.Option(..., "--request"),
+    db: Path = typer.Option(DEFAULT_DB, "--db"),
+    installed: Path = typer.Option(DEFAULT_INSTALLED, "--installed"),
+) -> None:
+    """Call an authorized JSON computation service using a bounded local JSON file."""
+    from academicos.lifehub.wasm import MAX_IO_BYTES, _invalid_json
+
+    with request_file.open("rb") as source:
+        raw = source.read(MAX_IO_BYTES + 1)
+    if len(raw) > MAX_IO_BYTES:
+        raise ValueError("service request file exceeds IO limit")
+    request = json.loads(raw.decode("utf-8"), parse_constant=_invalid_json)
+    hub = LifeHub(db_path=db, plugins_path=installed)
+    try:
+        response = hub.call_service(caller, ref, request)
+        typer.echo(json.dumps(response, ensure_ascii=False, allow_nan=False))
+    finally:
+        hub.close()
