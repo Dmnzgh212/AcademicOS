@@ -75,7 +75,10 @@ def run_json_service(module_bytes: bytes, request: Any) -> Any:
         "lifehub_service", "write_response", signature, write_response, access_caller=True
     )
     instance = linker.instantiate(store, module)
-    run = instance.exports(store).get("run")
+    exports = instance.exports(store)
+    if not isinstance(exports.get("memory"), wasmtime.Memory):
+        raise ValueError("service must export memory")
+    run = exports.get("run")
     if not isinstance(run, wasmtime.Func):
         raise ValueError("service must export run")
     if run.type(store).params or [str(v) for v in run.type(store).results] != ["i32"]:

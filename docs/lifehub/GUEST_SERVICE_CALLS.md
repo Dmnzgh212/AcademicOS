@@ -31,3 +31,16 @@ The shipped `examples/lifehub/json_echo` client now contains actual Wasm code.
 Its CLI integration test covers denial before grant, successful guest invocation,
 and denial after revocation. Runtime tests cover call budget, invalid output
 buffer rejection before provider invocation, and unavailable unbound callbacks.
+
+## Revalidation checks
+
+The test suite now injects authority changes between service execution and result
+release: revoke the exact grant, alter caller package bytes, or alter provider
+package bytes. Each denies release. A request containing forged caller/granted
+fields cannot restore revoked authority; those fields remain ordinary JSON data.
+A tampered caller package is rejected before activation. JSON services must export
+memory even when they use no imports, and an infinite guest loop exhausts fuel.
+
+These tests exercise synchronous boundary logic with controlled interventions;
+they are not a proof against arbitrary filesystem races or a thread/process
+concurrency benchmark. Fuel bounds guest execution, not compilation wall time.
