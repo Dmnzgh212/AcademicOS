@@ -8,6 +8,7 @@ from academicos.lifehub.effects import EffectService
 from academicos.lifehub.network import EgressGateway
 from academicos.lifehub.packages import PackageInstaller
 from academicos.lifehub.proposals import ProposalService
+from academicos.lifehub.protocol import CATALOG_API, build_catalog
 from academicos.lifehub.registry import PluginBundle, PluginRegistry, RegisteredExtension
 from academicos.lifehub.store import LifeStore, namespace_allowed
 from academicos.lifehub.wasm import WasmRunner
@@ -54,6 +55,10 @@ class LifeHub:
 
     def extensions(self, point: str | None = None) -> tuple[RegisteredExtension, ...]:
         return self.registry.extensions(point)
+
+    def catalog(self, *, api: str = CATALOG_API, point: str | None = None) -> dict:
+        """Versioned metadata discovery for trusted local shells; grants no authority."""
+        return build_catalog(self.registry, api=api, point=point)
 
     def scoped_store(self, plugin_id: str):  # noqa: ANN201
         return self.store.scoped(

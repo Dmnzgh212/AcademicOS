@@ -1,5 +1,8 @@
 # Local review inbox
 
+> Product status (2026-10-03): this page is a **replaceable reference/admin surface**, not the LifeHub product model and not a kernel requirement. LifeHub must remain usable with other shells and with delegated policy where explicit per-action human review is neither necessary nor desirable. Proposal/effect services must not depend on this UI.
+
+
 Run the local shell with the same database and installed package directory used by
 the CLI:
 
