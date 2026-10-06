@@ -123,3 +123,11 @@ The next useful work should not add domain features to Core. It should add platf
 3. localhost Service Adapter contract for projects such as wger/OpenBB/FreshRSS;
 4. AcademicOS adapter as a complex local service/plugin;
 5. executable third-party plugin sandbox only after the capability/egress boundary can be enforced outside ordinary in-process Python.
+
+### Egress transport boundary
+
+The retrieval gateway disables automatic HTTP redirects (301/302/303/307/308).
+A plugin must request a redirect destination separately through the gateway,
+which rechecks package validity and destination policy before opening it.
+This avoids applying initial-URL authorization to an unreviewed redirect target.
+It does not provide DNS pinning or a complete SSRF/network isolation sandbox.
