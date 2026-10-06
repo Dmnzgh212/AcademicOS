@@ -52,3 +52,7 @@ be converted to supported sizes, and the web shell shows their escaped refs as
 unsupported-layout notices. Other contributions continue rendering. Invalid
 record-limit configuration produces a fixed surface message. Package integrity
 verification errors continue to fail discovery; they are not hidden as layout errors.
+
+The reference primitive renderer accepts only an actual integer record limit
+from 1 through 100. Null, booleans, strings, fractional numbers and nonfinite
+values are rejected before record access, rather than coerced into a limit.
