@@ -62,3 +62,20 @@ new VM. Those should build on the engine boundary rather than define it.
 The next engine slices should address persistent/background supervision, component
 activation, engine IPC and runner isolation. A future PersonIR/LifeLang toolchain
 should enter as another runner/backend path, not as Web-shell logic.
+
+
+## Supervisor persistence
+
+The second engine slice persists execution lifecycle separately from runner handles.
+This distinction matters for a real platform process:
+
+- an execution is recorded before a runner starts;
+- terminal states survive process restart;
+- a previously `running` execution is marked `interrupted` when a new engine
+  instance opens the same store;
+- the engine never pretends that an in-memory runner handle survived a crash;
+- arbitrary runner result objects are intentionally not serialized into the ledger.
+
+This is the first step toward a persistent supervisor/daemon. It is not yet a
+background service manager: restart policy, activation policy and inter-process
+control belong in later slices.

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, Protocol
@@ -13,11 +14,27 @@ from academicos.lifehub.kernel import LifeHub
 from academicos.lifehub.registry import RegisteredExtension
 
 
+_ENGINE_SCHEMA = """
+CREATE TABLE IF NOT EXISTS lifehub_engine_executions (
+    execution_id TEXT PRIMARY KEY,
+    component_ref TEXT NOT NULL,
+    runner_id TEXT NOT NULL,
+    state TEXT NOT NULL,
+    started_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    error TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_lifehub_engine_execution_state
+    ON lifehub_engine_executions(state, updated_at DESC);
+"""
+
+
 class ExecutionState(StrEnum):
     RUNNING = "running"
     COMPLETED = "completed"
     STOPPED = "stopped"
     FAILED = "failed"
+    INTERRUPTED = "interrupted"
 
 
 @dataclass(frozen=True)
@@ -48,6 +65,8 @@ class ExecutionView:
     component_ref: str
     runner_id: str
     state: ExecutionState
+    started_at: str
+    updated_at: str
     result: Any = None
     error: str | None = None
 
@@ -57,6 +76,8 @@ class _Execution:
     execution_id: str
     component: ComponentDescriptor
     state: ExecutionState
+    started_at: str
+    updated_at: str
     result: Any = None
     handle: Any = None
     error: str | None = None
@@ -122,6 +143,10 @@ class LifeHubEngine:
 
     The engine owns platform execution dispatch. Web, desktop, CLI and future
     shells are consumers of this layer, not prerequisites for it.
+
+    Execution state is persisted separately from runner handles. If an engine
+    process disappears while a component is running, the next engine instance
+    marks that execution interrupted instead of pretending it is still alive.
     """
 
     def __init__(
@@ -134,6 +159,8 @@ class LifeHubEngine:
         self.runners = RunnerRegistry()
         self.runners.register(CoreWasmRunner())
         self._executions: dict[str, _Execution] = {}
+        self._init_execution_ledger()
+        self._recover_interrupted_executions()
 
     def close(self) -> None:
         self.kernel.close()
@@ -160,12 +187,16 @@ class LifeHubEngine:
     def start(self, ref: str) -> ExecutionView:
         component = self.component(ref)
         runner = self.runners.resolve(component.runner_id)
+        now = datetime.now(UTC).isoformat()
         execution = _Execution(
             execution_id=uuid4().hex,
             component=component,
             state=ExecutionState.RUNNING,
+            started_at=now,
+            updated_at=now,
         )
         self._executions[execution.execution_id] = execution
+        self._persist(execution)
         try:
             started = runner.start(self, component)
             if started.state not in {ExecutionState.RUNNING, ExecutionState.COMPLETED}:
@@ -173,9 +204,13 @@ class LifeHubEngine:
             execution.state = started.state
             execution.result = started.result
             execution.handle = started.handle
+            execution.updated_at = datetime.now(UTC).isoformat()
+            self._persist(execution)
         except BaseException as exc:
             execution.state = ExecutionState.FAILED
             execution.error = f"{type(exc).__name__}: {exc}"
+            execution.updated_at = datetime.now(UTC).isoformat()
+            self._persist(execution)
             raise
         return self._view(execution)
 
@@ -189,12 +224,61 @@ class LifeHubEngine:
         except BaseException as exc:
             execution.state = ExecutionState.FAILED
             execution.error = f"{type(exc).__name__}: {exc}"
+            execution.updated_at = datetime.now(UTC).isoformat()
+            self._persist(execution)
             raise
         execution.state = ExecutionState.STOPPED
+        execution.updated_at = datetime.now(UTC).isoformat()
+        self._persist(execution)
         return self._view(execution)
 
     def execution(self, execution_id: str) -> ExecutionView:
-        return self._view(self._execution(execution_id))
+        if execution_id in self._executions:
+            return self._view(self._executions[execution_id])
+        row = self.kernel.store.conn.execute(
+            """
+            SELECT execution_id, component_ref, runner_id, state, started_at, updated_at, error
+            FROM lifehub_engine_executions
+            WHERE execution_id=?
+            """,
+            (execution_id,),
+        ).fetchone()
+        if row is None:
+            raise KeyError(f"unknown execution: {execution_id}")
+        return ExecutionView(
+            execution_id=row["execution_id"],
+            component_ref=row["component_ref"],
+            runner_id=row["runner_id"],
+            state=ExecutionState(row["state"]),
+            started_at=row["started_at"],
+            updated_at=row["updated_at"],
+            error=row["error"],
+        )
+
+    def executions(self, *, limit: int = 100) -> tuple[ExecutionView, ...]:
+        if type(limit) is not int or not 1 <= limit <= 1000:
+            raise ValueError("execution limit must be an integer from 1 to 1000")
+        rows = self.kernel.store.conn.execute(
+            """
+            SELECT execution_id, component_ref, runner_id, state, started_at, updated_at, error
+            FROM lifehub_engine_executions
+            ORDER BY started_at DESC, execution_id DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+        return tuple(
+            ExecutionView(
+                execution_id=row["execution_id"],
+                component_ref=row["component_ref"],
+                runner_id=row["runner_id"],
+                state=ExecutionState(row["state"]),
+                started_at=row["started_at"],
+                updated_at=row["updated_at"],
+                error=row["error"],
+            )
+            for row in rows
+        )
 
     @staticmethod
     def _runner_id(extension: RegisteredExtension) -> str | None:
@@ -224,7 +308,50 @@ class LifeHubEngine:
         try:
             return self._executions[execution_id]
         except KeyError as exc:
-            raise KeyError(f"unknown execution: {execution_id}") from exc
+            raise KeyError(
+                f"execution {execution_id} has no live runner handle in this engine process"
+            ) from exc
+
+    def _init_execution_ledger(self) -> None:
+        self.kernel.store.conn.executescript(_ENGINE_SCHEMA)
+        self.kernel.store.conn.commit()
+
+    def _recover_interrupted_executions(self) -> None:
+        now = datetime.now(UTC).isoformat()
+        with self.kernel.store.conn:
+            self.kernel.store.conn.execute(
+                """
+                UPDATE lifehub_engine_executions
+                SET state=?, updated_at=?,
+                    error=COALESCE(error, 'engine process ended before execution completed')
+                WHERE state=?
+                """,
+                (ExecutionState.INTERRUPTED, now, ExecutionState.RUNNING),
+            )
+
+    def _persist(self, execution: _Execution) -> None:
+        with self.kernel.store.conn:
+            self.kernel.store.conn.execute(
+                """
+                INSERT INTO lifehub_engine_executions(
+                    execution_id, component_ref, runner_id, state,
+                    started_at, updated_at, error
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(execution_id) DO UPDATE SET
+                    state=excluded.state,
+                    updated_at=excluded.updated_at,
+                    error=excluded.error
+                """,
+                (
+                    execution.execution_id,
+                    execution.component.ref,
+                    execution.component.runner_id,
+                    execution.state,
+                    execution.started_at,
+                    execution.updated_at,
+                    execution.error,
+                ),
+            )
 
     @staticmethod
     def _view(execution: _Execution) -> ExecutionView:
@@ -233,6 +360,8 @@ class LifeHubEngine:
             component_ref=execution.component.ref,
             runner_id=execution.component.runner_id,
             state=execution.state,
+            started_at=execution.started_at,
+            updated_at=execution.updated_at,
             result=execution.result,
             error=execution.error,
         )
