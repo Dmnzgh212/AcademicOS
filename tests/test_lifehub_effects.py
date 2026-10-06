@@ -324,3 +324,21 @@ def test_execution_discards_staged_work_when_package_changes(tmp_path, monkeypat
         assert not hub.store.conn.in_transaction
     finally:
         hub.close()
+
+
+def test_tampering_after_approval_prevents_effect_dispatch(tmp_path):
+    root, db = _install(tmp_path, _module())
+    hub = LifeHub(db_path=db, plugins_path=root)
+    try:
+        hub.run_wasm("demo.effect:sender")
+        request_id = hub.last_effect_ids[0]
+        hub.approve_effect(request_id)
+        (root / "demo.effect" / "changed.txt").write_text("tampered after approval")
+        with pytest.raises(PermissionError, match="changed after approval"):
+            hub.dispatch_effect(request_id)
+        assert hub.effects.get(request_id)["status"] == "approved"
+        assert hub.store.conn.execute(
+            "SELECT count(*) FROM lifehub_fake_effect_deliveries"
+        ).fetchone()[0] == 0
+    finally:
+        hub.close()

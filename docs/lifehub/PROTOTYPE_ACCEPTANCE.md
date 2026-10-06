@@ -11,21 +11,22 @@ publishing a release, or approving real personal capabilities.
 | Capability enforcement | Denied before grant, allowed after exact grant, denied after revoke; controlled tampering/revalidation tests | Covered within documented local trust model |
 | Runtime/service path | Approved core Wasm, bounded JSON services and installed-caller guest bridge | Executable samples and tests exist |
 | Replaceable presentation | Catalog and records exported as detached contracts; stdlib shells receive JSON; kernel startup does not seed layout | Demonstrated, with reference-shell storage coupling remaining |
-| Supported source matrix | 204 tests; latest #25 run 314 succeeds | Source baseline validated |
-| Installed distribution matrix | Fresh local wheel environment passes synthetic end-to-end flow; CI fix moves environment outside checkout | Remote run 316 passed Python 3.11 and 3.12 |
-| Review and distribution | Draft PR stack #17–26, no main merge; examples still come from checkout | Outstanding |
+| Supported source matrix | 221 local tests; #28/#29 CI runs 320/321 succeed | Source matrix validated at those revisions; latest checks remain required |
+| Installed distribution matrix | Fresh wheel environment and reproducible examples archive run synthetic end-to-end flows | Remote runs 320/321 passed Python 3.11 and 3.12 |
+| Review and distribution | Draft PR stack #17–30; examples companion builder exists; no main merge/release | Independent cumulative review and integration decision outstanding |
 
 ## Review order
 
 Review #17 then #18–20 for package/contract/authorization/runtime behavior;
 #21–22 for discovery presentation and message boundaries; #23–25 for documentation,
-records mediation and shell lifecycle; #26 for installed distribution checks.
+records mediation and shell lifecycle; #26–27 for installed distribution and examples; #28–30 for authorization,
+transport and execution snapshot fixes.
 Each draft targets its preceding branch. Approval of an isolated slice is not
 approval of the whole stack. Retain the research stack separately.
 
 Before treating the prototype as ready to distribute, retain passing wheel CI for the final reviewed revision, review cumulative platform changes against the #7 recovery anchor,
-resolve material findings, and provide the samples alongside installation
-instructions. Main integration and publication remain separate explicit decisions.
+resolve material findings, and build the samples companion alongside installation
+instructions. See [the focused review checkpoint](PLATFORM_REVIEW_2026-10-06.md). Main integration and publication remain separate explicit decisions.
 
 ## Limits retained in this prototype
 
