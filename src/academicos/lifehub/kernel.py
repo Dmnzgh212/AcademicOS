@@ -75,15 +75,35 @@ class LifeHub:
             "namespace": namespace, "records": records,
         }, allow_nan=False))
 
+    def _capability_snapshot(self, plugin_id: str):  # noqa: ANN201
+        manifest = self.bundle(plugin_id).manifest.model_copy(deep=True)
+        managed = self.packages.is_managed()
+
+        def approval_digest():
+            row = self.store.conn.execute(
+                "SELECT content_hash FROM lifehub_installed_packages WHERE plugin_id=?",
+                (plugin_id,),
+            ).fetchone()
+            return row["content_hash"] if row is not None else None
+
+        digest = approval_digest() if managed else None
+
+        def verify() -> None:
+            current = self.bundle(plugin_id)
+            if current.manifest != manifest or (
+                managed and (digest is None or approval_digest() != digest)
+            ):
+                raise PermissionError("capability package snapshot changed; acquire a new handle")
+
+        return manifest, verify
+
     def scoped_store(self, plugin_id: str):  # noqa: ANN201
-        return self.store.scoped(
-            self.bundle(plugin_id).manifest, verify=lambda: self.bundle(plugin_id)
-        )
+        manifest, verify = self._capability_snapshot(plugin_id)
+        return self.store.scoped(manifest, verify=verify)
 
     def egress(self, plugin_id: str) -> EgressGateway:
-        return EgressGateway(
-            self.store, self.bundle(plugin_id).manifest, verify=lambda: self.bundle(plugin_id)
-        )
+        manifest, verify = self._capability_snapshot(plugin_id)
+        return EgressGateway(self.store, manifest, verify=verify)
 
     def _service_binding(self, caller_id: str, ref: str, contract: str) -> str:
         """Trusted host activation; identities must never come from untrusted payloads."""
