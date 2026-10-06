@@ -3,7 +3,7 @@ from __future__ import annotations
 import fnmatch
 from typing import Callable
 from urllib.parse import urlparse
-from urllib.request import Request, urlopen
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from academicos.lifehub.manifest import PluginManifest
 from academicos.lifehub.store import LifeStore
@@ -76,8 +76,14 @@ class EgressGateway:
     def fetch(self, url: str, *, method: str = "GET", timeout: float = 15.0) -> bytes:
         self.authorize(url, method=method)
         request = Request(url, method=method.upper(), headers={"User-Agent": "LifeHub/0.2"})
-        with urlopen(request, timeout=timeout) as response:  # noqa: S310
+        opener = build_opener(_RejectRedirects())
+        with opener.open(request, timeout=timeout) as response:  # noqa: S310
             return response.read()
+
+
+class _RejectRedirects(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: ANN201
+        raise PermissionError("automatic redirects are disabled; authorize a separate request")
 
 
 def _host_matches(host: str, pattern: str) -> bool:
