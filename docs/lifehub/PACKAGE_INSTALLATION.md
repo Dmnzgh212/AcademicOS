@@ -36,3 +36,9 @@ Untrusted native Python, JavaScript, and binaries are not launched. A future exe
 runtime for those formats needs a separate isolation model.
 Changes by another process between a verification and a file read remain outside the
 guarantees of this initial filesystem-backed slice.
+
+Capability handles bind their manifest and installed content digest at creation.
+After uninstall/reinstall with different approved content, old storage and egress
+handles reject access, including replacements with an identical manifest. Obtain
+new handles to use the replacement's permissions. This is sequential lifecycle
+validation, not an atomic filesystem/database concurrency guarantee.

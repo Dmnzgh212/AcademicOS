@@ -132,3 +132,44 @@ def test_unapproved_directory_and_changed_manifest_fail_closed(tmp_path: Path) -
             LifeHub(db_path=store.path, plugins_path=root)
     finally:
         store.close()
+
+
+@pytest.mark.parametrize("narrow_permissions", [False, True])
+def test_old_capability_handles_reject_approved_replacement(tmp_path, narrow_permissions):
+    archive = make_zip(tmp_path / "original.zip", {"plugin.toml": MANIFEST, "asset.txt": b"old"})
+    hub = LifeHub(db_path=tmp_path / "hub.db", plugins_path=tmp_path / "installed")
+    try:
+        hub.packages.install(archive, approved_hash=hub.packages.review(archive).content_hash)
+        old_store = hub.scoped_store("demo.package")
+        old_gateway = hub.egress("demo.package")
+        old_store.append("package.items", "before", {"value": 1})
+        old_gateway.authorize("https://example.com/")
+        hub.packages.uninstall("demo.package")
+        manifest = MANIFEST
+        if narrow_permissions:
+            manifest = manifest.replace(b'storage_write = ["package"]', b'storage_write = []')
+            manifest = manifest.replace(b'network_retrieval = ["example.com"]',
+                                        b'network_retrieval = []')
+        replacement = make_zip(tmp_path / "replacement.zip",
+                               {"plugin.toml": manifest, "asset.txt": b"new"})
+        hub.packages.install(replacement,
+                             approved_hash=hub.packages.review(replacement).content_hash)
+        with pytest.raises(PermissionError, match="snapshot changed"):
+            old_store.append("package.items", "after", {"value": 2})
+        with pytest.raises(PermissionError, match="snapshot changed"):
+            old_store.read("package.items")
+        with pytest.raises(PermissionError, match="snapshot changed"):
+            old_gateway.authorize("https://example.com/")
+        assert len(hub.store.latest_records("package.items")) == 1
+        fresh_store = hub.scoped_store("demo.package")
+        fresh_gateway = hub.egress("demo.package")
+        if narrow_permissions:
+            with pytest.raises(PermissionError, match="cannot write"):
+                fresh_store.append("package.items", "fresh", {})
+            with pytest.raises(PermissionError, match="allowlisted"):
+                fresh_gateway.authorize("https://example.com/")
+        else:
+            fresh_store.append("package.items", "fresh", {})
+            fresh_gateway.authorize("https://example.com/")
+    finally:
+        hub.close()

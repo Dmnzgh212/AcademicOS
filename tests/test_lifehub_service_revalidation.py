@@ -63,3 +63,35 @@ def test_tampered_caller_is_rejected_before_service_execution(echo_hub):
         hub.run_wasm("example.client:invoke")
     assert hub.last_proposal_ids == []
     assert hub.last_effect_ids == []
+
+
+def test_grant_digest_must_match_the_binding_actually_written(echo_hub, monkeypatch):
+    import json
+
+    hub, args = echo_hub
+    reviewed = hub.review_service(*args)
+    binding = hub._service_binding(*args)
+    hub.revoke_service(*args)
+    stale = json.loads(binding)
+    stale[3] = '0' * 64
+    stale_binding = json.dumps(stale, separators=(',', ':'))
+    # Model a binding change between the first lookup and a later review lookup.
+    lookups = []
+
+    def changing_binding(*unused):
+        lookups.append(True)
+        return stale_binding if len(lookups) == 1 else binding
+
+    monkeypatch.setattr(hub, '_service_binding', changing_binding)
+    with pytest.raises(PermissionError, match='review changed'):
+        hub.grant_service(*args, approved_digest=reviewed['approval_digest'])
+    assert hub.store.grants(args[0]) == []
+
+
+def test_matching_review_digest_grants_exact_binding(echo_hub):
+    hub, args = echo_hub
+    hub.revoke_service(*args)
+    review = hub.review_service(*args)
+    hub.grant_service(*args, approved_digest=review['approval_digest'])
+    assert hub.review_service(*args)['granted'] is True
+    assert hub.call_service(args[0], args[1], {'value': 1}) == {'value': 1}
