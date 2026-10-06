@@ -18,6 +18,10 @@ main, platform and PR #16 audit anchors. The resumed platform stack is:
 | [#20](https://github.com/Dmnzgh212/AcademicOS/pull/20) | Package-bound guest service bridge and revalidation | #19 |
 | [#21](https://github.com/Dmnzgh212/AcademicOS/pull/21) | Independent catalog shell and consistent discovery | #20 |
 | [#22](https://github.com/Dmnzgh212/AcademicOS/pull/22) | Shared JSON message validation before provider dispatch | #21 |
+| [#23](https://github.com/Dmnzgh212/AcademicOS/pull/23) | Platform entrypoint and handoff documentation | #22 |
+| [#24](https://github.com/Dmnzgh212/AcademicOS/pull/24) | Scoped records contract and independent data shell | #23 |
+| [#25](https://github.com/Dmnzgh212/AcademicOS/pull/25) | Shell lifecycle separation and configuration isolation | #24 |
+| [#26](https://github.com/Dmnzgh212/AcademicOS/pull/26) | Fresh-environment installed-wheel validation | #25 |
 
 These are draft review units, not merged releases. Do not merge the whole
 research stack into main or treat the existence of a PR as acceptance.
@@ -57,24 +61,26 @@ python -m ruff check src tests examples/lifehub
 python -m pytest -q
 ```
 
-The latest local full run through #22 passed 184 tests. This count includes existing
-AcademicOS tests; it is not a percentage of platform completion. GitHub CI runs
-Python 3.11 and 3.12. At the status check for this document, the newest #21 and #22
-runs were queued; prior #21 input-validation commit passed. Consult live PR checks
-before accepting any slice.
+The latest local full source run passed 204 tests. This count includes existing
+AcademicOS tests; it is not a percentage of platform completion. The latest #25
+commit passed GitHub CI (run 314). Installed-wheel smoke passed locally in a fresh
+virtual environment. #26 run 315 exposed a CI environment-location mistake,
+now corrected; run 316 passed both Python versions, including installed-wheel
+smoke. Consult live PR checks for later commits.
 
+See [the prototype acceptance checklist](PROTOTYPE_ACCEPTANCE.md) and
+[installed-wheel validation](WHEEL_VALIDATION.md).
 Use the three example READMEs linked above for the real install → discover →
 grant → execute → revoke paths. Digests must come from the reviewed package or
 service output; examples do not auto-approve or silently grant capabilities.
 
-## Next engineering work
+## Remaining integration work
 
-1. Define a minimal data-access contract for a second shell, with explicit host
-   authorization and detached results. Prove it against two independent consumers
-   before extending the reference workspace UI.
-2. Reduce direct shell dependence on kernel/storage internals around that proven
-   interface. Keep package identity and permission decisions in the host.
-3. Review the stacked platform diffs and their CI before proposing integration.
+1. Confirm #26 installed-wheel CI passes both supported Python versions.
+2. Review the platform stack in dependency order, including authorization and
+   revalidation boundaries. Resolve findings before proposing integration.
+3. Package the developer-facing examples and installation path for an explicit
+   prototype distribution; shell layout persistence still belongs to LifeStore.
    Main integration remains a separate decision; this document authorizes no merge.
 
 WIT/Component Model should be evaluated only when a concrete interoperability
