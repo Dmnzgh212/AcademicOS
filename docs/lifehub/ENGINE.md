@@ -106,3 +106,33 @@ control boundary.
 
 Runner-specific result objects are not exposed through the control protocol.
 Shells receive component metadata and lifecycle state only.
+
+
+## Persistent engine daemon
+
+The fourth engine slice turns the engine into a long-lived local platform process.
+
+Start it with:
+
+```sh
+lifehub engine-serve
+```
+
+The daemon owns the live runner handles. Separate CLI invocations connect over the
+authenticated local control plane instead of constructing their own engine:
+
+```sh
+lifehub engine-ping
+lifehub engine-components
+lifehub engine-executions
+lifehub engine-start <component-ref>
+lifehub engine-stop <execution-id>
+```
+
+The default transport is a local named pipe on Windows and a Unix-domain socket on
+Unix-like systems. A random 256-bit auth key is stored locally and reused by client
+commands.
+
+This daemon is not a Web server and exposes no HTTP routes. It is an engine control
+process. Restart policy, automatic activation and OS service installation remain
+future engine work.
