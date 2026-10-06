@@ -29,3 +29,9 @@ added, and the independent catalog shell remains metadata-only.
 
 Tests cover requested-but-ungranted reads, explicit grant/revoke, detached values,
 version/limit errors, and both CLI and web consumers.
+
+A third consumer, the [independent records text shell](../../examples/lifehub/records_shell/README.md),
+receives the authorized CLI export over stdin with no LifeHub imports or database
+access. Its subprocess test checks successful display, denial without output and
+terminal-control escaping. Its 1 MiB input cap is a presentation bound, not a new
+byte guarantee for the records API.

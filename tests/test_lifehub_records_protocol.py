@@ -62,3 +62,40 @@ def test_cli_and_web_consume_records_contract(tmp_path, monkeypatch):
                                      '--db', str(db), '--plugins', str(root)])
     assert result.exit_code == 0, result.output
     assert json.loads(result.stdout)['records'][0]['payload']['items']
+
+
+def test_independent_records_shell_consumes_authorized_cli_export(tmp_path):
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    root, db = tmp_path / 'plugins', tmp_path / 'hub.db'
+    _write_plugin(root)
+    hub = LifeHub(db_path=db, plugins_path=root)
+    try:
+        hub.seed_declared_data()
+    finally:
+        hub.close()
+    result = CliRunner().invoke(app, ['records', 'demo.sample', 'sample.today',
+                                     '--db', str(db), '--plugins', str(root)])
+    assert result.exit_code == 0
+    source = Path(__file__).resolve().parents[1] / 'examples/lifehub/records_shell/shell.py'
+    rendered = subprocess.run([sys.executable, '-I', str(source)], input=result.stdout,
+                              text=True, capture_output=True, check=True)
+    assert 'Local item' in rendered.stdout
+    assert str(tmp_path) not in rendered.stdout
+    denied = CliRunner().invoke(app, ['records', 'demo.sample', 'private.today',
+                                     '--db', str(db), '--plugins', str(root)])
+    assert denied.exit_code != 0
+    assert denied.stdout == ''
+    payload = json.loads(result.stdout)
+    payload['records'][0]['payload'] = {'text': '\x1b[31m'}
+    escaped = subprocess.run([sys.executable, '-I', str(source)], input=json.dumps(payload),
+                             text=True, capture_output=True, check=True)
+    assert '\x1b' not in escaped.stdout
+    assert '\\u001b' in escaped.stdout
+    invalid = subprocess.run([sys.executable, '-I', str(source)], input='null',
+                             text=True, capture_output=True)
+    assert invalid.returncode == 2
+    assert invalid.stdout == ''
+    assert 'Traceback' not in invalid.stderr
