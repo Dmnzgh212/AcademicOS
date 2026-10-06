@@ -1,4 +1,4 @@
-# LifeHub platform status — 2026-10-05
+# LifeHub platform status — 2026-10-06
 
 LifeHub is an open personal computing platform. The platform branch advances
 Package, Capability, Wasm Runtime, internal contracts and replaceable Shell.
@@ -22,6 +22,10 @@ main, platform and PR #16 audit anchors. The resumed platform stack is:
 | [#24](https://github.com/Dmnzgh212/AcademicOS/pull/24) | Scoped records contract and independent data shell | #23 |
 | [#25](https://github.com/Dmnzgh212/AcademicOS/pull/25) | Shell lifecycle separation and configuration isolation | #24 |
 | [#26](https://github.com/Dmnzgh212/AcademicOS/pull/26) | Fresh-environment installed-wheel validation | #25 |
+| [#27](https://github.com/Dmnzgh212/AcademicOS/pull/27) | Reproducible developer examples companion | #26 |
+| [#28](https://github.com/Dmnzgh212/AcademicOS/pull/28) | Exact reviewed grants and snapshot-bound capability handles | #27 |
+| [#29](https://github.com/Dmnzgh212/AcademicOS/pull/29) | Egress redirect enforcement | #28 |
+| [#30](https://github.com/Dmnzgh212/AcademicOS/pull/30) | Execution snapshot retention and review checkpoint | #29 |
 
 These are draft review units, not merged releases. Do not merge the whole
 research stack into main or treat the existence of a PR as acceptance.
@@ -61,12 +65,12 @@ python -m ruff check src tests examples/lifehub
 python -m pytest -q
 ```
 
-The latest local full source run passed 204 tests. This count includes existing
-AcademicOS tests; it is not a percentage of platform completion. The latest #25
-commit passed GitHub CI (run 314). Installed-wheel smoke passed locally in a fresh
-virtual environment. #26 run 315 exposed a CI environment-location mistake,
-now corrected; run 316 passed both Python versions, including installed-wheel
-smoke. Consult live PR checks for later commits.
+The latest local full source run passed 221 tests. The count includes existing
+AcademicOS tests and is not a completion percentage. CI runs 320 (#28) and 321
+(#29) passed both supported Python versions, wheel installation and examples
+archive smoke checks. #30 runtime-fix revision is recorded in the
+[review checkpoint](PLATFORM_REVIEW_2026-10-06.md); consult live checks for the
+latest documentation/test revision.
 
 See [the prototype acceptance checklist](PROTOTYPE_ACCEPTANCE.md) and
 [installed-wheel validation](WHEEL_VALIDATION.md).
@@ -76,12 +80,11 @@ service output; examples do not auto-approve or silently grant capabilities.
 
 ## Remaining integration work
 
-1. Confirm #26 installed-wheel CI passes both supported Python versions.
-2. Review the platform stack in dependency order, including authorization and
-   revalidation boundaries. Resolve findings before proposing integration.
-3. Package the developer-facing examples and installation path for an explicit
-   prototype distribution; shell layout persistence still belongs to LifeStore.
-   Main integration remains a separate decision; this document authorizes no merge.
+1. Keep final-revision source, installed-wheel and examples archive CI passing.
+2. Independently review the cumulative stack against the #7 recovery anchor;
+   the focused review checkpoint records findings and fixes, not full acceptance.
+3. Make main integration and release publication separate explicit decisions.
+   The examples companion build exists; no release has been published.
 
 WIT/Component Model should be evaluated only when a concrete interoperability
 need appears. PersonIR, a language and a compiler remain research until evidence

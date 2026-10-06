@@ -8,7 +8,7 @@ existing academic application and a potential integration of that platform.
 Start with [the current platform status](docs/lifehub/PLATFORM_STATUS.md) and
 [the recovery record](docs/lifehub/PLATFORM_RECOVERY_2026-10-05.md).
 The platform work is on a stack of draft PRs, currently through
-[PR #26](https://github.com/Dmnzgh212/AcademicOS/pull/26); it has not been merged into main.
+[PR #30](https://github.com/Dmnzgh212/AcademicOS/pull/30); it has not been merged into main.
 
 Runnable examples:
 
