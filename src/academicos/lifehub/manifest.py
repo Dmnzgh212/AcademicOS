@@ -54,6 +54,7 @@ class ExtensionContribution(BaseModel):
     point: str
     title: str | None = None
     entrypoint: str | None = None
+    runner: str | None = None
     contract: str | None = None
     activation: list[str] = Field(default_factory=list)
     config: dict[str, Any] = Field(default_factory=dict)
@@ -66,6 +67,16 @@ class ExtensionContribution(BaseModel):
             raise ValueError("extension id/point cannot be empty")
         if any(ch.isspace() for ch in cleaned):
             raise ValueError("extension id/point cannot contain whitespace")
+        return cleaned
+
+    @field_validator("runner")
+    @classmethod
+    def validate_runner(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        cleaned = value.strip()
+        if not cleaned or any(ch.isspace() for ch in cleaned):
+            raise ValueError("runner id must be nonempty without whitespace")
         return cleaned
 
 
