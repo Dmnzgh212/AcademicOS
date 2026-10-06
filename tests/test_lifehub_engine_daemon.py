@@ -59,7 +59,7 @@ def test_default_endpoint_is_local_platform_transport(tmp_path: Path) -> None:
     address, family = default_control_endpoint(tmp_path)
     if os.name == "nt":
         assert family == "AF_PIPE"
-        assert address.startswith(r"\\.\pipe\")
+        assert address.startswith("\\\\.\\pipe\\")
     else:
         assert family == "AF_UNIX"
         assert address == str(tmp_path / "lifehub-engine.sock")
