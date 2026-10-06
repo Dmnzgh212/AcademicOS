@@ -5,6 +5,7 @@ Current engineering focuses on plugin packages, capability mediation, bounded
 Wasm execution, internal contracts and replaceable shells. AcademicOS is the
 existing academic application and a potential integration of that platform.
 
+For the main-targeted prototype, read [the integration candidate](docs/lifehub/INTEGRATION_CANDIDATE.md).
 Start with [the current platform status](docs/lifehub/PLATFORM_STATUS.md) and
 [the recovery record](docs/lifehub/PLATFORM_RECOVERY_2026-10-05.md).
 The platform work is on a stack of draft PRs, currently through

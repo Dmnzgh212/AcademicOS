@@ -13,7 +13,7 @@ publishing a release, or approving real personal capabilities.
 | Replaceable presentation | Catalog and records exported as detached contracts; stdlib shells receive JSON; kernel startup does not seed layout | Demonstrated, with reference-shell storage coupling remaining |
 | Supported source matrix | 228 local tests; #28/#29 CI runs 320/321 succeed | Source matrix validated at those revisions; latest checks remain required |
 | Installed distribution matrix | Fresh wheel environment and reproducible examples archive run synthetic end-to-end flows | Remote runs 320/321 passed Python 3.11 and 3.12 |
-| Review and distribution | Draft PR stack #17–31; examples companion builder exists; no main merge/release | Independent cumulative review and integration decision outstanding |
+| Review and distribution | Draft PR stack #17–31 and cumulative candidate; examples builder exists; no merge/release | Implementer cumulative review recorded; final candidate CI and merge decision remain |
 
 ## Review order
 
@@ -41,3 +41,9 @@ Personal Mesh, WIT integration, source language or compiler is accepted here.
 
 Do not use test counts or PR counts as a completion percentage. Report the gates
 above as verified, pending or outstanding, with the exact evidence available.
+
+## Cumulative integration candidate
+
+[INTEGRATION_CANDIDATE.md](INTEGRATION_CANDIDATE.md) records the main base, platform
+ancestry, cumulative review scope, exact implementation validation and merge
+boundary. The assistant's review does not substitute for independent human review.

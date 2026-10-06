@@ -82,8 +82,8 @@ service output; examples do not auto-approve or silently grant capabilities.
 ## Remaining integration work
 
 1. Keep final-revision source, installed-wheel and examples archive CI passing.
-2. Independently review the cumulative stack against the #7 recovery anchor;
-   the focused review checkpoint records findings and fixes, not full acceptance.
+2. Review the [cumulative integration candidate](INTEGRATION_CANDIDATE.md);
+   implementer review is complete for the declared scope, independent review remains optional additional assurance.
 3. Make main integration and release publication separate explicit decisions.
    The examples companion build exists; no release has been published.
 
