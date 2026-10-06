@@ -54,6 +54,8 @@ python -m pytest -q
 
 Follow [wheel validation](WHEEL_VALIDATION.md) and
 [examples distribution](EXAMPLES_DISTRIBUTION.md) for installed execution.
+[Platform smoke](SMOKE_VALIDATION.md) also exercises the reader, independent
+Shells, lifecycle rejection and real loopback HTTP requests.
 Build wheel and examples from the same candidate commit. The builders and CI
 exercise only temporary synthetic fixtures; no personal capabilities are granted.
 
