@@ -408,10 +408,6 @@ def doctor(
         hub.close()
 
 
-if __name__ == "__main__":
-    app()
-
-
 @app.command("catalog")
 def catalog(
     point: str | None = typer.Option(None, "--point"),
@@ -499,3 +495,23 @@ def call_service(
         typer.echo(json.dumps(response, ensure_ascii=False, allow_nan=False))
     finally:
         hub.close()
+
+
+@app.command("records")
+def records(
+    plugin_id: str,
+    namespace: str,
+    limit: int = typer.Option(8, "--limit", min=1, max=100),
+    db: Path = typer.Option(DEFAULT_DB, "--db"),
+    plugins: Path = typer.Option(DEFAULT_INSTALLED, "--plugins"),
+) -> None:
+    """Read records under a plugin's authority through lifehub.records@1."""
+    hub = LifeHub(db_path=db, plugins_path=plugins)
+    try:
+        typer.echo(json.dumps(hub.read_records(plugin_id, namespace, limit=limit)))
+    finally:
+        hub.close()
+
+
+if __name__ == "__main__":
+    app()

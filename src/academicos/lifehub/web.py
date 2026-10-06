@@ -105,7 +105,12 @@ def _extension_body(hub: LifeHub, extension: RegisteredExtension) -> str:
     if contribution.contract not in (None, "lifehub.primitive@1"):
         return '<div class="empty">Unsupported surface contract.</div>'
     namespace = str(contribution.config.get("namespace", ""))
-    records = hub.store.latest_records(namespace, limit=int(contribution.config.get("limit", 8)))
+    try:
+        records = hub.read_records(
+            extension.plugin_id, namespace, limit=int(contribution.config.get("limit", 8))
+        )["records"]
+    except PermissionError:
+        return '<div class="empty">Record access is not granted.</div>'
     return _primitive_payload(extension, records)
 
 

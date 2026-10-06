@@ -58,11 +58,27 @@ def test_sample_package_install_discover_execute_revoke_and_uninstall(tmp_path):
         )
         with pytest.raises(PermissionError, match="cannot read"):
             hub.run_wasm("example.reader:read")
+        with pytest.raises(PermissionError, match="cannot read"):
+            hub.read_records("example.reader", "sample.records")
         hub.grant_read("example.reader", "sample")
+        assert hub.read_records("example.reader", "sample.records")["records"][0]["payload"] == {
+            "value": 42
+        }
+        # Even an already open host must revalidate managed bytes for shell reads.
+        module_path = hub.bundle("example.reader").root / "reader.wasm"
+        approved = module_path.read_bytes()
+        try:
+            module_path.write_bytes(approved + b"tampered")
+            with pytest.raises(PermissionError):
+                hub.read_records("example.reader", "sample.records")
+        finally:
+            module_path.write_bytes(approved)
         assert hub.run_wasm("example.reader:read") > 0
         with pytest.raises(PermissionError, match="did not request"):
             hub.grant_read("example.reader", "private")
         hub.revoke_read("example.reader", "sample")
+        with pytest.raises(PermissionError, match="cannot read"):
+            hub.read_records("example.reader", "sample.records")
         with pytest.raises(PermissionError, match="cannot read"):
             hub.run_wasm("example.reader:read")
         hub.packages.uninstall("example.reader")
