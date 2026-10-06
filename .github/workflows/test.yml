@@ -29,7 +29,8 @@ jobs:
       - name: Build and install wheel
         run: |
           python -m pip wheel . --no-deps --wheel-dir dist
-          python -m venv .wheel-venv
-          .wheel-venv/bin/python -m pip install dist/academicos-*.whl 'wasmtime>=36,<37'
+          python -m venv "$RUNNER_TEMP/lifehub-wheel-venv"
+          "$RUNNER_TEMP/lifehub-wheel-venv/bin/python" -m pip install dist/academicos-*.whl 'wasmtime>=36,<37'
       - name: Installed wheel smoke
-        run: .wheel-venv/bin/python scripts/lifehub_wheel_smoke.py "$GITHUB_WORKSPACE"
+        run: |
+          "$RUNNER_TEMP/lifehub-wheel-venv/bin/python" scripts/lifehub_wheel_smoke.py "$GITHUB_WORKSPACE"

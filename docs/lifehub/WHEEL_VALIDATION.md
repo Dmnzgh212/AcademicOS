@@ -1,6 +1,6 @@
 # Installed wheel validation
 
-CI runs source tests, builds the wheel, creates an empty virtual environment and installs
+CI runs source tests, builds the wheel, creates an empty virtual environment outside the checkout and installs
 that wheel plus the Wasm runtime, and executes `scripts/lifehub_wheel_smoke.py REPOSITORY_ROOT`.
 The script uses isolated Python subprocesses from a temporary working directory
 and refuses a package imported from the source checkout. It builds only the
@@ -27,3 +27,7 @@ editable source imports. Dependencies are resolved into an empty environment;
 examples are still read explicitly from the checkout. Distribution of examples,
 platform portability beyond CI Linux/Python versions, and release publication
 remain separate tasks.
+
+The initial CI run 315 passed source tests and wheel installation but failed the
+source-location guard because the CI virtual environment was inside the checkout.
+CI now uses the runner temporary directory; the guard remains unchanged.
