@@ -246,7 +246,7 @@ class LifeStore:
         registry: PluginRegistry,
         workspace_id: str = "home",
         breakpoint: str = "lg",
-    ) -> None:
+    ) -> tuple[str, ...]:
         existing = {
             row["extension_ref"]
             for row in self.conn.execute(
@@ -254,6 +254,7 @@ class LifeStore:
                 (workspace_id, breakpoint),
             ).fetchall()
         }
+        invalid = []
         index = len(existing)
         with self.conn:
             for extension in registry.extensions("workspace.widget"):
@@ -262,8 +263,12 @@ class LifeStore:
                 config = extension.contribution.config
                 if config.get("default_workspace", True) is False:
                     continue
-                width = max(1, min(12, int(config.get("width", 4))))
-                height = max(1, min(100, int(config.get("height", 3))))
+                try:
+                    width = max(1, min(12, int(config.get("width", 4))))
+                    height = max(1, min(100, int(config.get("height", 3))))
+                except (TypeError, ValueError, OverflowError):
+                    invalid.append(extension.ref)
+                    continue
                 x = (index * 4) % 12
                 y = (index * 4) // 12 * 3
                 if x + width > 12:
@@ -278,6 +283,7 @@ class LifeStore:
                     (workspace_id, extension.ref, breakpoint, x, y, width, height),
                 )
                 index += 1
+        return tuple(invalid)
 
     def workspace_layout(
         self, workspace_id: str = "home", breakpoint: str = "lg"

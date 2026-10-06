@@ -53,3 +53,28 @@ def test_shell_preparation_respects_opt_out_and_adds_new_contributions(tmp_path)
         assert len(hub.store.workspace_layout()) == 1
     finally:
         hub.close()
+
+
+def test_invalid_shell_config_is_visible_without_blocking_other_plugins(tmp_path):
+    root = tmp_path / 'plugins'
+    bad = _write_plugin(root, folder='bad', plugin_id='demo.bad', writes='bad')
+    path = bad / 'plugin.toml'
+    path.write_text(path.read_text().replace('width = 5', 'width = "custom"'))
+    good = _write_plugin(root)
+    hub = LifeHub(db_path=tmp_path / 'hub.db', plugins_path=root)
+    try:
+        hub.seed_declared_data()
+        page = render_workspace(hub, token='test')
+        assert 'Unsupported workspace layout: demo.bad:main' in page
+        assert 'Local item' in page
+        assert [x['extension_ref'] for x in hub.store.workspace_layout()] == ['demo.sample:main']
+        assert len(hub.catalog()['packages']) == 2
+    finally:
+        hub.close()
+    path = good / 'plugin.toml'
+    path.write_text(path.read_text().replace('limit = 5', 'limit = "invalid"'))
+    hub = LifeHub(db_path=tmp_path / 'hub.db', plugins_path=root)
+    try:
+        assert 'Invalid surface record configuration' in render_workspace(hub, token='test')
+    finally:
+        hub.close()

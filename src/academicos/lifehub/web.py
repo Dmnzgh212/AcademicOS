@@ -109,6 +109,8 @@ def _extension_body(hub: LifeHub, extension: RegisteredExtension) -> str:
         records = hub.read_records(
             extension.plugin_id, namespace, limit=int(contribution.config.get("limit", 8))
         )["records"]
+    except ValueError:
+        return '<div class="empty">Invalid surface record configuration.</div>'
     except PermissionError:
         return '<div class="empty">Record access is not granted.</div>'
     return _primitive_payload(extension, records)
@@ -182,10 +184,13 @@ def render_review_inbox(hub: LifeHub) -> str:
 
 
 def render_workspace(hub: LifeHub, *, token: str, workspace_id: str = "home") -> str:
-    hub.store.sync_workspace_extensions(hub.registry, workspace_id=workspace_id)
+    invalid_layouts = hub.store.sync_workspace_extensions(hub.registry, workspace_id=workspace_id)
     catalog = hub.catalog()
     refs = {entry["ref"] for entry in catalog["extensions"]}
-    cards: list[str] = []
+    cards: list[str] = [
+        '<div class="empty">Unsupported workspace layout: ' + _esc(ref) + '</div>'
+        for ref in invalid_layouts
+    ]
     for item in hub.store.workspace_layout(workspace_id):
         if not item["visible"]:
             continue
