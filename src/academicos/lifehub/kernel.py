@@ -145,8 +145,10 @@ class LifeHub:
     ) -> None:
         binding = self._service_binding(caller_id, ref, contract)
         if approved_digest is not None:
-            review = self.review_service(caller_id, ref, contract)
-            if review["approval_digest"] != approved_digest:
+            binding_digest = hashlib.sha256(
+                json.dumps([caller_id, binding], separators=(",", ":")).encode()
+            ).hexdigest()
+            if binding_digest != approved_digest:
                 raise PermissionError("service review changed; review again before granting")
         self.store.grant(caller_id, "service.activate", binding)
 

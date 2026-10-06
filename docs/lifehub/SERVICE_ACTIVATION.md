@@ -50,3 +50,11 @@ currently effective storage grants.
 bindings, including stale ones. Activation itself remains an in-process host API
 in this slice. This CLI is a trusted local administrative surface; caller IDs
 entered by the local operator are not authenticated guest identities.
+
+## Reviewed grant binding
+
+When an approval digest is supplied, grant_service hashes the exact caller and
+binding it will persist, rather than validating a separately regenerated review.
+A changed binding rejects the approval and writes no service grant. This closes
+a two-lookup consistency gap; it does not prove atomicity against every concurrent
+package or grant update. Later activation still checks current snapshots.
