@@ -1,0 +1,15 @@
+manifest_version = 1
+api = "lifehub@1"
+id = "example.client"
+name = "JSON service client declaration"
+version = "1.0.0"
+[permissions]
+service_call = ["example.echo:echo"]
+
+[[contributes]]
+id = "invoke"
+point = "example.service-client"
+entrypoint = "lifehub.wasm"
+contract = "lifehub.core-wasm@1"
+[contributes.config]
+module = "caller.wasm"

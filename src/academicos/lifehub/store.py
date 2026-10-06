@@ -5,7 +5,7 @@ import json
 import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable
 
 from academicos.lifehub.manifest import PluginManifest
 from academicos.lifehub.registry import PluginRegistry
@@ -37,6 +37,59 @@ CREATE TABLE IF NOT EXISTS lifehub_permission_grants (
     resource TEXT NOT NULL,
     granted_at TEXT NOT NULL,
     PRIMARY KEY(plugin_id, capability, resource)
+);
+
+CREATE TABLE IF NOT EXISTS lifehub_installed_packages (
+    plugin_id TEXT PRIMARY KEY,
+    version TEXT NOT NULL,
+    content_hash TEXT NOT NULL,
+    approved_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS lifehub_managed_roots (
+    path TEXT PRIMARY KEY
+);
+
+CREATE TABLE IF NOT EXISTS lifehub_change_proposals (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    plugin_id TEXT NOT NULL,
+    package_hash TEXT NOT NULL,
+    extension_ref TEXT NOT NULL,
+    namespace TEXT NOT NULL,
+    record_key TEXT NOT NULL,
+    payload_json TEXT NOT NULL,
+    base_record_id INTEGER,
+    status TEXT NOT NULL DEFAULT 'pending',
+    created_at TEXT NOT NULL,
+    decided_at TEXT,
+    committed_record_id INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_lifehub_proposals_status
+    ON lifehub_change_proposals(status, id);
+
+CREATE TABLE IF NOT EXISTS lifehub_effect_requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    request_hash TEXT NOT NULL UNIQUE,
+    plugin_id TEXT NOT NULL,
+    package_hash TEXT NOT NULL,
+    extension_ref TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    destination TEXT NOT NULL,
+    purpose TEXT NOT NULL,
+    payload_json TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    requested_at TEXT NOT NULL,
+    approved_at TEXT,
+    attempted_at TEXT,
+    resolved_at TEXT,
+    outcome_json TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_lifehub_effect_status
+    ON lifehub_effect_requests(status, id);
+
+CREATE TABLE IF NOT EXISTS lifehub_fake_effect_deliveries (
+    request_id INTEGER PRIMARY KEY,
+    payload_json TEXT NOT NULL,
+    delivered_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS lifehub_workspace_items (
@@ -79,8 +132,10 @@ class LifeStore:
     def close(self) -> None:
         self.conn.close()
 
-    def scoped(self, manifest: PluginManifest) -> ScopedStore:
-        return ScopedStore(self, manifest)
+    def scoped(
+        self, manifest: PluginManifest, *, verify: Callable[[], None] | None = None
+    ) -> ScopedStore:
+        return ScopedStore(self, manifest, verify=verify)
 
     def append_record(
         self,
@@ -140,6 +195,13 @@ class LifeStore:
             for row in rows
         ]
 
+    def latest_record_id(self, namespace: str, record_key: str) -> int | None:
+        row = self.conn.execute(
+            "SELECT MAX(id) AS id FROM lifehub_records WHERE namespace=? AND record_key=?",
+            (namespace, record_key),
+        ).fetchone()
+        return row["id"]
+
     def grant(self, plugin_id: str, capability: str, resource: str) -> None:
         with self.conn:
             self.conn.execute(
@@ -184,7 +246,7 @@ class LifeStore:
         registry: PluginRegistry,
         workspace_id: str = "home",
         breakpoint: str = "lg",
-    ) -> None:
+    ) -> tuple[str, ...]:
         existing = {
             row["extension_ref"]
             for row in self.conn.execute(
@@ -192,6 +254,7 @@ class LifeStore:
                 (workspace_id, breakpoint),
             ).fetchall()
         }
+        invalid = []
         index = len(existing)
         with self.conn:
             for extension in registry.extensions("workspace.widget"):
@@ -200,8 +263,12 @@ class LifeStore:
                 config = extension.contribution.config
                 if config.get("default_workspace", True) is False:
                     continue
-                width = max(1, min(12, int(config.get("width", 4))))
-                height = max(1, min(100, int(config.get("height", 3))))
+                try:
+                    width = max(1, min(12, int(config.get("width", 4))))
+                    height = max(1, min(100, int(config.get("height", 3))))
+                except (TypeError, ValueError, OverflowError):
+                    invalid.append(extension.ref)
+                    continue
                 x = (index * 4) % 12
                 y = (index * 4) // 12 * 3
                 if x + width > 12:
@@ -216,8 +283,11 @@ class LifeStore:
                     (workspace_id, extension.ref, breakpoint, x, y, width, height),
                 )
                 index += 1
+        return tuple(invalid)
 
-    def workspace_layout(self, workspace_id: str = "home", breakpoint: str = "lg") -> list[dict[str, Any]]:
+    def workspace_layout(
+        self, workspace_id: str = "home", breakpoint: str = "lg"
+    ) -> list[dict[str, Any]]:
         rows = self.conn.execute(
             """
             SELECT extension_ref, x, y, width, height, visible, config_json
@@ -258,7 +328,9 @@ class LifeStore:
                     ),
                 )
 
-    def network_audit(self, *, plugin_id: str, method: str, host: str, path: str, allowed: bool) -> None:
+    def network_audit(
+        self, *, plugin_id: str, method: str, host: str, path: str, allowed: bool
+    ) -> None:
         with self.conn:
             self.conn.execute(
                 """
@@ -270,9 +342,16 @@ class LifeStore:
 
 
 class ScopedStore:
-    def __init__(self, store: LifeStore, manifest: PluginManifest) -> None:
+    def __init__(
+        self,
+        store: LifeStore,
+        manifest: PluginManifest,
+        *,
+        verify: Callable[[], None] | None = None,
+    ) -> None:
         self._store = store
         self._manifest = manifest
+        self._verify = verify
 
     def append(
         self,
@@ -283,8 +362,7 @@ class ScopedStore:
         observed_at: str | None = None,
         source: str | None = None,
     ) -> bool:
-        if not namespace_allowed(namespace, self._manifest.permissions.storage_write):
-            raise PermissionError(f"plugin {self._manifest.id} cannot write namespace {namespace!r}")
+        self.assert_writable(namespace)
         return self._store.append_record(
             plugin_id=self._manifest.id,
             namespace=namespace,
@@ -294,7 +372,21 @@ class ScopedStore:
             source=source,
         )
 
+    def assert_writable(self, namespace: str) -> None:
+        if self._verify is not None:
+            self._verify()
+        if not namespace_allowed(namespace, self._manifest.permissions.storage_write):
+            raise PermissionError(
+                f"plugin {self._manifest.id} cannot write namespace {namespace!r}"
+            )
+
+    def write_base(self, namespace: str, record_key: str) -> int | None:
+        self.assert_writable(namespace)
+        return self._store.latest_record_id(namespace, record_key)
+
     def read(self, namespace: str, *, limit: int = 8) -> list[dict[str, Any]]:
+        if self._verify is not None:
+            self._verify()
         if namespace_allowed(namespace, self._manifest.permissions.storage_write):
             return self._store.latest_records(namespace, limit=limit)
         requested = namespace_allowed(namespace, self._manifest.permissions.storage_read)
