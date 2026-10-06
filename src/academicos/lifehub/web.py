@@ -182,6 +182,7 @@ def render_review_inbox(hub: LifeHub) -> str:
 
 
 def render_workspace(hub: LifeHub, *, token: str, workspace_id: str = "home") -> str:
+    hub.store.sync_workspace_extensions(hub.registry, workspace_id=workspace_id)
     catalog = hub.catalog()
     refs = {entry["ref"] for entry in catalog["extensions"]}
     cards: list[str] = []

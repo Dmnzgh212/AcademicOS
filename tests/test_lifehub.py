@@ -95,11 +95,12 @@ def test_store_workspace_and_temporary_shell_are_extension_driven(tmp_path: Path
         assert len(hub.extensions()) == 2
         assert hub.seed_declared_data() == 1
         assert hub.seed_declared_data() == 0
+        assert hub.store.workspace_layout() == []
+        page = render_workspace(hub, token="test-token")
         layout = hub.store.workspace_layout()
         assert layout[0]["extension_ref"] == "demo.sample:main"
         assert layout[0]["width"] == 5
         assert layout[0]["height"] == 4
-        page = render_workspace(hub, token="test-token")
         assert "Sample surface" in page
         assert "Local item" in page
         assert "stored locally" in page
