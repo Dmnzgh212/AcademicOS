@@ -236,6 +236,13 @@ class LifeHub:
         module_name = extension.contribution.config.get("module")
         if not isinstance(module_name, str) or not module_name.endswith(".wasm"):
             raise ValueError("WebAssembly contribution needs a .wasm module path")
+        initial_approval = self.store.conn.execute(
+            "SELECT content_hash FROM lifehub_installed_packages WHERE plugin_id=?",
+            (bundle.manifest.id,),
+        ).fetchone()
+        if initial_approval is None:
+            raise PermissionError("package has no execution approval")
+        execution_digest = initial_approval["content_hash"]
         files = self.packages.approved_files(bundle.root, bundle.manifest)
         if module_name not in files:
             raise ValueError("WebAssembly module is not in the approved package")
@@ -250,21 +257,23 @@ class LifeHub:
         self.last_proposal_ids = []
         self.last_effect_ids = []
         result = runner.run(files[module_name])
-        approved = self.store.conn.execute(
-            "SELECT content_hash FROM lifehub_installed_packages WHERE plugin_id=?",
-            (bundle.manifest.id,),
-        ).fetchone()
-        if approved is None:
-            raise PermissionError("package approval was revoked during execution")
-        self.packages.verify(bundle.root, bundle.manifest)
         conn = self.store.conn
         conn.execute("BEGIN IMMEDIATE")
         try:
+            approved = conn.execute(
+                "SELECT content_hash FROM lifehub_installed_packages WHERE plugin_id=?",
+                (bundle.manifest.id,),
+            ).fetchone()
+            if approved is None:
+                raise PermissionError("package approval was revoked during execution")
+            if approved["content_hash"] != execution_digest:
+                raise PermissionError("package snapshot changed during execution")
+            self.packages.verify(bundle.root, bundle.manifest)
             proposal_ids = self.proposals.submit(
-                bundle.manifest.id, approved["content_hash"], ref, runner.proposals
+                bundle.manifest.id, execution_digest, ref, runner.proposals
             )
             effect_ids = self.effects.submit(
-                bundle.manifest, approved["content_hash"], ref, runner.effect_requests
+                bundle.manifest, execution_digest, ref, runner.effect_requests
             )
             conn.commit()
         except BaseException:

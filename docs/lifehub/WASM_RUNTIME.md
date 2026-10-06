@@ -46,3 +46,11 @@ another process sharing the host's file privileges remain outside this slice's
 guarantees. The Wasmtime Python embedding and fuel configuration follow the
 [Wasmtime Python project](https://github.com/bytecodealliance/wasmtime-py) and
 [Wasmtime fuel documentation](https://docs.wasmtime.dev/api/wasmtime/struct.Store.html).
+
+Execution retains its starting approved content digest. Before persisting staged
+proposals or effect requests, the host begins a database write transaction and
+checks that approval still exists, the digest is unchanged, and package files
+still verify. Uninstall, tampering, or approved replacement during execution
+rejects the run and leaves no staged requests persisted. The write transaction
+protects the database check/submission sequence; filesystem updates are not
+atomically coordinated with SQLite.

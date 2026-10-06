@@ -285,3 +285,42 @@ def test_local_and_effect_requests_persist_atomically(tmp_path: Path, monkeypatc
         assert hub.effects.list() == []
     finally:
         hub.close()
+
+
+@pytest.mark.parametrize("change", ["replacement", "tamper", "uninstall"])
+def test_execution_discards_staged_work_when_package_changes(tmp_path, monkeypatch, change):
+    from academicos.lifehub.wasm import WasmRunner
+
+    root, db = _install(tmp_path, _module())
+    hub = LifeHub(db_path=db, plugins_path=root)
+    original_run = WasmRunner.run
+
+    def intervening_run(runner, wasm):
+        result = original_run(runner, wasm)
+        if change == "tamper":
+            (root / "demo.effect" / "unexpected.txt").write_text("changed")
+        else:
+            files = {p.name: p.read_bytes() for p in (root / "demo.effect").iterdir()}
+            hub.packages.uninstall("demo.effect")
+            if change == "replacement":
+                archive = tmp_path / "replacement.zip"
+                with zipfile.ZipFile(archive, "w") as output:
+                    for name, content in files.items():
+                        output.writestr(name, content)
+                    output.writestr("new-asset.txt", "approved replacement")
+                review = hub.packages.review(archive)
+                hub.packages.install(archive, approved_hash=review.content_hash)
+        return result
+
+    monkeypatch.setattr(WasmRunner, "run", intervening_run)
+    try:
+        with pytest.raises(PermissionError, match="changed|revoked"):
+            hub.run_wasm("demo.effect:sender")
+        assert hub.proposals.list() == []
+        assert hub.effects.list() == []
+        assert hub.last_proposal_ids == []
+        assert hub.last_effect_ids == []
+        assert hub.store.latest_records("tasks.today") == []
+        assert not hub.store.conn.in_transaction
+    finally:
+        hub.close()
