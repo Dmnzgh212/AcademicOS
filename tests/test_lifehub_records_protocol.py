@@ -99,3 +99,22 @@ def test_independent_records_shell_consumes_authorized_cli_export(tmp_path):
     assert invalid.returncode == 2
     assert invalid.stdout == ''
     assert 'Traceback' not in invalid.stderr
+
+
+@pytest.mark.parametrize('raw', [
+    b'\xff',
+    b'{"api":"lifehub.records@2"}',
+    b'{"api":"lifehub.records@1","plugin_id":"x","namespace":"x","records":[null]}',
+    b'{"api":"lifehub.records@1","plugin_id":"x","namespace":"x","records":[{"v":1e400}]}',
+    b' ' * (1024 * 1024 + 1),
+], ids=['utf8', 'version', 'row', 'overflow', 'size'])
+def test_records_shell_invalid_input_has_fixed_error_and_no_output(raw):
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    source = Path(__file__).resolve().parents[1] / 'examples/lifehub/records_shell/shell.py'
+    result = subprocess.run([sys.executable, '-I', str(source)], input=raw, capture_output=True)
+    assert result.returncode == 2
+    assert result.stdout == b''
+    assert result.stderr == b'Invalid or unsupported LifeHub records export\n'
