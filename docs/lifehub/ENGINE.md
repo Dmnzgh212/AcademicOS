@@ -79,3 +79,30 @@ This distinction matters for a real platform process:
 This is the first step toward a persistent supervisor/daemon. It is not yet a
 background service manager: restart policy, activation policy and inter-process
 control belong in later slices.
+
+
+## Local control plane
+
+The third engine slice adds a local non-HTTP control protocol for future Desktop,
+CLI and other shells.
+
+Protocol: `lifehub.engine-control@1`.
+
+Current operations are intentionally small:
+
+- `ping`
+- `components`
+- `executions`
+- `start`
+- `stop`
+
+The transport uses authenticated local IPC through Python's multiprocessing
+connection layer. Payloads are bounded JSON bytes using the same finite/depth/byte
+validation as other LifeHub messages. Python pickle send/recv APIs are not used.
+
+On Unix-like systems the intended transport is AF_UNIX. On Windows the intended
+transport is AF_PIPE. HTTP and the reference Web workspace are not part of this
+control boundary.
+
+Runner-specific result objects are not exposed through the control protocol.
+Shells receive component metadata and lifecycle state only.
