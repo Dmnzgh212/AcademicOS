@@ -1,6 +1,6 @@
 # LifeHub platform status — 2026-10-06
 
-LifeHub is an open personal computing platform. The platform branch advances
+LifeHub is an open personal computing platform. The accepted main baseline provides
 Package, Capability, Wasm Runtime, internal contracts and replaceable Shell.
 Calendar planning is the existing AcademicOS application. Proposal and fake-effect
 review are host mechanisms and reference interfaces, not the definition of LifeHub.
@@ -28,8 +28,9 @@ main, platform and PR #16 audit anchors. The resumed platform stack is:
 | [#30](https://github.com/Dmnzgh212/AcademicOS/pull/30) | Execution snapshot retention and review checkpoint | #29 |
 | [#31](https://github.com/Dmnzgh212/AcademicOS/pull/31) | Consistent JSON bounds across Wasm host imports | #30 |
 
-These are draft review units, not merged releases. Do not merge the whole
-research stack into main or treat the existence of a PR as acceptance.
+These historical slices were integrated by PR #32. LifeHub v0.1 prototype
+acceptance is **accepted**; this is an Alpha developer baseline, not ecosystem
+completion. Research branches remain separate.
 The platform branch contains no `experiments/person_ir` implementation or test
 dependency. Original research branches retain that work and its evidence.
 
@@ -66,12 +67,11 @@ python -m ruff check src tests examples/lifehub
 python -m pytest -q
 ```
 
-The latest local full source run passed 228 tests. The count includes existing
-AcademicOS tests and is not a completion percentage. CI runs 320 (#28) and 321
-(#29) passed both supported Python versions, wheel installation and examples
-archive smoke checks. #30 runtime-fix revision is recorded in the
-[review checkpoint](PLATFORM_REVIEW_2026-10-06.md); consult live checks for the
-latest documentation/test revision.
+Accepted merge baseline: `690c0b9f0624617adcd3ed7e95341f8b9bb85f44` (PR #32).
+Post-merge GitHub Actions [run 328](https://github.com/Dmnzgh212/AcademicOS/actions/runs/37412182124)
+succeeded on Python 3.11 and 3.12: Ruff, 228 pytest tests, wheel build/install,
+installed-wheel smoke, platform lifecycle/HTTP smoke and examples archive smoke.
+The test count includes AcademicOS tests and is not a completion percentage.
 
 See [the prototype acceptance checklist](PROTOTYPE_ACCEPTANCE.md) and
 [installed-wheel validation](WHEEL_VALIDATION.md).
@@ -79,15 +79,18 @@ Use the three example READMEs linked above for the real install → discover →
 grant → execute → revoke paths. Digests must come from the reviewed package or
 service output; examples do not auto-approve or silently grant capabilities.
 
-## Remaining integration work
+## Real-plugin validation phase
 
-1. Keep final-revision source, installed-wheel and examples archive CI passing.
-2. Review the [cumulative integration candidate](INTEGRATION_CANDIDATE.md);
-   implementer review is complete for the declared scope, independent review remains optional additional assurance.
-3. Make main integration and release publication separate explicit decisions.
-   The examples companion build exists; no release has been published.
+Core is frozen. Validate at least three unrelated plugins (academic information,
+RSS/news, and local system information) using the existing Package, Capability,
+Runtime, Service and Shell contracts. Keep domain logic out of Core and record
+friction before proposing v0.2. Alpha tagging follows the docs cleanup CI.
 
-WIT/Component Model should be evaluated only when a concrete interoperability
-need appears. PersonIR, a language and a compiler remain research until evidence
-supports a distinct benefit over the conventional host/runtime path. No real
-payment executor, calendar expansion or new approval product is part of this work.
+A Core change requires evidence: two unrelated plugins need one mechanism,
+a reproducible security/lifecycle issue, an existing demand the contract cannot
+express, or a demonstrated Shell abstraction failure. Speculation is insufficient.
+
+PersonIR remains research-frozen. Restart only after repeated real-plugin evidence
+shows a material problem that ordinary API design, host checks and capability
+policy cannot naturally resolve. Known Alpha limits above remain accepted unless
+real use demonstrates a blocker. No release has been published.
