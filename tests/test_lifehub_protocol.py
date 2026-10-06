@@ -120,3 +120,17 @@ def test_catalog_uses_one_discovery_result_and_refreshes_next_request(tmp_path, 
     assert len(scans) == 2
     assert second["extensions"][0]["entrypoint"] == "sample.updated"
     assert first["extensions"][1]["entrypoint"] == "sample.future"
+
+
+def test_platform_discovery_does_not_interpret_shell_layout(tmp_path):
+    plugins = tmp_path / "plugins"
+    plugin = _write_plugin(plugins)
+    manifest = plugin / "plugin.toml"
+    manifest.write_text(manifest.read_text().replace("width = 5", 'width = "custom-shell-value"'))
+    hub = LifeHub(db_path=tmp_path / "hub.db", plugins_path=plugins)
+    try:
+        assert hub.store.workspace_layout() == []
+        assert hub.catalog()["extensions"][0]["config"]["width"] == "custom-shell-value"
+        assert hub.store.workspace_layout() == []
+    finally:
+        hub.close()

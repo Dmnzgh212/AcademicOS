@@ -35,3 +35,24 @@ receives the authorized CLI export over stdin with no LifeHub imports or databas
 access. Its subprocess test checks successful display, denial without output and
 terminal-control escaping. Its 1 MiB input cap is a presentation bound, not a new
 byte guarantee for the records API.
+
+## Shell lifecycle
+
+Constructing LifeHub, exporting a catalog or reading records no longer seeds
+workspace layout. The reference web renderer prepares its layout when rendered;
+the demo command explicitly prepares its reference workspace. `lifehub init`
+initializes platform storage/discovery and no longer reports workspace items.
+Existing stored layouts remain intact, and layout persistence is still in
+LifeStore; this change separates startup behavior, not every storage component.
+Custom contribution config is preserved by discovery without being interpreted
+as reference-shell dimensions.
+
+Reference workspace initialization skips contributions whose dimensions cannot
+be converted to supported sizes, and the web shell shows their escaped refs as
+unsupported-layout notices. Other contributions continue rendering. Invalid
+record-limit configuration produces a fixed surface message. Package integrity
+verification errors continue to fail discovery; they are not hidden as layout errors.
+
+The reference primitive renderer accepts only an actual integer record limit
+from 1 through 100. Null, booleans, strings, fractional numbers and nonfinite
+values are rejected before record access, rather than coerced into a limit.

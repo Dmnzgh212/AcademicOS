@@ -220,7 +220,7 @@ def init(
     try:
         typer.echo(
             f"LifeHub initialized · db={db} · plugins={len(hub.bundles)} · "
-            f"extensions={len(hub.extensions())} · workspace_items={len(hub.store.workspace_layout())}"
+            f"extensions={len(hub.extensions())}"
         )
     finally:
         hub.close()
@@ -359,6 +359,7 @@ def demo(
         db.unlink()
     hub = LifeHub(db_path=db, plugins_path=plugins)
     try:
+        hub.store.sync_workspace_extensions(hub.registry)
         inserted = hub.seed_declared_data()
         typer.echo(
             f"LifeHub demo ready · plugins={len(hub.bundles)} · "

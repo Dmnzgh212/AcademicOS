@@ -40,7 +40,6 @@ class LifeHub:
             plugins_path, verify=self.packages.verify, managed=self.packages.is_managed()
         )
         self.registry.discover()
-        self.store.sync_workspace_extensions(self.registry)
 
     @property
     def bundles(self) -> tuple[PluginBundle, ...]:
