@@ -1,19 +1,22 @@
 # LifeHub v0.1 prototype acceptance
 
-This checklist defines a bounded developer prototype, not completion of an open
-platform ecosystem or of PersonIR. Acceptance does not authorize merging main,
-publishing a release, or approving real personal capabilities.
+LifeHub Platform v0.1 bounded developer prototype acceptance: **accepted**.
+PR #32 merged at `690c0b9f0624617adcd3ed7e95341f8b9bb85f44`. Post-merge CI run 328 succeeded.
+Acceptance applies to the declared prototype trust model, not a complete ecosystem,
+security certification, real effects or PersonIR. Core is frozen for real use.
 
-| Gate | Evidence | Current assessment |
+| Gate | Evidence | Assessment |
 | --- | --- | --- |
-| Platform/research separation | Platform tree and pytest paths omit experiments/person_ir; recovery anchors documented | Implemented; original research branches retained |
-| Package lifecycle | Shipped reader and echo packages install by reviewed digest; managed bytes are verified | Covered by source tests and local wheel smoke |
-| Capability enforcement | Denied before grant, allowed after exact grant, denied after revoke; controlled tampering/revalidation tests | Covered within documented local trust model |
-| Runtime/service path | Approved core Wasm, bounded JSON services and installed-caller guest bridge | Executable samples and tests exist |
-| Replaceable presentation | Catalog and records exported as detached contracts; stdlib shells receive JSON; kernel startup does not seed layout | Demonstrated, with reference-shell storage coupling remaining |
-| Supported source matrix | 228 local tests; #28/#29 CI runs 320/321 succeed | Source matrix validated at those revisions; latest checks remain required |
-| Installed distribution matrix | Fresh wheel environment and reproducible examples archive run synthetic end-to-end flows | Remote runs 320/321 passed Python 3.11 and 3.12 |
-| Review and distribution | Draft PR stack #17–31 and cumulative candidate; examples builder exists; no merge/release | Implementer cumulative review recorded; final candidate CI and merge decision remain |
+| Platform/research separation | Main omits experiments/person_ir and research test dependencies | Accepted; research frozen |
+| Package and Capability lifecycle | Install/digest/grant/revoke/tamper/uninstall and execution snapshot tests | Accepted within local trust model |
+| Runtime/service path | Core-Wasm, bounded JSON ABI, package-bound guest calls | Accepted |
+| Replaceable Shell | Detached catalog/records and independent consumers; HTTP smoke | Accepted; reference persistence limit retained |
+| Source matrix | Run 328, Python 3.11/3.12, Ruff, 228 pytest tests | Passed |
+| Installed wheel | Run 328 build/install and installed-wheel smoke | Passed |
+| Platform lifecycle/HTTP smoke | Run 328 | Passed |
+| Examples archive | Run 328 repeat-build/extracted examples smoke | Passed |
+| Main integration | PR #32 merged; main baseline above | Accepted |
+| Alpha tag/publication | v0.1.0-alpha.1 follows docs cleanup CI; no Release published | Next action |
 
 ## Review order
 
@@ -24,9 +27,10 @@ transport and execution snapshot fixes.
 Each draft targets its preceding branch. Approval of an isolated slice is not
 approval of the whole stack. Retain the research stack separately.
 
-Before treating the prototype as ready to distribute, retain passing wheel CI for the final reviewed revision, review cumulative platform changes against the #7 recovery anchor,
-resolve material findings, and build the samples companion alongside installation
-instructions. See [the focused review checkpoint](PLATFORM_REVIEW_2026-10-06.md). Main integration and publication remain separate explicit decisions.
+The cumulative platform review and fixes were integrated through PR #32.
+Historical review slices and research branches remain available. See
+[the review checkpoint](PLATFORM_REVIEW_2026-10-06.md) and
+[the post-merge integration record](INTEGRATION_CANDIDATE.md).
 
 ## Limits retained in this prototype
 
@@ -42,8 +46,8 @@ Personal Mesh, WIT integration, source language or compiler is accepted here.
 Do not use test counts or PR counts as a completion percentage. Report the gates
 above as verified, pending or outstanding, with the exact evidence available.
 
-## Cumulative integration candidate
+## Next acceptance gate
 
-[INTEGRATION_CANDIDATE.md](INTEGRATION_CANDIDATE.md) records the main base, platform
-ancestry, cumulative review scope, exact implementation validation and merge
-boundary. The assistant's review does not substitute for independent human review.
+[INTEGRATION_CANDIDATE.md](INTEGRATION_CANDIDATE.md) records the merged baseline and retained limits.
+The next gate is three unrelated real plugins running without Core changes,
+with controlled permissions/data lifecycles and an ecosystem friction record. The assistant's review does not substitute for independent human review.

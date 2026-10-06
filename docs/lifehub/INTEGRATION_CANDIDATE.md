@@ -1,8 +1,8 @@
-# LifeHub v0.1 integration candidate
+# LifeHub v0.1 post-merge integration record
 
-This is the cumulative main-targeted candidate for the bounded developer prototype.
-It assembles the platform slices without merging the PersonIR research stack.
-It does not perform a main merge or publish a release.
+LifeHub Platform v0.1 bounded developer prototype is **accepted**.
+PR #32 merged into main at `690c0b9f0624617adcd3ed7e95341f8b9bb85f44`. Post-merge run 328 succeeded.
+The historical filename is retained so existing links keep working.
 
 ## Exact recovery and scope
 
@@ -11,9 +11,8 @@ It does not perform a main merge or publish a release.
 - Direction audit recovery: PR #16, retained separately.
 - Validated implementation: PR #31, `bde9c72b70f5494a05a266b6396768fcf95932d1`.
 - Original platform slices #1, #3–7 and resumed slices #17–31 remain available.
-  The cumulative candidate preserves their ancestry and targets main directly.
-  Merging the candidate would integrate those platform changes in one operation;
-  it does not require separately merging every stacked PR.
+  PR #32 integrated their platform ancestry in one operation; no additional
+  stacked-PR merges are needed for this baseline.
 - Research PRs #2 and #8–16 are not integration sources. Historical research
   documents remain under `docs/lifehub/research`; no `experiments/person_ir`
   implementation or research test dependency is present.
@@ -38,11 +37,10 @@ that statement is bounded by the limitations below.
 
 ## Validation gate
 
-The exact implementation commit above passed 228 tests and Ruff from a clean
-checkout with the imported runtime path checked. GitHub run 325 passed both
-Python 3.11/3.12, fresh installed-wheel smoke, and repeat-build/extracted-examples
-smoke. Run 324 caught an omitted runtime file; the corrected commit is the one
-included here. Final candidate CI must also be green before merging.
+The implementation and merged tree match. Post-merge run 328 passed Python
+3.11/3.12, Ruff, 228 pytest tests, wheel build/install, installed-wheel smoke,
+platform lifecycle/HTTP smoke and reproducible extracted-examples smoke.
+The accepted baseline has no identified blocker within its bounded trust model.
 
 To repeat source checks from a clean candidate checkout:
 
@@ -61,10 +59,12 @@ exercise only temporary synthetic fixtures; no personal capabilities are granted
 
 ## Merge and release boundary
 
-This candidate is ready for a merge decision after its final checks pass. Main
-remains unchanged until explicit merge authorization. Preserve the historical
-research branches. No language/compiler expansion or real effect executor is a
-prerequisite for this prototype merge. Release publication is a separate action.
+PR #32 is merged. Preserve historical research branches and freeze Core.
+After this docs cleanup passes CI, establish `v0.1.0-alpha.1` as the first Alpha
+baseline. Tag creation is separate from GitHub Release publication.
+Next validate at least three unrelated real plugins without Core modifications,
+record evidence/friction, then audit whether changes belong to SDK/DX, ecosystem,
+v0.2 Core or a justified restart of PersonIR research.
 
 Retained limits: trusted local operator APIs; no remote/multi-user identity
 boundary; filesystem and SQLite updates not globally atomic; no DNS pinning or

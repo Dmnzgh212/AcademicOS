@@ -5,11 +5,18 @@ Current engineering focuses on plugin packages, capability mediation, bounded
 Wasm execution, internal contracts and replaceable shells. AcademicOS is the
 existing academic application and a potential integration of that platform.
 
-For the main-targeted prototype, read [the integration candidate](docs/lifehub/INTEGRATION_CANDIDATE.md).
-Start with [the current platform status](docs/lifehub/PLATFORM_STATUS.md) and
-[the recovery record](docs/lifehub/PLATFORM_RECOVERY_2026-10-05.md).
-The platform work is on a stack of draft PRs, currently through
-[PR #31](https://github.com/Dmnzgh212/AcademicOS/pull/31); it has not been merged into main.
+LifeHub Platform v0.1 bounded developer prototype is **accepted**.
+[PR #32](https://github.com/Dmnzgh212/AcademicOS/pull/32) merged into main at
+`690c0b9f0624617adcd3ed7e95341f8b9bb85f44`. Post-merge CI run 328 passed Python 3.11/3.12,
+Ruff, 228 tests, wheel build/install and all installed/platform/examples smoke checks.
+Read [the integration record](docs/lifehub/INTEGRATION_CANDIDATE.md),
+[platform status](docs/lifehub/PLATFORM_STATUS.md) and
+[acceptance record](docs/lifehub/PROTOTYPE_ACCEPTANCE.md).
+
+Core is frozen for the real-plugin validation phase. Domain behavior belongs in
+plugins; Core changes need reproducible safety, lifecycle or cross-domain evidence.
+LifeHub does not define your digital life. It provides the mechanisms by which
+you assemble it.
 
 Runnable examples:
 
@@ -20,7 +27,7 @@ Runnable examples:
 - [Independent catalog shell](examples/lifehub/catalog_shell/README.md): consume
   catalog JSON with Python's standard library, without importing the kernel.
 
-PersonIR, a new source language and a compiler remain research directions.
+PersonIR, a new source language and a compiler remain frozen research hypotheses.
 Their implementation and evidence are retained on the original research branches;
 they are not prerequisites of this platform branch. The current evidence does not
 justify expanding a language/compiler implementation.
