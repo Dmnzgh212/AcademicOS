@@ -1,8 +1,7 @@
-"""Core Wasm execution with one explicit, read-only host import."""
+"""Core Wasm execution with explicit mediated host imports."""
 
 from __future__ import annotations
 
-import json
 from typing import Callable, Any
 
 from academicos.lifehub.effects import EffectRequest, EffectService
@@ -107,7 +106,7 @@ class WasmRunner:
             if out_cap < 0 or out_cap > MAX_IO_BYTES:
                 raise ValueError("invalid WebAssembly output capacity")
             rows = self.scoped.read(name)
-            output = json.dumps(rows, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+            output = encode_message(rows)
             if len(output) > MAX_IO_BYTES:
                 raise ValueError("host response exceeds WebAssembly IO limit")
             _guest_bytes(memory, caller, out_ptr, out_cap)
@@ -132,10 +131,10 @@ class WasmRunner:
                 raise ValueError("too many proposals in one run")
             namespace = _guest_bytes(memory, caller, name_ptr, name_len).decode("utf-8")
             record_key = _guest_bytes(memory, caller, key_ptr, key_len).decode("utf-8")
-            raw = _guest_bytes(memory, caller, payload_ptr, payload_len).decode("utf-8")
+            raw = _guest_bytes(memory, caller, payload_ptr, payload_len)
             if not namespace or not record_key:
                 raise ValueError("proposal needs namespace and record key")
-            payload = json.loads(raw, parse_constant=lambda value: _invalid_json(value))
+            payload = decode_message(raw)
             if not isinstance(payload, dict):
                 raise ValueError("proposal payload must be a JSON object")
             base = self.scoped.write_base(namespace, record_key)
@@ -148,8 +147,8 @@ class WasmRunner:
                 raise ValueError("plugin must export linear memory")
             if len(self.effect_requests) >= MAX_EFFECT_REQUESTS:
                 raise ValueError("too many effect requests in one run")
-            raw = _guest_bytes(memory, caller, ptr, length).decode("utf-8")
-            request = json.loads(raw, parse_constant=lambda value: _invalid_json(value))
+            raw = _guest_bytes(memory, caller, ptr, length)
+            request = decode_message(raw)
             if not isinstance(request, dict) or set(request) != {
                 "kind",
                 "destination",
@@ -212,7 +211,3 @@ def _guest_bytes(memory, caller, ptr: int, length: int) -> bytes:
     if ptr < 0 or length < 0 or length > MAX_IO_BYTES or ptr > memory.data_len(caller) - length:
         raise ValueError("WebAssembly memory access out of bounds")
     return bytes(memory.read(caller, ptr, ptr + length))
-
-
-def _invalid_json(value: str) -> None:
-    raise ValueError(f"nonfinite JSON number is not supported: {value}")

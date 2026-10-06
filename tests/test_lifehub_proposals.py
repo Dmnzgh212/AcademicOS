@@ -15,8 +15,7 @@ from academicos.lifehub.proposals import ProposalService  # noqa: E402
 from academicos.lifehub.store import LifeStore  # noqa: E402
 
 
-def _wasm(namespace: str = "tasks.today", *, trap: bool = False) -> bytes:
-    payload = b'{"title":"Study"}'
+def _wasm(namespace: str = "tasks.today", *, trap: bool = False, payload: bytes = b'{"title":"Study"}') -> bytes:
     encoded = "".join(f"\\{byte:02x}" for byte in payload)
     tail = "unreachable" if trap else "i32.const 0"
     return wasmtime.wat2wasm(
@@ -248,5 +247,23 @@ def test_execution_discards_staged_work_when_package_changes(tmp_path, monkeypat
         assert hub.last_effect_ids == []
         assert hub.store.latest_records("tasks.today") == []
         assert not hub.store.conn.in_transaction
+    finally:
+        hub.close()
+
+
+@pytest.mark.parametrize("payload", [
+    b'{"x":1e400}',
+    b'{"x":' + b'[' * 65 + b'0' + b']' * 65 + b'}',
+    b'{"x":[' + b','.join([b'1e100'] * 10000) + b']}',
+], ids=["exponent-overflow", "depth-limit", "canonical-size"])
+def test_proposal_guest_rejects_invalid_bounded_json(tmp_path, payload):
+    root, db = _install(tmp_path, _wasm(payload=payload))
+    hub = LifeHub(db_path=db, plugins_path=root)
+    try:
+        with pytest.raises(ValueError, match="JSON|nesting|IO limit"):
+            hub.run_wasm("demo.planner:plan")
+        assert hub.proposals.list() == []
+        assert hub.effects.list() == []
+        assert hub.store.latest_records("tasks.today") == []
     finally:
         hub.close()
