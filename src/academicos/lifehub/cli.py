@@ -5,6 +5,14 @@ import json
 
 import typer
 
+from academicos.lifehub.control import CONTROL_API, control_request
+from academicos.lifehub.daemon import (
+    DEFAULT_ENGINE_AUTH_FILE,
+    LifeHubEngineDaemon,
+    default_control_endpoint,
+    load_authkey,
+    load_or_create_authkey,
+)
 from academicos.lifehub.kernel import LifeHub
 from academicos.lifehub.effects import EffectService
 from academicos.lifehub.packages import PackageInstaller
@@ -512,6 +520,128 @@ def records(
         typer.echo(json.dumps(hub.read_records(plugin_id, namespace, limit=limit)))
     finally:
         hub.close()
+
+
+def _engine_request(
+    op: str,
+    *,
+    db: Path,
+    endpoint: str | None,
+    auth_file: Path,
+    **payload,
+):
+    default_address, family = default_control_endpoint(db.parent)
+    address = endpoint or default_address
+    response = control_request(
+        address,
+        {"api": CONTROL_API, "op": op, **payload},
+        authkey=load_authkey(auth_file),
+        family=family,
+    )
+    if response.get("ok") is not True:
+        error = response.get("error", {})
+        typer.echo(
+            f"Engine error: {error.get('type', 'Error')}: {error.get('message', 'unknown error')}",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    return response.get("result")
+
+
+@app.command("engine-serve")
+def engine_serve(
+    db: Path = typer.Option(DEFAULT_DB, "--db"),
+    installed: Path = typer.Option(DEFAULT_INSTALLED, "--installed"),
+    endpoint: str | None = typer.Option(None, "--endpoint"),
+    auth_file: Path = typer.Option(DEFAULT_ENGINE_AUTH_FILE, "--auth-file"),
+) -> None:
+    """Run the persistent shell-independent LifeHub Engine."""
+    default_address, family = default_control_endpoint(db.parent)
+    address = endpoint or default_address
+    authkey = load_or_create_authkey(auth_file)
+    daemon = LifeHubEngineDaemon(
+        db_path=db,
+        plugins_path=installed,
+        address=address,
+        family=family,
+        authkey=authkey,
+    )
+    typer.echo(f"LifeHub Engine running · {family} · {address}")
+    typer.echo("Press Ctrl+C to stop the engine.")
+    try:
+        daemon.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        daemon.close()
+
+
+@app.command("engine-ping")
+def engine_ping(
+    db: Path = typer.Option(DEFAULT_DB, "--db"),
+    endpoint: str | None = typer.Option(None, "--endpoint"),
+    auth_file: Path = typer.Option(DEFAULT_ENGINE_AUTH_FILE, "--auth-file"),
+) -> None:
+    """Check whether the persistent LifeHub Engine is reachable."""
+    result = _engine_request("ping", db=db, endpoint=endpoint, auth_file=auth_file)
+    typer.echo(json.dumps(result, ensure_ascii=False))
+
+
+@app.command("engine-components")
+def engine_components(
+    db: Path = typer.Option(DEFAULT_DB, "--db"),
+    endpoint: str | None = typer.Option(None, "--endpoint"),
+    auth_file: Path = typer.Option(DEFAULT_ENGINE_AUTH_FILE, "--auth-file"),
+) -> None:
+    """List executable components known to the running engine."""
+    result = _engine_request("components", db=db, endpoint=endpoint, auth_file=auth_file)
+    typer.echo(json.dumps(result, ensure_ascii=False))
+
+
+@app.command("engine-executions")
+def engine_executions(
+    limit: int = typer.Option(100, "--limit", min=1, max=1000),
+    db: Path = typer.Option(DEFAULT_DB, "--db"),
+    endpoint: str | None = typer.Option(None, "--endpoint"),
+    auth_file: Path = typer.Option(DEFAULT_ENGINE_AUTH_FILE, "--auth-file"),
+) -> None:
+    """List persisted engine execution lifecycle records."""
+    result = _engine_request(
+        "executions", db=db, endpoint=endpoint, auth_file=auth_file, limit=limit
+    )
+    typer.echo(json.dumps(result, ensure_ascii=False))
+
+
+@app.command("engine-start")
+def engine_start(
+    ref: str,
+    db: Path = typer.Option(DEFAULT_DB, "--db"),
+    endpoint: str | None = typer.Option(None, "--endpoint"),
+    auth_file: Path = typer.Option(DEFAULT_ENGINE_AUTH_FILE, "--auth-file"),
+) -> None:
+    """Start one component through the persistent engine."""
+    result = _engine_request(
+        "start", db=db, endpoint=endpoint, auth_file=auth_file, ref=ref
+    )
+    typer.echo(json.dumps(result, ensure_ascii=False))
+
+
+@app.command("engine-stop")
+def engine_stop(
+    execution_id: str,
+    db: Path = typer.Option(DEFAULT_DB, "--db"),
+    endpoint: str | None = typer.Option(None, "--endpoint"),
+    auth_file: Path = typer.Option(DEFAULT_ENGINE_AUTH_FILE, "--auth-file"),
+) -> None:
+    """Stop one running component through the persistent engine."""
+    result = _engine_request(
+        "stop",
+        db=db,
+        endpoint=endpoint,
+        auth_file=auth_file,
+        execution_id=execution_id,
+    )
+    typer.echo(json.dumps(result, ensure_ascii=False))
 
 
 if __name__ == "__main__":
