@@ -9,7 +9,7 @@ from academicos.lifehub.effects import EffectService
 from academicos.lifehub.network import EgressGateway
 from academicos.lifehub.packages import PackageInstaller
 from academicos.lifehub.proposals import ProposalService
-from academicos.lifehub.protocol import CATALOG_API, build_catalog, require_contract
+from academicos.lifehub.protocol import CATALOG_API, RECORDS_API, build_catalog, require_contract
 from academicos.lifehub.registry import PluginBundle, PluginRegistry, RegisteredExtension
 from academicos.lifehub.service_runtime import SERVICE_JSON_CONTRACT, run_json_service
 from academicos.lifehub.store import LifeStore, namespace_allowed
@@ -61,6 +61,20 @@ class LifeHub:
     def catalog(self, *, api: str = CATALOG_API, point: str | None = None) -> dict:
         """Versioned metadata discovery for trusted local shells; grants no authority."""
         return build_catalog(self.registry, api=api, point=point)
+
+    def read_records(
+        self, plugin_id: str, namespace: str, *, api: str = RECORDS_API, limit: int = 8
+    ) -> dict:
+        """Trusted local shell read, mediated by existing plugin storage authority."""
+        if api != RECORDS_API:
+            raise ValueError("unsupported records API")
+        if type(limit) is not int or not 1 <= limit <= 100:
+            raise ValueError("record limit must be an integer from 1 to 100")
+        records = self.scoped_store(plugin_id).read(namespace, limit=limit)
+        return json.loads(json.dumps({
+            "api": RECORDS_API, "plugin_id": plugin_id,
+            "namespace": namespace, "records": records,
+        }, allow_nan=False))
 
     def scoped_store(self, plugin_id: str):  # noqa: ANN201
         return self.store.scoped(

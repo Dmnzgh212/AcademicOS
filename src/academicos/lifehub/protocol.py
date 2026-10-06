@@ -10,6 +10,13 @@ from typing import Any, Protocol
 from academicos.lifehub.registry import PluginRegistry
 
 CATALOG_API = "lifehub.catalog@1"
+RECORDS_API = "lifehub.records@1"
+
+
+class RecordsProvider(Protocol):
+    def read_records(
+        self, plugin_id: str, namespace: str, *, api: str = RECORDS_API, limit: int = 8
+    ) -> dict[str, Any]: ...
 
 
 class CatalogProvider(Protocol):
