@@ -26,6 +26,7 @@ main, platform and PR #16 audit anchors. The resumed platform stack is:
 | [#28](https://github.com/Dmnzgh212/AcademicOS/pull/28) | Exact reviewed grants and snapshot-bound capability handles | #27 |
 | [#29](https://github.com/Dmnzgh212/AcademicOS/pull/29) | Egress redirect enforcement | #28 |
 | [#30](https://github.com/Dmnzgh212/AcademicOS/pull/30) | Execution snapshot retention and review checkpoint | #29 |
+| [#31](https://github.com/Dmnzgh212/AcademicOS/pull/31) | Consistent JSON bounds across Wasm host imports | #30 |
 
 These are draft review units, not merged releases. Do not merge the whole
 research stack into main or treat the existence of a PR as acceptance.
@@ -65,7 +66,7 @@ python -m ruff check src tests examples/lifehub
 python -m pytest -q
 ```
 
-The latest local full source run passed 221 tests. The count includes existing
+The latest local full source run passed 228 tests. The count includes existing
 AcademicOS tests and is not a completion percentage. CI runs 320 (#28) and 321
 (#29) passed both supported Python versions, wheel installation and examples
 archive smoke checks. #30 runtime-fix revision is recorded in the

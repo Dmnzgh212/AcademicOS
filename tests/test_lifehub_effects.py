@@ -15,7 +15,7 @@ from academicos.lifehub.packages import PackageInstaller  # noqa: E402
 from academicos.lifehub.store import LifeStore  # noqa: E402
 
 
-def _module(*, destination: str = "demo.outbox", trap: bool = False) -> bytes:
+def _module(*, destination: str = "demo.outbox", trap: bool = False, request_bytes: bytes | None = None) -> bytes:
     request = json.dumps(
         {
             "kind": "test.record",
@@ -25,6 +25,8 @@ def _module(*, destination: str = "demo.outbox", trap: bool = False) -> bytes:
         },
         separators=(",", ":"),
     ).encode()
+    if request_bytes is not None:
+        request = request_bytes
     encoded = "".join(f"\\{byte:02x}" for byte in request)
     tail = "unreachable" if trap else "i32.const 0"
     return wasmtime.wat2wasm(
@@ -340,5 +342,24 @@ def test_tampering_after_approval_prevents_effect_dispatch(tmp_path):
         assert hub.store.conn.execute(
             "SELECT count(*) FROM lifehub_fake_effect_deliveries"
         ).fetchone()[0] == 0
+    finally:
+        hub.close()
+
+
+@pytest.mark.parametrize("payload", [
+    b'{"x":1e400}',
+    b'{"x":' + b'[' * 65 + b'0' + b']' * 65 + b'}',
+    b'{"x":[' + b','.join([b'1e100'] * 10000) + b']}',
+], ids=["exponent-overflow", "depth-limit", "canonical-size"])
+def test_effect_guest_rejects_invalid_bounded_json(tmp_path, payload):
+    request = (b'{"kind":"test.record","destination":"demo.outbox",'
+               b'"purpose":"Synthetic check","payload":' + payload + b'}')
+    root, db = _install(tmp_path, _module(request_bytes=request))
+    hub = LifeHub(db_path=db, plugins_path=root)
+    try:
+        with pytest.raises(ValueError, match="JSON|nesting|IO limit"):
+            hub.run_wasm("demo.effect:sender")
+        assert hub.effects.list() == []
+        assert hub.proposals.list() == []
     finally:
         hub.close()

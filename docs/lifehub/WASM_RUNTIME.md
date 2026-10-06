@@ -15,7 +15,7 @@ package snapshot. Start it explicitly with:
 lifehub run-wasm demo.example:worker --db data/lifehub.db --installed data/lifehub-installed
 ```
 
-The module exports `memory` and `run: () -> i32`. It may import three host
+The module exports `memory` and `run: () -> i32`. It may import four host
 functions. `lifehub.read_json: (i32, i32, i32, i32) -> i32` takes
 `namespace_ptr, namespace_len, output_ptr, output_capacity`. The function serializes
 up to eight latest records as a JSON array into guest memory and returns the byte count.
@@ -31,7 +31,16 @@ a JSON object with `kind`, `destination`, `purpose`, and `payload` keys. It stag
 an external effect request and returns the number staged in this run. See
 `EFFECT_LEDGER.md` for the review and fake execution flow. There is no WASI linkage,
 filesystem access, network access, direct write API, or direct external effect API.
-A result integer stays in the local caller.
+The fourth import, `lifehub.call_service_json`, is the package-bound JSON service
+bridge documented in [Guest calls](GUEST_SERVICE_CALLS.md). It accepts six i32
+pointer/length/capacity arguments and permits at most four calls per invocation.
+A result integer stays in the local caller; core-Wasm returns a result value,
+whereas `lifehub.service-json@1` requires zero as its success status.
+
+All JSON host imports use the shared finite-number, 64-level nesting and 64 KiB
+raw/canonical byte checks. This includes proposals, effect request envelopes and
+record responses, as well as service messages. Invalid messages fail the run
+before staged work is persisted.
 
 The execution limit is one million Wasm fuel units; guest memory is limited to 8 MiB,
 module bytes to 2 MiB, a host IO call to 64 KiB, and one invocation to eight proposals

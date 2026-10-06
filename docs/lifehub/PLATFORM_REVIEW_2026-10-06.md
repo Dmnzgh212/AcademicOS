@@ -13,6 +13,7 @@ a security certification, or authority to merge main.
 | Capability handles | Old storage/egress handles could reuse old permissions after approved replacement; handles bind manifest and content digest | #28; replacements with narrowed and identical manifests |
 | Network transport | urllib followed redirects beyond initial-URL authorization; automatic redirects disabled, separate requests reauthorize | #29; real local HTTP tests for 301/302/303/307/308 and 200 |
 | Wasm submission | Old run output could acquire a replacement package digest; retain starting digest and reject changed approval before submission | #30; six lifecycle tests across proposal/effect paths |
+| JSON ABI | Proposal/effect parsing and record output lacked shared bounds; all Wasm JSON imports enforce finite values, nesting and canonical size | #31; seven cases fail against previous code |
 
 Both Wasm replacement regression tests fail against the pre-fix code and pass
 with the fix. Final checks and staged submission use the same SQLite write
@@ -32,7 +33,7 @@ transaction; filesystem writes are not part of that transaction.
 
 ## Validation and decision
 
-221 local tests and Ruff pass. Runs 320/321 passed Python 3.11/3.12, installed-wheel
+228 local tests and Ruff pass. Runs 320/321 passed Python 3.11/3.12, installed-wheel
 and reproducible examples companion smoke. The #30 runtime-fix revision is
 `78b8259b76d8dd103d98d57b816bf7d112c0ed94`; run 322 passed for that revision.
 Latest revision checks must pass before any integration decision.

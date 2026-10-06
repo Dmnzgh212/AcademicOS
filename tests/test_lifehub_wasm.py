@@ -133,3 +133,18 @@ def test_wasm_memory_growth_is_limited(tmp_path: Path) -> None:
         assert hub.run_wasm("demo.isolated:worker") == -1
     finally:
         hub.close()
+
+
+def test_wasm_record_response_rejects_nonfinite_stored_payload(tmp_path):
+    root, db = _install(tmp_path, _module())
+    hub = LifeHub(db_path=db, plugins_path=root)
+    try:
+        hub.store.append_record(plugin_id="producer", namespace="public.today",
+                                record_key="legacy", payload={"x": float("inf")})
+        hub.grant_read("demo.isolated", "public")
+        with pytest.raises(ValueError, match="JSON"):
+            hub.run_wasm("demo.isolated:worker")
+        assert hub.last_proposal_ids == []
+        assert hub.last_effect_ids == []
+    finally:
+        hub.close()
