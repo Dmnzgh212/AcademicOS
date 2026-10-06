@@ -81,17 +81,22 @@ def test_daemon_keeps_runner_handle_across_separate_control_clients(tmp_path: Pa
     daemon.engine.register_runner(_Runner())
 
     def request(op: str, **extra):
-        thread = Thread(target=daemon.serve_once, daemon=True)
+        result = {}
+
+        def client():
+            result["response"] = control_request(
+                socket_path,
+                {"api": CONTROL_API, "op": op, **extra},
+                authkey=authkey,
+                family="AF_UNIX",
+            )
+
+        thread = Thread(target=client, daemon=True)
         thread.start()
-        response = control_request(
-            socket_path,
-            {"api": CONTROL_API, "op": op, **extra},
-            authkey=authkey,
-            family="AF_UNIX",
-        )
+        daemon.serve_once()
         thread.join(timeout=5)
         assert not thread.is_alive()
-        return response
+        return result["response"]
 
     try:
         components = request("components")
