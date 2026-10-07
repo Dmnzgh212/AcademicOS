@@ -542,12 +542,28 @@ class LifeHubEngine:
                         return
                     for item in self._executions.values():
                         if (item.component.runner_id != "lifehub.wasm-background"
-                                or item.state != ExecutionState.RUNNING
-                                or item.handle is None or item.handle.process.poll() is None):
+                                or item.state != ExecutionState.RUNNING or item.handle is None):
                             continue
+                        error = getattr(item.handle, "invalidation_reason",
+                                        "background guest process exited")
+                        if item.handle.process.poll() is None:
+                            try:
+                                row = conn.execute(
+                                    "SELECT * FROM lifehub_installed_packages WHERE plugin_id=?",
+                                    (item.handle.plugin_id,),
+                                ).fetchone()
+                            except sqlite3.OperationalError:
+                                retry = True
+                                continue
+                            if row == item.handle.installation_identity:
+                                continue
+                            # This host-bound installation generation cannot be
+                            # replaced by even an identical package reinstall.
+                            item.handle.stop()
+                            error = "background installation identity changed"
+                            item.handle.invalidation_reason = error
                         item.ready = False
                         now = datetime.now(UTC).isoformat()
-                        error = "background guest process exited"
                         try:
                             with conn:
                                 conn.execute(
