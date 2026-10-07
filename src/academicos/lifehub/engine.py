@@ -250,9 +250,12 @@ class LifeHubEngine:
         """
         if self._closed:
             return
-        self._refresh_background()
         failures = []
         try:
+            try:
+                self._refresh_background()
+            except Exception as exc:
+                failures.append(exc)
             for execution in tuple(self._executions.values()):
                 if execution.state == ExecutionState.RUNNING:
                     try:

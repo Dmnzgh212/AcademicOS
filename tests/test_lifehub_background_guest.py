@@ -214,6 +214,20 @@ def test_monitor_failure_is_visible_and_denies_new_guests(tmp_path, monkeypatch)
         engine.shutdown()
 
 
+def test_shutdown_reconciliation_failure_still_cleans_up(tmp_path, monkeypatch):
+    proof, engine = installed(tmp_path)
+    provider = engine.start(proof.PROVIDER)
+    handle = engine._execution(provider.execution_id).handle
+    def unavailable_ledger():
+        raise sqlite3.OperationalError("injected ledger failure")
+    monkeypatch.setattr(engine, "_refresh_background", unavailable_ledger)
+    with pytest.raises(ExceptionGroup):
+        engine.shutdown()
+    assert engine._closed and handle.process.poll() is not None
+    replacement = LifeHubEngine(db_path=tmp_path / "state.db", plugins_path=tmp_path / "plugins")
+    replacement.shutdown()
+
+
 def test_background_tamper_and_inflight_revocation_fail_closed(tmp_path):
     proof, engine = installed(tmp_path)
     try:
