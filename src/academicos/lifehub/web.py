@@ -7,6 +7,7 @@ Engine/runtime code must never import this module.
 from academicos.lifehub.shells.reference_web import (
     CSS,
     JS,
+    _extension_body,
     make_handler,
     render_review_inbox,
     render_workspace,
@@ -16,6 +17,7 @@ from academicos.lifehub.shells.reference_web import (
 __all__ = [
     "CSS",
     "JS",
+    "_extension_body",
     "make_handler",
     "render_review_inbox",
     "render_workspace",
