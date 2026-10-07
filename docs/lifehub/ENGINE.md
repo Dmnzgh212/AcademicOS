@@ -169,3 +169,54 @@ identity, contract and component configuration.
 
 This establishes the boundary needed for the next platform slice: Engine-level
 interface resolution and capability routing.
+
+
+## Capability-routed component interfaces
+
+A component requirement is now enforceable platform state rather than descriptive
+metadata.
+
+For example:
+
+```toml
+[[components]]
+id = "consumer"
+runner = "example.runner"
+requires = ["example.echo@1"]
+
+[[components]]
+id = "provider"
+runner = "example.runner"
+provides = ["example.echo@1"]
+```
+
+The Engine will not start the consumer until an authorized provider route exists.
+
+Routing follows an explicit review/grant flow:
+
+```text
+consumer requires interface
+        |
+        v
+review consumer + provider package snapshots
+        |
+        v
+exact approval digest
+        |
+        v
+grant snapshot-bound route
+        |
+        v
+Engine resolves provider
+```
+
+Routes are bound to the exact approved digests of both packages. Package changes,
+tampering or revocation fail closed. A consumer cannot request an undeclared
+interface and a provider cannot be routed for an interface it did not declare.
+
+The daemon control plane exposes route review, grant, resolve and revoke. The
+operator CLI mirrors those operations with `engine-route-*` commands.
+
+This slice only resolves authority and provider identity. Typed component-to-
+component message transport is the next layer; interface routing must not be
+implemented as arbitrary HTTP or direct process access.

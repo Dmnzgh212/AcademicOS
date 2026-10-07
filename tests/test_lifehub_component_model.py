@@ -19,7 +19,7 @@ class _Runner:
 
     def start(self, engine, component):
         assert component.provides == ("example.output@1",)
-        assert component.requires == ("example.input@1",)
+        assert component.requires == ()
         return RunnerStart(ExecutionState.RUNNING, handle=component.ref)
 
     def stop(self, engine, component, handle):
@@ -42,7 +42,7 @@ id = "worker"
 runner = "test.component"
 contract = "example.worker@1"
 provides = ["example.output@1"]
-requires = ["example.input@1"]
+requires = []
 activation = ["manual"]
 
 [components.config]
@@ -68,7 +68,7 @@ def test_package_can_be_executable_without_any_extension_or_ui(tmp_path: Path) -
         assert component.point is None
         assert component.runner_id == "test.component"
         assert component.provides == ("example.output@1",)
-        assert component.requires == ("example.input@1",)
+        assert component.requires == ()
 
         engine.register_runner(runner)
         started = engine.start(component.ref)

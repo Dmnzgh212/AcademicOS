@@ -64,6 +64,46 @@ class EngineController:
             limit = request.get("limit", 100)
             return [_execution_json(item) for item in self.engine.executions(limit=limit)]
 
+        if op == "route-review":
+            _require_keys(request, {"api", "op", "consumer", "interface", "provider"})
+            return self.engine.routes.review(
+                _nonempty(request, "consumer"),
+                _nonempty(request, "interface"),
+                _nonempty(request, "provider"),
+            )
+
+        if op == "route-grant":
+            _require_keys(
+                request,
+                {"api", "op", "consumer", "interface", "provider", "approval_digest"},
+            )
+            route = self.engine.routes.grant(
+                _nonempty(request, "consumer"),
+                _nonempty(request, "interface"),
+                _nonempty(request, "provider"),
+                approved_digest=_nonempty(request, "approval_digest"),
+            )
+            return asdict(route)
+
+        if op == "route-revoke":
+            _require_keys(request, {"api", "op", "consumer", "interface", "provider"})
+            return {
+                "revoked": self.engine.routes.revoke(
+                    _nonempty(request, "consumer"),
+                    _nonempty(request, "interface"),
+                    _nonempty(request, "provider"),
+                )
+            }
+
+        if op == "route-resolve":
+            _require_keys(request, {"api", "op", "consumer", "interface"})
+            return asdict(
+                self.engine.routes.resolve(
+                    _nonempty(request, "consumer"),
+                    _nonempty(request, "interface"),
+                )
+            )
+
         if op == "start":
             _require_keys(request, {"api", "op", "ref"})
             ref = request["ref"]
@@ -164,3 +204,10 @@ def _require_keys(
         raise ValueError(
             f"invalid engine control fields; missing={sorted(missing)}, extra={sorted(extra)}"
         )
+
+
+def _nonempty(request: dict[str, Any], field: str) -> str:
+    value = request.get(field)
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{field} must be a nonempty string")
+    return value

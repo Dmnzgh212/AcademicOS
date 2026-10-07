@@ -12,6 +12,7 @@ from uuid import uuid4
 
 from academicos.lifehub.kernel import LifeHub
 from academicos.lifehub.registry import RegisteredComponent, RegisteredExtension
+from academicos.lifehub.routing import InterfaceRouter
 
 
 _ENGINE_SCHEMA = """
@@ -165,6 +166,7 @@ class LifeHubEngine:
         self.kernel = LifeHub(db_path=db_path, plugins_path=plugins_path)
         self.runners = RunnerRegistry()
         self.runners.register(CoreWasmRunner())
+        self.routes = InterfaceRouter(self.kernel, self.component)
         self._executions: dict[str, _Execution] = {}
         self._init_execution_ledger()
         self._recover_interrupted_executions()
@@ -200,6 +202,8 @@ class LifeHubEngine:
 
     def start(self, ref: str) -> ExecutionView:
         component = self.component(ref)
+        for interface in component.requires:
+            self.routes.resolve(component.ref, interface)
         runner = self.runners.resolve(component.runner_id)
         now = datetime.now(UTC).isoformat()
         execution = _Execution(
