@@ -11,7 +11,7 @@ from academicos.lifehub.kernel import LifeHub
 from academicos.lifehub.packages import PackageInstaller
 from academicos.lifehub.proposals import ProposedChange
 from academicos.lifehub.store import LifeStore
-from academicos.lifehub.web import make_handler, render_workspace
+from academicos.lifehub.shells.reference_web import make_handler, render_workspace
 
 
 def _seed(tmp_path: Path) -> tuple[Path, Path, int, int]:
