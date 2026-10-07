@@ -71,7 +71,7 @@ def test_cli_catalog_exports_json_contract(tmp_path):
 
 
 def test_web_shell_skips_incompatible_primitive_contract(tmp_path):
-    from academicos.lifehub.web import render_workspace
+    from academicos.lifehub.shells.reference_web import render_workspace
 
     plugins = tmp_path / "plugins"
     plugin = _write_plugin(plugins)
@@ -129,8 +129,15 @@ def test_platform_discovery_does_not_interpret_shell_layout(tmp_path):
     manifest.write_text(manifest.read_text().replace("width = 5", 'width = "custom-shell-value"'))
     hub = LifeHub(db_path=tmp_path / "hub.db", plugins_path=plugins)
     try:
-        assert hub.store.workspace_layout() == []
+        assert not hasattr(hub.store, "workspace_layout")
+        assert not hasattr(hub.store, "save_workspace_layout")
         assert hub.catalog()["extensions"][0]["config"]["width"] == "custom-shell-value"
-        assert hub.store.workspace_layout() == []
+        tables = {
+            row[0]
+            for row in hub.store.conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()
+        }
+        assert "lifehub_reference_web_workspace_items" not in tables
     finally:
         hub.close()
