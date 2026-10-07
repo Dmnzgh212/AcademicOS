@@ -125,7 +125,11 @@ def test_real_transport_survives_bad_auth_json_oversize_and_disconnect(tmp_path)
             connection = Client(address, authkey=key, family="AF_UNIX")
             try:
                 if payload is not None:
-                    connection.send_bytes(payload)
+                    try:
+                        connection.send_bytes(payload)
+                    except BrokenPipeError:
+                        # Server rejects the oversized header before reading its body.
+                        assert len(payload) > MAX_IO_BYTES
             finally:
                 connection.close()
         response = control_request(
