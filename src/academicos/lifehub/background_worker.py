@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import os
 import queue
 import sys
 import threading
@@ -102,4 +103,11 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # This dedicated child has no persistent host writes to finalize. Avoid
+    # CPython shutdown waiting/aborting on a daemon reader holding stdin's lock.
+    # Protocol responses are flushed by emit; EOF/trap both close all OS handles.
+    try:
+        main()
+    except BaseException:
+        os._exit(1)
+    os._exit(0)
