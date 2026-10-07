@@ -667,5 +667,93 @@ def engine_stop(
     typer.echo(json.dumps(result, ensure_ascii=False))
 
 
+@app.command("engine-route-review")
+def engine_route_review(
+    consumer: str,
+    interface: str,
+    provider: str,
+    db: Path = typer.Option(DEFAULT_DB, "--db"),
+    endpoint: str | None = typer.Option(None, "--endpoint"),
+    auth_file: Path = typer.Option(DEFAULT_ENGINE_AUTH_FILE, "--auth-file"),
+) -> None:
+    """Review exact consumer/provider package snapshots before routing."""
+    result = _engine_request(
+        "route-review",
+        db=db,
+        endpoint=endpoint,
+        auth_file=auth_file,
+        consumer=consumer,
+        interface=interface,
+        provider=provider,
+    )
+    typer.echo(json.dumps(result, ensure_ascii=False))
+
+
+@app.command("engine-route-grant")
+def engine_route_grant(
+    consumer: str,
+    interface: str,
+    provider: str,
+    approve_hash: str = typer.Option(..., "--approve-hash"),
+    db: Path = typer.Option(DEFAULT_DB, "--db"),
+    endpoint: str | None = typer.Option(None, "--endpoint"),
+    auth_file: Path = typer.Option(DEFAULT_ENGINE_AUTH_FILE, "--auth-file"),
+) -> None:
+    """Grant one reviewed component interface route."""
+    result = _engine_request(
+        "route-grant",
+        db=db,
+        endpoint=endpoint,
+        auth_file=auth_file,
+        consumer=consumer,
+        interface=interface,
+        provider=provider,
+        approval_digest=approve_hash,
+    )
+    typer.echo(json.dumps(result, ensure_ascii=False))
+
+
+@app.command("engine-route-revoke")
+def engine_route_revoke(
+    consumer: str,
+    interface: str,
+    provider: str,
+    db: Path = typer.Option(DEFAULT_DB, "--db"),
+    endpoint: str | None = typer.Option(None, "--endpoint"),
+    auth_file: Path = typer.Option(DEFAULT_ENGINE_AUTH_FILE, "--auth-file"),
+) -> None:
+    """Revoke a component interface route immediately."""
+    result = _engine_request(
+        "route-revoke",
+        db=db,
+        endpoint=endpoint,
+        auth_file=auth_file,
+        consumer=consumer,
+        interface=interface,
+        provider=provider,
+    )
+    typer.echo(json.dumps(result, ensure_ascii=False))
+
+
+@app.command("engine-route-resolve")
+def engine_route_resolve(
+    consumer: str,
+    interface: str,
+    db: Path = typer.Option(DEFAULT_DB, "--db"),
+    endpoint: str | None = typer.Option(None, "--endpoint"),
+    auth_file: Path = typer.Option(DEFAULT_ENGINE_AUTH_FILE, "--auth-file"),
+) -> None:
+    """Resolve the currently authorized provider for a required interface."""
+    result = _engine_request(
+        "route-resolve",
+        db=db,
+        endpoint=endpoint,
+        auth_file=auth_file,
+        consumer=consumer,
+        interface=interface,
+    )
+    typer.echo(json.dumps(result, ensure_ascii=False))
+
+
 if __name__ == "__main__":
     app()
