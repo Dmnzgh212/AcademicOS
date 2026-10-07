@@ -3,6 +3,7 @@
 import importlib.util
 from pathlib import Path
 import time
+import sqlite3
 
 import pytest
 
@@ -84,6 +85,60 @@ def test_identical_reinstall_cannot_reuse_background_handle(tmp_path):
         with pytest.raises(PermissionError):
             handle.call({})
     finally:
+        engine.shutdown()
+
+
+def test_monitor_records_guest_death_without_engine_query(tmp_path):
+    proof, engine = installed(tmp_path)
+    try:
+        provider = engine.start(proof.PROVIDER)
+        handle = engine._execution(provider.execution_id).handle
+        handle.process.kill()
+        handle.process.wait(timeout=3)
+        # Test-only independent ledger observation. No Engine/Shell calls can
+        # trigger the old query-time reconciliation during this assertion.
+        with sqlite3.connect(tmp_path / "state.db") as observer:
+            deadline = time.monotonic() + 3
+            while time.monotonic() < deadline:
+                state = observer.execute(
+                    "SELECT state FROM lifehub_engine_executions WHERE execution_id=?",
+                    (provider.execution_id,),
+                ).fetchone()[0]
+                if state == "failed":
+                    break
+                time.sleep(0.02)
+            assert state == "failed"
+        assert not engine._executions[provider.execution_id].ready
+    finally:
+        engine.shutdown()
+    assert not engine._monitor.is_alive()
+
+
+def test_monitor_busy_ledger_retries_and_stop_is_terminal(tmp_path):
+    proof, engine = installed(tmp_path)
+    blocker = sqlite3.connect(tmp_path / "state.db")
+    try:
+        provider = engine.start(proof.PROVIDER)
+        blocker.execute("BEGIN EXCLUSIVE")
+        handle = engine._execution(provider.execution_id).handle
+        handle.process.kill()
+        handle.process.wait(timeout=3)
+        deadline = time.monotonic() + 3
+        while engine._executions[provider.execution_id].ready and time.monotonic() < deadline:
+            time.sleep(0.02)
+        assert not engine._executions[provider.execution_id].ready
+        blocker.rollback()
+        deadline = time.monotonic() + 3
+        while (engine._executions[provider.execution_id].state != "failed"
+               and time.monotonic() < deadline):
+            time.sleep(0.02)
+        assert engine._executions[provider.execution_id].state == "failed"
+        replacement = engine.start(proof.PROVIDER)
+        engine.stop(replacement.execution_id)
+        time.sleep(0.2)
+        assert engine.execution(replacement.execution_id).state == "stopped"
+    finally:
+        blocker.close()
         engine.shutdown()
 
 

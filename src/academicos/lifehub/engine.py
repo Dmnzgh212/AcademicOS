@@ -6,7 +6,10 @@ from copy import deepcopy
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
+from functools import wraps
 from pathlib import Path
+import sqlite3
+import threading
 from typing import Any, Protocol
 from uuid import uuid4
 
@@ -31,6 +34,15 @@ CREATE TABLE IF NOT EXISTS lifehub_engine_executions (
 CREATE INDEX IF NOT EXISTS idx_lifehub_engine_execution_state
     ON lifehub_engine_executions(state, updated_at DESC);
 """
+
+
+def _lifecycle_locked(method):
+    """Serialize ledger transitions with the private process monitor."""
+    @wraps(method)
+    def locked(self, *args, **kwargs):
+        with self._lifecycle_lock:
+            return method(self, *args, **kwargs)
+    return locked
 
 
 class ExecutionState(StrEnum):
@@ -172,6 +184,10 @@ class LifeHubEngine:
     ) -> None:
         # Acquire before kernel construction or recovery can mutate live history.
         self._lease = EngineLease(db_path)
+        self._lifecycle_lock = threading.RLock()
+        self._monitor_stop = threading.Event()
+        self._monitor = None
+        self._ledger_path = str(Path(db_path).resolve())
         try:
             self.kernel = LifeHub(db_path=db_path, plugins_path=plugins_path)
             self.runners = RunnerRegistry()
@@ -182,6 +198,8 @@ class LifeHubEngine:
             self._closed = False
             self._init_execution_ledger()
             self._recover_interrupted_executions()
+            self._monitor = threading.Thread(target=self._monitor_background, daemon=True)
+            self._monitor.start()
         except BaseException:
             try:
                 if hasattr(self, "kernel"):
@@ -190,9 +208,13 @@ class LifeHubEngine:
                 self._lease.close()
             raise
 
+    @_lifecycle_locked
     def close(self) -> None:
         """Release storage only; use shutdown for orderly runner teardown."""
         if not self._closed:
+            self._monitor_stop.set()
+            if self._monitor is not None:
+                self._monitor.join(timeout=1)
             for execution in self._executions.values():
                 execution.ready = False
                 if (execution.component.runner_id == "lifehub.wasm-background"
@@ -204,6 +226,7 @@ class LifeHubEngine:
                 self._lease.close()
                 self._closed = True
 
+    @_lifecycle_locked
     def shutdown(self) -> None:
         """Attempt all live runner stops, preserve failures, then release storage.
 
@@ -211,6 +234,7 @@ class LifeHubEngine:
         """
         if self._closed:
             return
+        self._refresh_background()
         failures = []
         try:
             for execution in tuple(self._executions.values()):
@@ -224,10 +248,12 @@ class LifeHubEngine:
         if failures:
             raise ExceptionGroup("runner failures during Engine shutdown", failures)
 
+    @_lifecycle_locked
     def set_ready(self, execution_id: str, ready: bool) -> ExecutionView:
         """Trusted runner notification; readiness grants no new authority."""
         if self._closed:
             raise RuntimeError("Engine is closed")
+        self._refresh_background()
         if type(ready) is not bool:
             raise ValueError("ready must be a boolean")
         execution = self._execution(execution_id)
@@ -255,7 +281,7 @@ class LifeHubEngine:
             for route in initial.values()
         }
 
-        def call(interface, request):
+        def _call(interface, request):
             self._refresh_background()
             route = self.routes.resolve(component.ref, interface)
             if initial.get(interface) != route:
@@ -287,6 +313,9 @@ class LifeHubEngine:
                 raise PermissionError("interface snapshots changed during call")
             return output
 
+        def call(interface, request):
+            with self._lifecycle_lock:
+                return _call(interface, request)
         return call
 
     def register_runner(self, runner: ComponentRunner) -> None:
@@ -315,6 +344,7 @@ class LifeHubEngine:
             raise ValueError(f"extension is not an executable component: {ref}")
         return self._describe_legacy_extension(extension, runner_id)
 
+    @_lifecycle_locked
     def start(self, ref: str) -> ExecutionView:
         if self._closed:
             raise RuntimeError("Engine is closed")
@@ -359,7 +389,9 @@ class LifeHubEngine:
             raise
         return self._view(execution)
 
+    @_lifecycle_locked
     def stop(self, execution_id: str) -> ExecutionView:
+        self._refresh_background()
         execution = self._execution(execution_id)
         if execution.state != ExecutionState.RUNNING:
             raise ValueError(f"execution is not running: {execution_id}")
@@ -378,6 +410,7 @@ class LifeHubEngine:
         self._persist(execution)
         return self._view(execution)
 
+    @_lifecycle_locked
     def execution(self, execution_id: str) -> ExecutionView:
         self._refresh_background()
         if execution_id in self._executions:
@@ -402,6 +435,7 @@ class LifeHubEngine:
             error=row["error"],
         )
 
+    @_lifecycle_locked
     def executions(self, *, limit: int = 100) -> tuple[ExecutionView, ...]:
         self._refresh_background()
         if type(limit) is not int or not 1 <= limit <= 1000:
@@ -492,6 +526,51 @@ class LifeHubEngine:
                 item.updated_at = datetime.now(UTC).isoformat()
                 item.handle.stop()
                 self._persist(item)
+
+    def _monitor_background(self) -> None:
+        # Own connection: never move the kernel/store connection across threads.
+        # This thread only reconciles process death; it grants no authority and
+        # never executes domain logic or starts replacement guests.
+        conn = sqlite3.connect(self._ledger_path, timeout=0.1)
+        try:
+            while not self._monitor_stop.wait(0.1):
+                if not self._lifecycle_lock.acquire(timeout=0.05):
+                    continue
+                retry = False
+                try:
+                    if self._monitor_stop.is_set():
+                        return
+                    for item in self._executions.values():
+                        if (item.component.runner_id != "lifehub.wasm-background"
+                                or item.state != ExecutionState.RUNNING
+                                or item.handle is None or item.handle.process.poll() is None):
+                            continue
+                        item.ready = False
+                        now = datetime.now(UTC).isoformat()
+                        error = "background guest process exited"
+                        try:
+                            with conn:
+                                conn.execute(
+                                    "UPDATE lifehub_engine_executions SET state=?, updated_at=?, "
+                                    "error=? WHERE execution_id=? AND state=?",
+                                    (ExecutionState.FAILED, now, error, item.execution_id,
+                                     ExecutionState.RUNNING),
+                                )
+                        except sqlite3.OperationalError:
+                            # Busy/unavailable ledger retries with backoff. Dead
+                            # process and readiness still deny live interface use.
+                            retry = True
+                            continue
+                        item.state = ExecutionState.FAILED
+                        item.updated_at = now
+                        item.error = error
+                        item.handle.stop()
+                finally:
+                    self._lifecycle_lock.release()
+                if retry:
+                    self._monitor_stop.wait(0.5)
+        finally:
+            conn.close()
 
     def _init_execution_ledger(self) -> None:
         self.kernel.store.conn.executescript(_ENGINE_SCHEMA)

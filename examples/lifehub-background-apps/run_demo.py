@@ -2,6 +2,7 @@
 
 import importlib.util
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 import sys
 from tempfile import TemporaryDirectory
@@ -15,7 +16,8 @@ spec = importlib.util.spec_from_file_location(
 util = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(util)
 util.HERE = HERE
-util.APPS = (("thirdparty.heartbeat", "heartbeat"), ("thirdparty.observer", "observer"))
+util.APPS = (("thirdparty.heartbeat", "heartbeat"), ("thirdparty.observer", "observer"),
+             ("thirdparty.fault-probe", "fault"))
 CONSUMER = "thirdparty.observer:observe"
 PROVIDER = "thirdparty.heartbeat:counter"
 INTERFACE = "example.heartbeat@1"
@@ -40,9 +42,16 @@ def prove(root):
         binding = dict(consumer=CONSUMER, interface=INTERFACE, provider=PROVIDER)
         review = ok("route-review", **binding)
         ok("route-grant", **binding, approval_digest=review["approval_digest"])
+        fault = ok("start", ref="thirdparty.fault-probe:fail")
         before = ok("start", ref=CONSUMER)["result"]
         # Every request closes its connection. No client remains connected here.
-        time.sleep(0.6)
+        time.sleep(0.8)
+        query_at = datetime.now(UTC)
+        rows = ok("executions")
+        failed = next(row for row in rows if row["execution_id"] == fault["execution_id"])
+        assert failed["state"] == "failed" and not failed["ready"]
+        assert (query_at - datetime.fromisoformat(failed["updated_at"])).total_seconds() > 0.05
+        print("PASS guest failure persisted before any client reconnected")
         after = ok("start", ref=CONSUMER)["result"]
         assert after - before >= 2, (before, after)
         print(f"PASS shell-free guest work: counter {before} -> {after}")
@@ -68,6 +77,7 @@ def prove(root):
     assert "http.server" not in sys.modules
     print(json.dumps({"status": "PASS", "platform": sys.platform,
                       "persistent_guest": True, "shell_free_work_delta": after - before,
+                      "shell_free_failure_monitor": True,
                       "automatic_restart": False}))
 
 

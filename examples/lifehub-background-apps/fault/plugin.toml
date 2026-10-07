@@ -1,0 +1,13 @@
+manifest_version = 1
+api = "lifehub@1"
+id = "thirdparty.fault-probe"
+name = "Background Guest Fault Probe"
+version = "1.0.0"
+
+[[components]]
+id = "fail"
+runner = "lifehub.wasm-background"
+contract = "lifehub.service-json@1"
+
+[components.config]
+module = "worker.wasm"
