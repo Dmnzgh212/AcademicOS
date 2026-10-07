@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 jobs:
-  windows-engine-lease:
+  windows-engine-boundaries:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,9 +17,20 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install
-        run: python -m pip install -e '.[dev]'
-      - name: Engine lease process lifecycle
-        run: python -m pytest -q tests/test_lifehub_engine_lease.py
+        run: python -m pip install -e '.[dev,wasm]'
+      - name: Windows Engine boundaries
+        run: python -m pytest -q tests/test_lifehub_engine_lease.py tests/test_lifehub_windows_control.py tests/test_lifehub_component_ipc.py tests/test_lifehub_readiness_shutdown.py
+      - name: Build and install Windows wheel
+        shell: pwsh
+        run: |
+          python -m pip wheel . --no-deps --wheel-dir dist
+          python -m venv "$env:RUNNER_TEMP/lifehub-win-wheel"
+          $wheel = (Get-ChildItem dist/academicos-*.whl)[0].FullName
+          & "$env:RUNNER_TEMP/lifehub-win-wheel/Scripts/python.exe" -m pip install $wheel 'wasmtime>=36,<37'
+      - name: Windows installed component IPC smoke
+        shell: pwsh
+        run: |
+          & "$env:RUNNER_TEMP/lifehub-win-wheel/Scripts/python.exe" -I scripts/lifehub_component_ipc_smoke.py "$env:GITHUB_WORKSPACE"
   test:
     runs-on: ubuntu-latest
     strategy:
