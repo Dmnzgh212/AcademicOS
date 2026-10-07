@@ -5,6 +5,7 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 import sys
+import subprocess
 from tempfile import TemporaryDirectory
 import time
 
@@ -25,7 +26,8 @@ INTERFACE = "example.heartbeat@1"
 
 def prove(root):
     db, installed = root / "engine.db", root / "installed"
-    util.install_packages(db, installed, util.build_packages(root / "packages"))
+    archives = util.build_packages(root / "packages")
+    util.install_packages(db, installed, archives)
     address, family = util.endpoint_for(root)
     process, key = util.start_daemon(root, db, installed, address, family)
 
@@ -72,6 +74,26 @@ def prove(root):
         stopped = ok("stop", execution_id=recovered["execution_id"])
         assert stopped["state"] == "stopped" and not stopped["ready"]
         print("PASS crash history, explicit new execution, retained revocation, graceful guest stop")
+        disposable = ok("start", ref=PROVIDER)
+        subprocess.run(
+            [sys.executable, "-I", "-m", "academicos.lifehub.cli", "uninstall-package",
+             "thirdparty.heartbeat", "--db", str(db), "--installed", str(installed)],
+            check=True, timeout=10,
+        )
+        time.sleep(0.5)  # No control clients connected after operator uninstall.
+        query_at = datetime.now(UTC)
+        rows = ok("executions")
+        removed = next(row for row in rows
+                       if row["execution_id"] == disposable["execution_id"])
+        assert removed["state"] == "failed" and not removed["ready"]
+        assert removed["error"] == "background installation identity changed"
+        assert (query_at - datetime.fromisoformat(removed["updated_at"])).total_seconds() > 0.05
+        util.install_packages(db, installed, (archives[0],))
+        replacement = ok("start", ref=PROVIDER)
+        assert replacement["execution_id"] != disposable["execution_id"]
+        util.require_denied(request("start", ref=CONSUMER))
+        ok("stop", execution_id=replacement["execution_id"])
+        print("PASS uninstall terminates old guest; identical reinstall creates new identity only")
     finally:
         util.stop_daemon(process, address, family)
     assert "http.server" not in sys.modules

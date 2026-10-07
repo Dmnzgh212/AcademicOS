@@ -119,6 +119,8 @@ class BackgroundWasmRunner:
             if installed_identity() != identity:
                 raise PermissionError("background installation identity changed")
         handle = BackgroundHandle(files[module], verify)
+        handle.plugin_id = component.plugin_id
+        handle.installation_identity = identity
         return RunnerStart(ExecutionState.RUNNING, handle=handle, ready=True)
 
     def stop(self, engine, component, handle):

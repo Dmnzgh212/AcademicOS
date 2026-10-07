@@ -114,6 +114,36 @@ def test_monitor_records_guest_death_without_engine_query(tmp_path):
     assert not engine._monitor.is_alive()
 
 
+def test_uninstall_stops_guest_without_next_call(tmp_path):
+    proof, engine = installed(tmp_path)
+    try:
+        provider = engine.start(proof.PROVIDER)
+        handle = engine._execution(provider.execution_id).handle
+        engine.kernel.packages.uninstall("thirdparty.heartbeat")
+        # No execution query or guest call is made after uninstall.
+        handle.process.wait(timeout=3)
+        with sqlite3.connect(tmp_path / "state.db") as observer:
+            deadline = time.monotonic() + 3
+            while time.monotonic() < deadline:
+                state, error = observer.execute(
+                    "SELECT state,error FROM lifehub_engine_executions WHERE execution_id=?",
+                    (provider.execution_id,),
+                ).fetchone()
+                if state == "failed":
+                    break
+                time.sleep(0.02)
+            assert state == "failed"
+            assert error == "background installation identity changed"
+        archive = tmp_path / "archives" / "thirdparty.heartbeat.lhpkg"
+        review = engine.kernel.packages.review(archive)
+        engine.kernel.packages.install(archive, approved_hash=review.content_hash)
+        assert handle.process.poll() is not None
+        replacement = engine.start(proof.PROVIDER)
+        assert replacement.execution_id != provider.execution_id
+    finally:
+        engine.shutdown()
+
+
 def test_monitor_busy_ledger_retries_and_stop_is_terminal(tmp_path):
     proof, engine = installed(tmp_path)
     blocker = sqlite3.connect(tmp_path / "state.db")

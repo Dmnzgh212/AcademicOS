@@ -45,6 +45,13 @@ causes worker exit after its current fuel-bounded turn. No operator authkey
 is passed through these pipes or module memory.
 
 Installation approval time and digest/manifest are bound to the handle.
+The monitor also checks the installed approval identity of each live worker.
+Uninstall or replacement terminates that worker and records failed without a
+subsequent guest call. The proof uses the public uninstall CLI while the daemon
+is alive, disconnects again, checks pre-query failure, reinstalls identical bytes,
+and verifies a new execution identity without resurrecting the revoked route.
+This monitors installation records, not continuous hashing of filesystem assets;
+tampered files still fail verification on mediated calls.
 Routes are checked before call and before output release; a consumer invocation
 also captures the provider execution ID, so a replacement live instance cannot
 refresh an old invocation. Exactly one live instance per component is allowed.
