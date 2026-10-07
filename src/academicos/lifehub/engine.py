@@ -187,6 +187,7 @@ class LifeHubEngine:
         self._lifecycle_lock = threading.RLock()
         self._monitor_stop = threading.Event()
         self._monitor = None
+        self._monitor_error = None
         self._ledger_path = str(Path(db_path).resolve())
         try:
             self.kernel = LifeHub(db_path=db_path, plugins_path=plugins_path)
@@ -198,7 +199,7 @@ class LifeHubEngine:
             self._closed = False
             self._init_execution_ledger()
             self._recover_interrupted_executions()
-            self._monitor = threading.Thread(target=self._monitor_background, daemon=True)
+            self._monitor = threading.Thread(target=self._monitor_entry, daemon=True)
             self._monitor.start()
         except BaseException:
             try:
@@ -212,6 +213,7 @@ class LifeHubEngine:
     def close(self) -> None:
         """Release storage only; use shutdown for orderly runner teardown."""
         if not self._closed:
+            failures = []
             self._monitor_stop.set()
             if self._monitor is not None:
                 self._monitor.join(timeout=1)
@@ -219,12 +221,26 @@ class LifeHubEngine:
                 execution.ready = False
                 if (execution.component.runner_id == "lifehub.wasm-background"
                         and execution.handle is not None):
-                    execution.handle.stop()
+                    try:
+                        execution.handle.stop()
+                    except Exception as exc:
+                        failures.append(exc)
+                        try:
+                            if execution.handle.process.poll() is None:
+                                execution.handle.process.kill()
+                                execution.handle.process.wait(timeout=1)
+                        except Exception as forced:
+                            failures.append(forced)
             try:
-                self.kernel.close()
+                try:
+                    self.kernel.close()
+                except Exception as exc:
+                    failures.append(exc)
             finally:
                 self._lease.close()
                 self._closed = True
+            if failures:
+                raise ExceptionGroup("Engine close cleanup failures", failures)
 
     @_lifecycle_locked
     def shutdown(self) -> None:
@@ -234,9 +250,12 @@ class LifeHubEngine:
         """
         if self._closed:
             return
-        self._refresh_background()
         failures = []
         try:
+            try:
+                self._refresh_background()
+            except Exception as exc:
+                failures.append(exc)
             for execution in tuple(self._executions.values()):
                 if execution.state == ExecutionState.RUNNING:
                     try:
@@ -244,7 +263,10 @@ class LifeHubEngine:
                     except Exception as exc:
                         failures.append(exc)
         finally:
-            self.close()
+            try:
+                self.close()
+            except Exception as exc:
+                failures.append(exc)
         if failures:
             raise ExceptionGroup("runner failures during Engine shutdown", failures)
 
@@ -349,6 +371,8 @@ class LifeHubEngine:
         if self._closed:
             raise RuntimeError("Engine is closed")
         component = self.component(ref)
+        if component.runner_id == "lifehub.wasm-background" and self._monitor_error is not None:
+            raise PermissionError("background supervisor failed; start a new Engine manager")
         if (component.runner_id == "lifehub.wasm-background"
                 and any(item.component.ref == ref and item.state == ExecutionState.RUNNING
                         for item in self._executions.values())):
@@ -526,6 +550,47 @@ class LifeHubEngine:
                 item.updated_at = datetime.now(UTC).isoformat()
                 item.handle.stop()
                 self._persist(item)
+
+    @_lifecycle_locked
+    def supervisor_health(self) -> dict[str, Any]:
+        return {
+            "api": "lifehub.supervisor-health@1",
+            "status": ("failed" if self._monitor_error is not None else
+                       "stopped" if self._closed else "running"),
+            "error": self._monitor_error,
+            "automatic_restart": False,
+        }
+
+    def _monitor_entry(self) -> None:
+        try:
+            self._monitor_background()
+            if not self._monitor_stop.is_set():
+                raise RuntimeError("background monitor exited unexpectedly")
+        except BaseException as exc:
+            while not self._lifecycle_lock.acquire(timeout=0.05):
+                if self._monitor_stop.is_set():
+                    return
+            try:
+                if self._monitor_stop.is_set():
+                    return
+                self._monitor_error = f"{type(exc).__name__}: {exc}"
+                for item in self._executions.values():
+                    if (item.component.runner_id == "lifehub.wasm-background"
+                            and item.state == ExecutionState.RUNNING):
+                        item.ready = False
+                        if item.handle is not None:
+                            try:
+                                item.handle.stop()
+                            except Exception as cleanup:
+                                self._monitor_error += f"; cleanup: {type(cleanup).__name__}"
+                                try:
+                                    if item.handle.process.poll() is None:
+                                        item.handle.process.kill()
+                                        item.handle.process.wait(timeout=1)
+                                except Exception as forced:
+                                    self._monitor_error += f"; forced cleanup: {type(forced).__name__}"
+            finally:
+                self._lifecycle_lock.release()
 
     def _monitor_background(self) -> None:
         # Own connection: never move the kernel/store connection across threads.

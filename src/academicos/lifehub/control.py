@@ -43,6 +43,10 @@ class EngineController:
             _require_keys(request, {"api", "op"})
             return {"status": "ok"}
 
+        if op == "supervisor-health":
+            _require_keys(request, {"api", "op"})
+            return self.engine.supervisor_health()
+
         if op == "components":
             _require_keys(request, {"api", "op"})
             return [
