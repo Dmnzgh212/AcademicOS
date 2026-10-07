@@ -9,7 +9,7 @@ from academicos.lifehub.kernel import LifeHub
 from academicos.lifehub.manifest import load_manifest
 from academicos.lifehub.network import EgressGateway
 from academicos.lifehub.registry import PluginRegistry
-from academicos.lifehub.web import render_workspace
+from academicos.lifehub.shells.reference_web import render_workspace
 
 
 def _write_plugin(
