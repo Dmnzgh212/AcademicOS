@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from academicos.lifehub.control import CONTROL_API, EngineController
 from academicos.lifehub.engine import ExecutionState, LifeHubEngine, RunnerStart
 from academicos.lifehub.packages import PackageInstaller
 from academicos.lifehub.store import LifeStore
@@ -184,5 +185,57 @@ def test_revoke_works_without_recomputing_current_provider_binding(tmp_path: Pat
         )
         (installed / "demo.provider" / "tampered.txt").write_text("changed", encoding="utf-8")
         assert engine.routes.revoke(consumer, interface, provider) == 1
+    finally:
+        engine.close()
+
+
+def test_local_control_plane_manages_reviewed_interface_routes(tmp_path: Path) -> None:
+    installed, db = _install_pair(tmp_path)
+    engine = LifeHubEngine(db_path=db, plugins_path=installed)
+    controller = EngineController(engine)
+    consumer = "demo.consumer:worker"
+    provider = "demo.provider:echo"
+    interface = "example.echo@1"
+
+    def request(op: str, **payload):
+        return controller.handle({"api": CONTROL_API, "op": op, **payload})
+
+    try:
+        denied = request("route-resolve", consumer=consumer, interface=interface)
+        assert denied["ok"] is False
+
+        review = request(
+            "route-review",
+            consumer=consumer,
+            interface=interface,
+            provider=provider,
+        )
+        assert review["ok"] is True
+        approval = review["result"]["approval_digest"]
+
+        granted = request(
+            "route-grant",
+            consumer=consumer,
+            interface=interface,
+            provider=provider,
+            approval_digest=approval,
+        )
+        assert granted["ok"] is True
+        assert granted["result"]["provider_ref"] == provider
+
+        resolved = request("route-resolve", consumer=consumer, interface=interface)
+        assert resolved["ok"] is True
+        assert resolved["result"]["provider_ref"] == provider
+
+        revoked = request(
+            "route-revoke",
+            consumer=consumer,
+            interface=interface,
+            provider=provider,
+        )
+        assert revoked == {"api": CONTROL_API, "ok": True, "result": {"revoked": 1}}
+
+        denied_again = request("route-resolve", consumer=consumer, interface=interface)
+        assert denied_again["ok"] is False
     finally:
         engine.close()
