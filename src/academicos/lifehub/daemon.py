@@ -94,10 +94,12 @@ class LifeHubEngineDaemon:
 
     def close(self) -> None:
         self.server.close()
-        self.engine.close()
-        if self._owns_unix_path:
-            path = Path(self.address)
-            try:
-                path.unlink()
-            except FileNotFoundError:
-                pass
+        try:
+            self.engine.shutdown()
+        finally:
+            if self._owns_unix_path:
+                path = Path(self.address)
+                try:
+                    path.unlink()
+                except FileNotFoundError:
+                    pass
