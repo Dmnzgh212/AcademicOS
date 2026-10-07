@@ -4,11 +4,13 @@ import importlib.util
 from pathlib import Path
 import time
 import sqlite3
+import threading
 
 import pytest
 
 from academicos.lifehub.engine import LifeHubEngine
 from academicos.lifehub.background import BackgroundHandle
+from academicos.lifehub.control import CONTROL_API, EngineController
 
 
 def installed(tmp_path):
@@ -169,6 +171,46 @@ def test_monitor_busy_ledger_retries_and_stop_is_terminal(tmp_path):
         assert engine.execution(replacement.execution_id).state == "stopped"
     finally:
         blocker.close()
+        engine.shutdown()
+
+
+def test_cleanup_failure_still_stops_other_guests_and_releases_owner(tmp_path):
+    proof, engine = installed(tmp_path)
+    first = engine.start(proof.PROVIDER)
+    second = engine.start("thirdparty.fault-probe:fail")
+    handles = [engine._execution(row.execution_id).handle for row in (first, second)]
+    def broken_stop():
+        raise RuntimeError("injected worker cleanup failure")
+    handles[0].stop = broken_stop
+    with pytest.raises(ExceptionGroup):
+        engine.shutdown()
+    assert all(handle.process.poll() is not None for handle in handles)
+    assert engine._closed and not engine._monitor.is_alive()
+    # No leaked ownership after an aggregate cleanup error.
+    replacement = LifeHubEngine(db_path=tmp_path / "state.db", plugins_path=tmp_path / "plugins")
+    replacement.shutdown()
+
+
+def test_monitor_failure_is_visible_and_denies_new_guests(tmp_path, monkeypatch):
+    release = threading.Event()
+    def failing_monitor(self):
+        release.wait(timeout=5)
+        raise RuntimeError("injected monitor failure")
+    monkeypatch.setattr(LifeHubEngine, "_monitor_background", failing_monitor)
+    proof, engine = installed(tmp_path)
+    try:
+        started = engine.start(proof.PROVIDER)
+        handle = engine._execution(started.execution_id).handle
+        release.set()
+        handle.process.wait(timeout=3)
+        health = EngineController(engine).handle({"api": CONTROL_API, "op": "supervisor-health"})
+        assert health["ok"] and health["result"]["status"] == "failed"
+        assert "injected monitor failure" in health["result"]["error"]
+        assert not engine.execution(started.execution_id).ready
+        with pytest.raises(PermissionError, match="supervisor failed"):
+            engine.start(proof.PROVIDER)
+    finally:
+        release.set()
         engine.shutdown()
 
 

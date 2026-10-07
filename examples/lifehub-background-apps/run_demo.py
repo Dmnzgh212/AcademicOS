@@ -38,6 +38,7 @@ def prove(root):
         return util.require_ok(request(op, **fields))
 
     try:
+        assert ok("supervisor-health")["status"] == "running"
         provider = ok("start", ref=PROVIDER)
         assert provider["state"] == "running" and provider["ready"]
         util.require_denied(request("start", ref=CONSUMER))

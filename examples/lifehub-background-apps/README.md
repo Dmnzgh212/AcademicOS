@@ -61,6 +61,11 @@ An Engine-owned monitor checks process death on a 100 ms interval without any
 client. It records failed and clears readiness using its own ledger connection.
 Lifecycle transitions serialize with the monitor; normal stop remains stopped.
 If the ledger is busy, readiness clears and persistence retries after 500 ms.
+`supervisor-health` on the public control protocol reports monitor failure.
+Unexpected monitor termination clears guest readiness, terminates background
+workers and rejects new background starts until a new Engine manager is created.
+Cleanup attempts every worker, falls back to kill after a stop error, aggregates
+errors, and releases the kernel and owner lease even when worker cleanup fails.
 Intervals are targets, not real-time bounds; active control execution can delay
 monitor access to the lifecycle lock. Engine restart marks previously running
 history interrupted and starts no guest automatically. New start has a new ID;
