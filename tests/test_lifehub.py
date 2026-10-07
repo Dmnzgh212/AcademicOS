@@ -10,6 +10,7 @@ from academicos.lifehub.manifest import load_manifest
 from academicos.lifehub.network import EgressGateway
 from academicos.lifehub.registry import PluginRegistry
 from academicos.lifehub.shells.reference_web import render_workspace
+from academicos.lifehub.shells.workspace import ReferenceWorkspaceStore
 
 
 def _write_plugin(
@@ -95,9 +96,10 @@ def test_store_workspace_and_temporary_shell_are_extension_driven(tmp_path: Path
         assert len(hub.extensions()) == 2
         assert hub.seed_declared_data() == 1
         assert hub.seed_declared_data() == 0
-        assert hub.store.workspace_layout() == []
+        workspace = ReferenceWorkspaceStore(hub.store.conn)
+        assert workspace.layout() == []
         page = render_workspace(hub, token="test-token")
-        layout = hub.store.workspace_layout()
+        layout = workspace.layout()
         assert layout[0]["extension_ref"] == "demo.sample:main"
         assert layout[0]["width"] == 5
         assert layout[0]["height"] == 4

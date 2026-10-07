@@ -364,14 +364,17 @@ def demo(
         raise typer.BadParameter("demo database filename must contain 'demo'")
     if reset and db.exists():
         db.unlink()
+    from academicos.lifehub.shells.workspace import ReferenceWorkspaceStore
+
     hub = LifeHub(db_path=db, plugins_path=plugins)
     try:
-        hub.store.sync_workspace_extensions(hub.registry)
+        workspace = ReferenceWorkspaceStore(hub.store.conn)
+        workspace.sync_extensions(hub.registry)
         inserted = hub.seed_declared_data()
         typer.echo(
             f"LifeHub demo ready · plugins={len(hub.bundles)} · "
             f"extensions={len(hub.extensions())} · "
-            f"workspace_items={len(hub.store.workspace_layout())} · inserted={inserted} · db={db}"
+            f"workspace_items={len(workspace.layout())} · inserted={inserted} · db={db}"
         )
     finally:
         hub.close()

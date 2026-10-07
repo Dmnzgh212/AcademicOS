@@ -2,7 +2,12 @@ import pytest
 
 from academicos.lifehub.kernel import LifeHub
 from academicos.lifehub.shells.reference_web import render_workspace
+from academicos.lifehub.shells.workspace import ReferenceWorkspaceStore
 from test_lifehub import _write_plugin
+
+
+def _workspace(hub):
+    return ReferenceWorkspaceStore(hub.store.conn)
 
 
 def test_shell_reopening_preserves_saved_layout_and_workspace_isolation(tmp_path):
@@ -10,25 +15,25 @@ def test_shell_reopening_preserves_saved_layout_and_workspace_isolation(tmp_path
     _write_plugin(root)
     hub = LifeHub(db_path=db, plugins_path=root)
     try:
-        assert hub.store.workspace_layout() == []
+        assert _workspace(hub).layout() == []
         render_workspace(hub, token='test')
         saved = {'extension_ref': 'demo.sample:main', 'x': 2, 'y': 9,
                  'width': 7, 'height': 6, 'visible': False, 'config': {'label': 'mine'}}
-        hub.store.save_workspace_layout([saved])
-        expected = hub.store.workspace_layout()
+        _workspace(hub).save_layout([saved])
+        expected = _workspace(hub).layout()
         render_workspace(hub, token='test')
-        assert hub.store.workspace_layout() == expected
-        assert hub.store.workspace_layout('second') == []
+        assert _workspace(hub).layout() == expected
+        assert _workspace(hub).layout('second') == []
         render_workspace(hub, token='test', workspace_id='second')
-        assert hub.store.workspace_layout('second')[0]['visible'] == 1
-        assert hub.store.workspace_layout() == expected
+        assert _workspace(hub).layout('second')[0]['visible'] == 1
+        assert _workspace(hub).layout() == expected
     finally:
         hub.close()
     reopened = LifeHub(db_path=db, plugins_path=root)
     try:
-        assert reopened.store.workspace_layout() == expected
+        assert _workspace(reopened).layout() == expected
         render_workspace(reopened, token='test')
-        assert reopened.store.workspace_layout() == expected
+        assert _workspace(reopened).layout() == expected
     finally:
         reopened.close()
 
@@ -42,17 +47,17 @@ def test_shell_preparation_respects_opt_out_and_adds_new_contributions(tmp_path)
     hub = LifeHub(db_path=tmp_path / 'hub.db', plugins_path=root)
     try:
         render_workspace(hub, token='test')
-        assert hub.store.workspace_layout() == []
+        assert _workspace(hub).layout() == []
     finally:
         hub.close()
     _write_plugin(root, folder='new', plugin_id='demo.new', writes='new')
     hub = LifeHub(db_path=tmp_path / 'hub.db', plugins_path=root)
     try:
-        assert hub.store.workspace_layout() == []
+        assert _workspace(hub).layout() == []
         render_workspace(hub, token='test')
-        assert [x['extension_ref'] for x in hub.store.workspace_layout()] == ['demo.new:main']
+        assert [x['extension_ref'] for x in _workspace(hub).layout()] == ['demo.new:main']
         render_workspace(hub, token='test')
-        assert len(hub.store.workspace_layout()) == 1
+        assert len(_workspace(hub).layout()) == 1
     finally:
         hub.close()
 
@@ -69,7 +74,7 @@ def test_invalid_shell_config_is_visible_without_blocking_other_plugins(tmp_path
         page = render_workspace(hub, token='test')
         assert 'Unsupported workspace layout: demo.bad:main' in page
         assert 'Local item' in page
-        assert [x['extension_ref'] for x in hub.store.workspace_layout()] == ['demo.sample:main']
+        assert [x['extension_ref'] for x in _workspace(hub).layout()] == ['demo.sample:main']
         assert len(hub.catalog()['packages']) == 2
     finally:
         hub.close()
@@ -98,3 +103,46 @@ def test_invalid_surface_limit_is_rejected_before_record_access(tmp_path, monkey
         assert calls == []
     finally:
         hub.close()
+
+
+def test_reference_shell_migrates_legacy_workspace_without_core_support(tmp_path):
+    from academicos.lifehub.store import LifeStore
+
+    store = LifeStore(tmp_path / "hub.db")
+    try:
+        store.conn.executescript(
+            """
+            CREATE TABLE lifehub_workspace_items (
+                workspace_id TEXT NOT NULL,
+                extension_ref TEXT NOT NULL,
+                breakpoint TEXT NOT NULL DEFAULT 'lg',
+                x INTEGER NOT NULL,
+                y INTEGER NOT NULL,
+                width INTEGER NOT NULL,
+                height INTEGER NOT NULL,
+                visible INTEGER NOT NULL DEFAULT 1,
+                config_json TEXT NOT NULL DEFAULT '{}',
+                PRIMARY KEY(workspace_id, extension_ref, breakpoint)
+            );
+            INSERT INTO lifehub_workspace_items(
+                workspace_id, extension_ref, breakpoint, x, y, width, height, visible, config_json
+            ) VALUES ('home', 'legacy:card', 'lg', 1, 2, 3, 4, 1, '{"legacy":true}');
+            """
+        )
+        store.conn.commit()
+
+        workspace = ReferenceWorkspaceStore(store.conn)
+        assert workspace.layout() == [
+            {
+                "extension_ref": "legacy:card",
+                "x": 1,
+                "y": 2,
+                "width": 3,
+                "height": 4,
+                "visible": 1,
+                "config_json": '{"legacy":true}',
+                "config": {"legacy": True},
+            }
+        ]
+    finally:
+        store.close()

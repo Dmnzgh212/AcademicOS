@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Any, Callable, Iterable
 
 from academicos.lifehub.manifest import PluginManifest
-from academicos.lifehub.registry import PluginRegistry
 
 
 def namespace_allowed(namespace: str, patterns: Iterable[str]) -> bool:
@@ -90,19 +89,6 @@ CREATE TABLE IF NOT EXISTS lifehub_fake_effect_deliveries (
     request_id INTEGER PRIMARY KEY,
     payload_json TEXT NOT NULL,
     delivered_at TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS lifehub_workspace_items (
-    workspace_id TEXT NOT NULL,
-    extension_ref TEXT NOT NULL,
-    breakpoint TEXT NOT NULL DEFAULT 'lg',
-    x INTEGER NOT NULL,
-    y INTEGER NOT NULL,
-    width INTEGER NOT NULL,
-    height INTEGER NOT NULL,
-    visible INTEGER NOT NULL DEFAULT 1,
-    config_json TEXT NOT NULL DEFAULT '{}',
-    PRIMARY KEY(workspace_id, extension_ref, breakpoint)
 );
 
 CREATE TABLE IF NOT EXISTS lifehub_network_audit (
@@ -240,93 +226,6 @@ class LifeStore:
                 (plugin_id,),
             ).fetchall()
         return [dict(row) for row in rows]
-
-    def sync_workspace_extensions(
-        self,
-        registry: PluginRegistry,
-        workspace_id: str = "home",
-        breakpoint: str = "lg",
-    ) -> tuple[str, ...]:
-        existing = {
-            row["extension_ref"]
-            for row in self.conn.execute(
-                "SELECT extension_ref FROM lifehub_workspace_items WHERE workspace_id=? AND breakpoint=?",
-                (workspace_id, breakpoint),
-            ).fetchall()
-        }
-        invalid = []
-        index = len(existing)
-        with self.conn:
-            for extension in registry.extensions("workspace.widget"):
-                if extension.ref in existing:
-                    continue
-                config = extension.contribution.config
-                if config.get("default_workspace", True) is False:
-                    continue
-                try:
-                    width = max(1, min(12, int(config.get("width", 4))))
-                    height = max(1, min(100, int(config.get("height", 3))))
-                except (TypeError, ValueError, OverflowError):
-                    invalid.append(extension.ref)
-                    continue
-                x = (index * 4) % 12
-                y = (index * 4) // 12 * 3
-                if x + width > 12:
-                    x = 0
-                    y += 3
-                self.conn.execute(
-                    """
-                    INSERT INTO lifehub_workspace_items(
-                        workspace_id, extension_ref, breakpoint, x, y, width, height, visible
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, 1)
-                    """,
-                    (workspace_id, extension.ref, breakpoint, x, y, width, height),
-                )
-                index += 1
-        return tuple(invalid)
-
-    def workspace_layout(
-        self, workspace_id: str = "home", breakpoint: str = "lg"
-    ) -> list[dict[str, Any]]:
-        rows = self.conn.execute(
-            """
-            SELECT extension_ref, x, y, width, height, visible, config_json
-            FROM lifehub_workspace_items
-            WHERE workspace_id=? AND breakpoint=?
-            ORDER BY y, x, extension_ref
-            """,
-            (workspace_id, breakpoint),
-        ).fetchall()
-        return [dict(row) | {"config": json.loads(row["config_json"])} for row in rows]
-
-    def save_workspace_layout(
-        self,
-        items: list[dict[str, Any]],
-        workspace_id: str = "home",
-        breakpoint: str = "lg",
-    ) -> None:
-        with self.conn:
-            for item in items:
-                width = max(1, min(12, int(item.get("width", 4))))
-                x = max(0, min(12 - width, int(item.get("x", 0))))
-                self.conn.execute(
-                    """
-                    UPDATE lifehub_workspace_items
-                    SET x=?, y=?, width=?, height=?, visible=?, config_json=?
-                    WHERE workspace_id=? AND extension_ref=? AND breakpoint=?
-                    """,
-                    (
-                        x,
-                        max(0, int(item.get("y", 0))),
-                        width,
-                        max(1, min(100, int(item.get("height", 3)))),
-                        1 if item.get("visible", True) else 0,
-                        json.dumps(item.get("config", {}), separators=(",", ":")),
-                        workspace_id,
-                        str(item["extension_ref"]),
-                        breakpoint,
-                    ),
-                )
 
     def network_audit(
         self, *, plugin_id: str, method: str, host: str, path: str, allowed: bool
