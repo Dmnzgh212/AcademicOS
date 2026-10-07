@@ -203,9 +203,17 @@ def control_request(
 
 def _execution_json(view) -> dict[str, Any]:
     data = asdict(view)
-    # Runner results are process/runtime-specific and may not be JSON values.
-    # The control plane exposes lifecycle state, not arbitrary runner objects.
-    data.pop("result", None)
+    # Arbitrary trusted runner results can contain opaque handles or host objects.
+    # Expose only the bounded i32 value returned by the built-in one-shot Wasm
+    # runner, so independently installed headless software has an observable
+    # result through the public Engine control protocol.
+    if (
+        view.runner_id != "lifehub.wasm"
+        or str(view.state) != "completed"
+        or type(view.result) is not int
+        or not -(2**31) <= view.result < 2**31
+    ):
+        data.pop("result", None)
     data["state"] = str(view.state)
     return data
 
