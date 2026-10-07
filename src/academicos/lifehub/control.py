@@ -51,6 +51,8 @@ class EngineController:
                     "point": item.point,
                     "runner_id": item.runner_id,
                     "contract": item.contract,
+                    "provides": list(item.provides),
+                    "requires": list(item.requires),
                     "activation": list(item.activation),
                     "config": item.config,
                 }
