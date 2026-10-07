@@ -41,6 +41,15 @@ def review_package(archive: Path) -> None:
             else:
                 formatted = ", ".join(map(str, values))
             typer.echo(f"  {name}: {formatted or 'none'}")
+        for component in manifest.components:
+            typer.echo(
+                f"  component: {component.id} · runner={component.runner} · "
+                f"contract={component.contract or 'none'}"
+            )
+            typer.echo(
+                f"    provides: {', '.join(component.provides) or 'none'} · "
+                f"requires: {', '.join(component.requires) or 'none'}"
+            )
         for contribution in manifest.contributes:
             typer.echo(f"  contributes: {contribution.point}:{contribution.id}")
     finally:
@@ -271,6 +280,13 @@ def plugins(
                 )
             )
             typer.echo(
+                "  components: "
+                + (
+                    ", ".join(f"{item.id}@{item.runner}" for item in manifest.components)
+                    or "none"
+                )
+            )
+            typer.echo(
                 "  contributes: "
                 + (", ".join(f"{c.point}:{c.id}" for c in manifest.contributes) or "none")
             )
@@ -411,7 +427,8 @@ def doctor(
         for bundle in hub.bundles:
             manifest = bundle.manifest
             typer.echo(
-                f"PASS {manifest.id:<22} contributes={len(manifest.contributes)} "
+                f"PASS {manifest.id:<22} components={len(manifest.components)} "
+                f"contributes={len(manifest.contributes)} "
                 f"read_requests={len(manifest.permissions.storage_read)} "
                 f"hosts={len(manifest.permissions.network_retrieval)}"
             )
