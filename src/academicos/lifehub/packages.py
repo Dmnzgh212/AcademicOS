@@ -205,12 +205,13 @@ class PackageInstaller:
             raise KeyError(plugin_id)
         destination = self.root / plugin_id
         with self.store.conn:
-            # Remove incoming service grants as well as the removed caller's grants.
+            # Remove incoming grants too: identical reinstall must not revive authority.
             for grant in self.store.grants():
-                if grant["capability"] != "service.activate":
+                if grant["capability"] not in {"service.activate", "component.interface"}:
                     continue
                 binding = json.loads(grant["resource"])
-                if binding[0].split(":", 1)[0] == plugin_id:
+                provider_ref = binding[2] if grant["capability"] == "component.interface" else binding[0]
+                if provider_ref.split(":", 1)[0] == plugin_id:
                     self.store.conn.execute(
                         "DELETE FROM lifehub_permission_grants "
                         "WHERE plugin_id=? AND capability=? AND resource=?",

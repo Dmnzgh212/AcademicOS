@@ -239,3 +239,27 @@ def test_local_control_plane_manages_reviewed_interface_routes(tmp_path: Path) -
         assert denied_again["ok"] is False
     finally:
         engine.close()
+
+
+@pytest.mark.parametrize("removed", ["demo.provider", "demo.consumer"])
+def test_uninstall_and_identical_reinstall_do_not_restore_interface_authority(
+    tmp_path: Path, removed: str,
+) -> None:
+    installed, db = _install_pair(tmp_path)
+    engine = LifeHubEngine(db_path=db, plugins_path=installed)
+    consumer, provider, interface = (
+        "demo.consumer:worker", "demo.provider:echo", "example.echo@1"
+    )
+    try:
+        review = engine.routes.review(consumer, interface, provider)
+        engine.routes.grant(
+            consumer, interface, provider, approved_digest=review["approval_digest"]
+        )
+        engine.kernel.packages.uninstall(removed)
+        archive = tmp_path / ("provider.zip" if removed == "demo.provider" else "consumer.zip")
+        package_review = engine.kernel.packages.review(archive)
+        engine.kernel.packages.install(archive, approved_hash=package_review.content_hash)
+        with pytest.raises(PermissionError, match="no granted provider"):
+            engine.routes.resolve(consumer, interface)
+    finally:
+        engine.close()
