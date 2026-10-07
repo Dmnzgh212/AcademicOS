@@ -61,6 +61,7 @@ class RunnerStart:
     state: ExecutionState
     result: Any = None
     handle: Any = None
+    ready: bool = False
 
 
 @dataclass(frozen=True)
@@ -73,6 +74,7 @@ class ExecutionView:
     updated_at: str
     result: Any = None
     error: str | None = None
+    ready: bool = False
 
 
 @dataclass
@@ -85,6 +87,7 @@ class _Execution:
     result: Any = None
     handle: Any = None
     error: str | None = None
+    ready: bool = False
 
 
 class ComponentRunner(Protocol):
@@ -170,11 +173,51 @@ class LifeHubEngine:
         self.runners.register(CoreWasmRunner())
         self.routes = InterfaceRouter(self.kernel, self.component)
         self._executions: dict[str, _Execution] = {}
+        self._closed = False
         self._init_execution_ledger()
         self._recover_interrupted_executions()
 
     def close(self) -> None:
-        self.kernel.close()
+        """Release storage only; use shutdown for orderly runner teardown."""
+        if not self._closed:
+            for execution in self._executions.values():
+                execution.ready = False
+            self.kernel.close()
+            self._closed = True
+
+    def shutdown(self) -> None:
+        """Attempt all live runner stops, preserve failures, then release storage.
+
+        Runner stop is cooperative: no forced termination/deadline is implied.
+        """
+        if self._closed:
+            return
+        failures = []
+        try:
+            for execution in tuple(self._executions.values()):
+                if execution.state == ExecutionState.RUNNING:
+                    try:
+                        self.stop(execution.execution_id)
+                    except Exception as exc:
+                        failures.append(exc)
+        finally:
+            self.close()
+        if failures:
+            raise ExceptionGroup("runner failures during Engine shutdown", failures)
+
+    def set_ready(self, execution_id: str, ready: bool) -> ExecutionView:
+        """Trusted runner notification; readiness grants no new authority."""
+        if self._closed:
+            raise RuntimeError("Engine is closed")
+        if type(ready) is not bool:
+            raise ValueError("ready must be a boolean")
+        execution = self._execution(execution_id)
+        if execution.state != ExecutionState.RUNNING:
+            raise ValueError("only a live running execution can change readiness")
+        execution.ready = ready
+        execution.updated_at = datetime.now(UTC).isoformat()
+        self._persist(execution)
+        return self._view(execution)
 
     def _interface_call_for(self, component: ComponentDescriptor):
         """Trusted runner creates this closure; guests supply only interface and JSON.
@@ -236,6 +279,8 @@ class LifeHubEngine:
         return self._describe_legacy_extension(extension, runner_id)
 
     def start(self, ref: str) -> ExecutionView:
+        if self._closed:
+            raise RuntimeError("Engine is closed")
         component = self.component(ref)
         for interface in component.requires:
             self.routes.resolve(component.ref, interface)
@@ -254,9 +299,12 @@ class LifeHubEngine:
             started = runner.start(self, component)
             if started.state not in {ExecutionState.RUNNING, ExecutionState.COMPLETED}:
                 raise ValueError("runner start must return running or completed state")
+            if type(started.ready) is not bool:
+                raise ValueError("runner readiness must be a boolean")
             execution.state = started.state
             execution.result = started.result
             execution.handle = started.handle
+            execution.ready = started.ready if started.state == ExecutionState.RUNNING else False
             execution.updated_at = datetime.now(UTC).isoformat()
             self._persist(execution)
         except BaseException as exc:
@@ -271,6 +319,7 @@ class LifeHubEngine:
         execution = self._execution(execution_id)
         if execution.state != ExecutionState.RUNNING:
             raise ValueError(f"execution is not running: {execution_id}")
+        execution.ready = False
         runner = self.runners.resolve(execution.component.runner_id)
         try:
             runner.stop(self, execution.component, execution.handle)
@@ -329,6 +378,8 @@ class LifeHubEngine:
                 started_at=row["started_at"],
                 updated_at=row["updated_at"],
                 error=row["error"],
+                ready=(self._executions[row["execution_id"]].ready
+                       if row["execution_id"] in self._executions else False),
             )
             for row in rows
         )
@@ -436,4 +487,5 @@ class LifeHubEngine:
             updated_at=execution.updated_at,
             result=execution.result,
             error=execution.error,
+            ready=execution.ready,
         )
