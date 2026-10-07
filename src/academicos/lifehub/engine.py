@@ -11,6 +11,7 @@ from typing import Any, Protocol
 from uuid import uuid4
 
 from academicos.lifehub.kernel import LifeHub
+from academicos.lifehub.engine_lease import EngineLease
 from academicos.lifehub.registry import RegisteredComponent, RegisteredExtension
 from academicos.lifehub.routing import InterfaceRouter
 from academicos.lifehub.service_runtime import SERVICE_JSON_CONTRACT, run_json_service
@@ -168,22 +169,35 @@ class LifeHubEngine:
         db_path: str | Path = "data/lifehub.db",
         plugins_path: str | Path = "lifehub_plugins",
     ) -> None:
-        self.kernel = LifeHub(db_path=db_path, plugins_path=plugins_path)
-        self.runners = RunnerRegistry()
-        self.runners.register(CoreWasmRunner())
-        self.routes = InterfaceRouter(self.kernel, self.component)
-        self._executions: dict[str, _Execution] = {}
-        self._closed = False
-        self._init_execution_ledger()
-        self._recover_interrupted_executions()
+        # Acquire before kernel construction or recovery can mutate live history.
+        self._lease = EngineLease(db_path)
+        try:
+            self.kernel = LifeHub(db_path=db_path, plugins_path=plugins_path)
+            self.runners = RunnerRegistry()
+            self.runners.register(CoreWasmRunner())
+            self.routes = InterfaceRouter(self.kernel, self.component)
+            self._executions: dict[str, _Execution] = {}
+            self._closed = False
+            self._init_execution_ledger()
+            self._recover_interrupted_executions()
+        except BaseException:
+            try:
+                if hasattr(self, "kernel"):
+                    self.kernel.close()
+            finally:
+                self._lease.close()
+            raise
 
     def close(self) -> None:
         """Release storage only; use shutdown for orderly runner teardown."""
         if not self._closed:
             for execution in self._executions.values():
                 execution.ready = False
-            self.kernel.close()
-            self._closed = True
+            try:
+                self.kernel.close()
+            finally:
+                self._lease.close()
+                self._closed = True
 
     def shutdown(self) -> None:
         """Attempt all live runner stops, preserve failures, then release storage.
