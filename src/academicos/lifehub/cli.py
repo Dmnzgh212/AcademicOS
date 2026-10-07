@@ -19,7 +19,7 @@ from academicos.lifehub.packages import PackageInstaller
 from academicos.lifehub.proposals import ProposalService
 from academicos.lifehub.store import LifeStore
 
-app = typer.Typer(help="LifeHub: local-first open extension host for personal computing.")
+app = typer.Typer(help="LifeHub: open personal computing platform engine and tooling.")
 
 DEFAULT_DB = Path("data/lifehub.db")
 DEFAULT_PLUGINS = Path("lifehub_plugins")
