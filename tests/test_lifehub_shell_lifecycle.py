@@ -103,3 +103,46 @@ def test_invalid_surface_limit_is_rejected_before_record_access(tmp_path, monkey
         assert calls == []
     finally:
         hub.close()
+
+
+def test_reference_shell_migrates_legacy_workspace_without_core_support(tmp_path):
+    from academicos.lifehub.store import LifeStore
+
+    store = LifeStore(tmp_path / "hub.db")
+    try:
+        store.conn.executescript(
+            """
+            CREATE TABLE lifehub_workspace_items (
+                workspace_id TEXT NOT NULL,
+                extension_ref TEXT NOT NULL,
+                breakpoint TEXT NOT NULL DEFAULT 'lg',
+                x INTEGER NOT NULL,
+                y INTEGER NOT NULL,
+                width INTEGER NOT NULL,
+                height INTEGER NOT NULL,
+                visible INTEGER NOT NULL DEFAULT 1,
+                config_json TEXT NOT NULL DEFAULT '{}',
+                PRIMARY KEY(workspace_id, extension_ref, breakpoint)
+            );
+            INSERT INTO lifehub_workspace_items(
+                workspace_id, extension_ref, breakpoint, x, y, width, height, visible, config_json
+            ) VALUES ('home', 'legacy:card', 'lg', 1, 2, 3, 4, 1, '{"legacy":true}');
+            """
+        )
+        store.conn.commit()
+
+        workspace = ReferenceWorkspaceStore(store.conn)
+        assert workspace.layout() == [
+            {
+                "extension_ref": "legacy:card",
+                "x": 1,
+                "y": 2,
+                "width": 3,
+                "height": 4,
+                "visible": 1,
+                "config_json": '{"legacy":true}',
+                "config": {"legacy": True},
+            }
+        ]
+    finally:
+        store.close()
