@@ -37,6 +37,10 @@ jobs:
       - name: Platform lifecycle and HTTP smoke
         run: |
           "$RUNNER_TEMP/lifehub-wheel-venv/bin/python" -I scripts/lifehub_platform_smoke.py "$GITHUB_WORKSPACE"
+      - name: Installed component IPC lifecycle smoke
+        run: |
+          python -m ruff check scripts/lifehub_component_ipc_smoke.py
+          "$RUNNER_TEMP/lifehub-wheel-venv/bin/python" -I scripts/lifehub_component_ipc_smoke.py "$GITHUB_WORKSPACE"
       - name: Examples archive smoke
         run: |
           python scripts/build_lifehub_examples.py "$RUNNER_TEMP/lifehub-examples.zip"
