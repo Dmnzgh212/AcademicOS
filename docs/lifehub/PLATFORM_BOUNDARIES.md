@@ -49,3 +49,19 @@ install, resolve, start, supervise, route, authorize or stop a component:
 - a browser
 
 A shell may depend on the engine. The engine may never depend on a shell.
+
+
+## Presentation persistence
+
+Workspace layout is not platform state.
+
+The core `LifeStore` no longer creates a workspace table and exposes no
+workspace layout API. The optional reference Web shell owns its layout through
+`ReferenceWorkspaceStore`, which creates
+`lifehub_reference_web_workspace_items` only when that shell is actually used.
+
+For compatibility, the reference shell can import rows from the historical
+`lifehub_workspace_items` table if an older database contains it. That migration
+logic lives in the shell and is invisible to the Engine.
+
+Therefore a fresh Engine database contains no widget or workspace schema.
