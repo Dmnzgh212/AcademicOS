@@ -13,6 +13,7 @@ from uuid import uuid4
 from academicos.lifehub.kernel import LifeHub
 from academicos.lifehub.registry import RegisteredComponent, RegisteredExtension
 from academicos.lifehub.routing import InterfaceRouter
+from academicos.lifehub.service_runtime import SERVICE_JSON_CONTRACT, run_json_service
 
 
 _ENGINE_SCHEMA = """
@@ -137,6 +138,7 @@ class CoreWasmRunner:
             ref=component.ref,
             contract=component.contract,
             config=component.config,
+            interface_call=engine._interface_call_for(component),
         )
         return RunnerStart(ExecutionState.COMPLETED, result=result)
 
@@ -173,6 +175,39 @@ class LifeHubEngine:
 
     def close(self) -> None:
         self.kernel.close()
+
+    def _interface_call_for(self, component: ComponentDescriptor):
+        """Trusted runner creates this closure; guests supply only interface and JSON.
+
+        Bind routes to this invocation's exact snapshots, never a guest identity.
+        Pure providers use the existing bounded JSON service runtime.
+        """
+        initial = {
+            interface: self.routes.resolve(component.ref, interface)
+            for interface in component.requires
+        }
+
+        def call(interface, request):
+            route = self.routes.resolve(component.ref, interface)
+            if initial.get(interface) != route:
+                raise PermissionError("interface execution snapshot changed")
+            provider = self.component(route.provider_ref)
+            if provider.runner_id != "lifehub.wasm" or provider.contract != SERVICE_JSON_CONTRACT:
+                raise ValueError("interface provider must use bounded lifehub.service-json@1")
+            # This slice supports pure providers only, with no delegated downstream authority.
+            if provider.requires:
+                raise ValueError("pure interface providers cannot require downstream interfaces")
+            bundle = self.kernel.bundle(provider.plugin_id)
+            files = self.kernel.packages.approved_files(bundle.root, bundle.manifest)
+            module = provider.config.get("module")
+            if not isinstance(module, str) or not module.endswith(".wasm") or module not in files:
+                raise ValueError("interface provider needs an approved .wasm module")
+            output = run_json_service(files[module], request)
+            if self.routes.resolve(component.ref, interface) != route:
+                raise PermissionError("interface snapshots changed during call")
+            return output
+
+        return call
 
     def register_runner(self, runner: ComponentRunner) -> None:
         self.runners.register(runner)
