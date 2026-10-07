@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict
+from multiprocessing import AuthenticationError
 from multiprocessing.connection import Client, Listener
 from typing import Any
 
@@ -143,12 +144,31 @@ class EngineControlServer:
         self.listener = Listener(address=address, family=family, authkey=authkey)
 
     def serve_once(self) -> None:
-        connection = self.listener.accept()
+        # Authentication/handshake failure belongs to this client, not the daemon.
+        # Listener failures deliberately propagate rather than creating a busy loop.
         try:
-            raw = connection.recv_bytes(MAX_IO_BYTES)
-            request = decode_message(raw)
+            connection = self.listener.accept()
+        except (AuthenticationError, EOFError, ConnectionError):
+            return
+        try:
+            try:
+                raw = connection.recv_bytes(MAX_IO_BYTES)
+                request = decode_message(raw)
+            except (EOFError, OSError, ValueError, TypeError):
+                # Includes oversized frames; close without reading the remainder.
+                return
             response = self.controller.handle(request)
-            connection.send_bytes(encode_message(response))
+            try:
+                encoded = encode_message(response)
+            except (ValueError, TypeError):
+                encoded = encode_message({
+                    "api": CONTROL_API, "ok": False,
+                    "error": {"type": "ValueError", "message": "control response exceeds JSON bounds"},
+                })
+            try:
+                connection.send_bytes(encoded)
+            except (EOFError, OSError):
+                return
         finally:
             connection.close()
 
