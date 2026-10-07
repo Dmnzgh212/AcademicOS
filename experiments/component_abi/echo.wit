@@ -1,0 +1,5 @@
+package lifehub:abi-spike;
+
+world echo-world {
+    export echo: func(value: u32) -> u32;
+}

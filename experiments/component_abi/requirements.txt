@@ -1,0 +1,2 @@
+# Research environment only. Platform remains wasmtime>=36,<37.
+wasmtime==49.0.0
