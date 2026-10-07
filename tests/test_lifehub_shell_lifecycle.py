@@ -1,7 +1,7 @@
 import pytest
 
 from academicos.lifehub.kernel import LifeHub
-from academicos.lifehub.web import render_workspace
+from academicos.lifehub.shells.reference_web import render_workspace
 from test_lifehub import _write_plugin
 
 
@@ -84,7 +84,7 @@ def test_invalid_shell_config_is_visible_without_blocking_other_plugins(tmp_path
 
 @pytest.mark.parametrize('limit', [None, True, 1.5, float('inf'), '8', 0, -1, 101])
 def test_invalid_surface_limit_is_rejected_before_record_access(tmp_path, monkeypatch, limit):
-    from academicos.lifehub.web import _extension_body
+    from academicos.lifehub.shells.reference_web import _extension_body
 
     root = tmp_path / 'plugins'
     _write_plugin(root)

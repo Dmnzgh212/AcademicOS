@@ -5,7 +5,7 @@ from typer.testing import CliRunner
 
 from academicos.lifehub.cli import app
 from academicos.lifehub.kernel import LifeHub
-from academicos.lifehub.web import _extension_body
+from academicos.lifehub.shells.reference_web import _extension_body
 from test_lifehub import _write_plugin
 
 

@@ -15,7 +15,7 @@ from urllib.request import Request, urlopen
 def main():
     import academicos
     from academicos.lifehub.kernel import LifeHub
-    from academicos.lifehub.web import make_handler
+    from academicos.lifehub.shells.reference_web import make_handler
 
     repo = Path(sys.argv[1]).resolve()
     if Path(academicos.__file__).resolve().is_relative_to(repo):

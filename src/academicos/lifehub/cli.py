@@ -18,9 +18,8 @@ from academicos.lifehub.effects import EffectService
 from academicos.lifehub.packages import PackageInstaller
 from academicos.lifehub.proposals import ProposalService
 from academicos.lifehub.store import LifeStore
-from academicos.lifehub.web import serve
 
-app = typer.Typer(help="LifeHub: local-first open extension host for personal computing.")
+app = typer.Typer(help="LifeHub: open personal computing platform engine and tooling.")
 
 DEFAULT_DB = Path("data/lifehub.db")
 DEFAULT_PLUGINS = Path("lifehub_plugins")
@@ -377,6 +376,8 @@ def demo(
     finally:
         hub.close()
     if run_server:
+        from academicos.lifehub.shells.reference_web import serve
+
         serve(db_path=db, plugins_path=plugins, port=port)
 
 
@@ -386,7 +387,9 @@ def serve_cmd(
     plugins: Path = typer.Option(DEFAULT_PLUGINS, "--plugins"),
     port: int = typer.Option(8844, "--port", min=1, max=65535),
 ) -> None:
-    """Serve the temporary local workspace consumer."""
+    """Serve the optional legacy reference Web shell."""
+    from academicos.lifehub.shells.reference_web import serve
+
     serve(db_path=db, plugins_path=plugins, port=port)
 
 
