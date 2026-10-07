@@ -18,8 +18,12 @@ only their own manifest and compiled guest, with no Python guest runner.
 
 The demonstration launches a real separate Engine daemon, starts the background
 guest, denies observer before grant, approves a digest-bound route, reads its
-counter, disconnects all clients for 600 ms, and verifies at least two additional
-guest increments. It revokes and verifies next invocation denial, terminates
+counter, disconnects all clients for 800 ms, and verifies at least two additional
+guest increments. A separately packaged fault probe self-fails after three
+guest turns: its failure timestamp must precede client reconnection by at least
+50 ms, demonstrating active monitoring rather than query-time reconciliation.
+The fault probe is a controlled failure test, not claimed as a third real app.
+The proof revokes and verifies next invocation denial, terminates
 the Engine process, then starts a new daemon. Old history must be interrupted,
 revocation retained, and explicit guest restart assigned a new execution ID.
 It finishes by stopping that guest through the public protocol.
@@ -46,17 +50,21 @@ also captures the provider execution ID, so a replacement live instance cannot
 refresh an old invocation. Exactly one live instance per component is allowed.
 
 **Restart policy: explicit operator restart only, zero automatic retries.**
-Guest death is detected on the next Engine execution query or interface access,
-then recorded failed and not ready. Engine restart marks previously running
+An Engine-owned monitor checks process death on a 100 ms interval without any
+client. It records failed and clears readiness using its own ledger connection.
+Lifecycle transitions serialize with the monitor; normal stop remains stopped.
+If the ledger is busy, readiness clears and persistence retries after 500 ms.
+Intervals are targets, not real-time bounds; active control execution can delay
+monitor access to the lifecycle lock. Engine restart marks previously running
 history interrupted and starts no guest automatically. New start has a new ID;
 revoked grants remain revoked. Explicit stop records stopped. Storage-only close
 also kills this runner's private workers while leaving interruption history.
 
 ## Remaining limitations
 
-This is not a complete continuously monitored supervisor. Death history is
-reconciled on Engine access, not immediately by a background monitor. There is
-no automatic restart/backoff, boot activation, worker state persistence, nested
+This is process-death monitoring, not a complete supervisor. It does not detect
+a live-but-stalled guest until a bounded request is attempted. There is
+no automatic guest restart/backoff, boot activation, worker state persistence, nested
 background calls, streams, cancellation or general SDK. Idle tick scheduling
 can be delayed by sustained requests; it is not a real-time guarantee. OS process
 isolation is for termination, not a hostile native-code sandbox. Compilation
