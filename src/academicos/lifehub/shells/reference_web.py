@@ -10,6 +10,7 @@ from urllib.parse import urlparse, urlsplit
 
 from academicos.lifehub.kernel import LifeHub
 from academicos.lifehub.registry import RegisteredExtension
+from academicos.lifehub.shells.workspace import ReferenceWorkspaceStore
 
 
 CSS = r"""
@@ -185,14 +186,15 @@ def render_review_inbox(hub: LifeHub) -> str:
 
 
 def render_workspace(hub: LifeHub, *, token: str, workspace_id: str = "home") -> str:
-    invalid_layouts = hub.store.sync_workspace_extensions(hub.registry, workspace_id=workspace_id)
+    workspace = ReferenceWorkspaceStore(hub.store.conn)
+    invalid_layouts = workspace.sync_extensions(hub.registry, workspace_id=workspace_id)
     catalog = hub.catalog()
     refs = {entry["ref"] for entry in catalog["extensions"]}
     cards: list[str] = [
         '<div class="empty">Unsupported workspace layout: ' + _esc(ref) + '</div>'
         for ref in invalid_layouts
     ]
-    for item in hub.store.workspace_layout(workspace_id):
+    for item in workspace.layout(workspace_id):
         if not item["visible"]:
             continue
         if str(item["extension_ref"]) not in refs:
@@ -328,7 +330,7 @@ def make_handler(*, db_path: str | Path, plugins_path: str | Path, token: str):
                     if path == "/api/layout":
                         if not isinstance(payload, list):
                             raise ValueError("layout must be a list")
-                        hub.store.save_workspace_layout(payload)
+                        ReferenceWorkspaceStore(hub.store.conn).save_layout(payload)
                         result = "ok"
                     else:
                         result = _decide(hub, payload)
