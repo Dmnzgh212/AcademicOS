@@ -244,6 +244,7 @@ class LifeHub:
         ref: str,
         contract: str | None,
         config: dict,
+        interface_call=None,
     ) -> int:
         """Run an approved package component through the bounded core-Wasm runtime."""
         if contract not in (None, "lifehub.core-wasm@1"):
@@ -273,6 +274,7 @@ class LifeHub:
             service_call=lambda target, request: self.call_service(
                 bundle.manifest.id, target, request
             ),
+            interface_call=interface_call,
         )
         self.last_proposal_ids = []
         self.last_effect_ids = []

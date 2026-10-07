@@ -27,8 +27,10 @@ class WasmRunner:
         manifest: PluginManifest | None = None,
         effects: EffectService | None = None,
         service_call: Callable[[str, Any], Any] | None = None,
+        interface_call: Callable[[str, Any], Any] | None = None,
     ) -> None:
         self.service_call = service_call
+        self.interface_call = interface_call
         self.scoped = scoped
         self.manifest = manifest
         self.effect_service = effects
@@ -56,6 +58,7 @@ class WasmRunner:
         effect_signature = wasmtime.FuncType([wasmtime.ValType.i32()] * 2, [wasmtime.ValType.i32()])
         signatures = {
             "call_service_json": propose_signature,
+            "call_interface_json": propose_signature,
             "read_json": read_signature,
             "propose_json": propose_signature,
             "request_effect_json": effect_signature,
@@ -79,9 +82,9 @@ class WasmRunner:
 
         service_calls = 0
 
-        def call_service_json(caller, ref_ptr, ref_len, req_ptr, req_len, out_ptr, out_cap):
+        def call_json(callback, caller, ref_ptr, ref_len, req_ptr, req_len, out_ptr, out_cap):
             nonlocal service_calls
-            if self.service_call is None:
+            if callback is None:
                 raise PermissionError("service calls are unavailable")
             if service_calls >= MAX_SERVICE_CALLS:
                 raise ValueError("too many service calls in one run")
@@ -92,11 +95,17 @@ class WasmRunner:
             request = decode_message(_guest_bytes(memory, caller, req_ptr, req_len))
             _guest_bytes(memory, caller, out_ptr, out_cap)
             service_calls += 1
-            output = encode_message(self.service_call(ref, request))
+            output = encode_message(callback(ref, request))
             if len(output) > out_cap:
                 return -len(output)
             memory.write(caller, output, out_ptr)
             return len(output)
+
+        def call_service_json(*args):
+            return call_json(self.service_call, *args)
+
+        def call_interface_json(*args):
+            return call_json(self.interface_call, *args)
 
         def read_json(caller, name_ptr: int, name_len: int, out_ptr: int, out_cap: int) -> int:
             memory = caller.get("memory")
@@ -177,6 +186,10 @@ class WasmRunner:
             self.effect_requests.append(EffectRequest(kind, destination, purpose, payload))
             return len(self.effect_requests)
 
+        linker.define_func(
+            "lifehub", "call_interface_json", propose_signature,
+            call_interface_json, access_caller=True,
+        )
         linker.define_func(
             "lifehub",
             "call_service_json",
