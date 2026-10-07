@@ -16,7 +16,7 @@ A persistent **Engine daemon** is not proof of a persistent **guest**. A one-sho
 - Two separately authored, reviewable, installable `.lhpkg` applications; no test-only synthetic host Python runner, trusted ad hoc runner registration or Web Shell dependency.
 - The provider is a **persistent guest execution instance**, not merely a persistent daemon process. Host-owned, identifiable execution identity, observable readiness and terminal lifecycle.
 - With all Shells disconnected for an explicit interval, prove that the **guest itself** performed at least two additional observable work turns or state transitions. Do not fake this with Engine-owned bookkeeping or a daemon-only timer.
-- Add a third unrelated package using the same public component/runner contract **without modifying Core** as an extensibility check (it may be a small example, not a third large product).
+- The two independent packages must use publicly documented component/runner contracts; adding either package must not require app-specific edits to Engine Core.
 
 ### M1.2 — Safe unattended guest failure recovery
 - Engine detects **actual guest process death** without waiting for a client query. State/ready transition and durable execution history are coherent.
