@@ -12,6 +12,7 @@ from uuid import uuid4
 
 from academicos.lifehub.kernel import LifeHub
 from academicos.lifehub.engine_lease import EngineLease
+from academicos.lifehub.background import BackgroundWasmRunner
 from academicos.lifehub.registry import RegisteredComponent, RegisteredExtension
 from academicos.lifehub.routing import InterfaceRouter
 from academicos.lifehub.service_runtime import SERVICE_JSON_CONTRACT, run_json_service
@@ -175,6 +176,7 @@ class LifeHubEngine:
             self.kernel = LifeHub(db_path=db_path, plugins_path=plugins_path)
             self.runners = RunnerRegistry()
             self.runners.register(CoreWasmRunner())
+            self.runners.register(BackgroundWasmRunner())
             self.routes = InterfaceRouter(self.kernel, self.component)
             self._executions: dict[str, _Execution] = {}
             self._closed = False
@@ -193,6 +195,9 @@ class LifeHubEngine:
         if not self._closed:
             for execution in self._executions.values():
                 execution.ready = False
+                if (execution.component.runner_id == "lifehub.wasm-background"
+                        and execution.handle is not None):
+                    execution.handle.stop()
             try:
                 self.kernel.close()
             finally:
@@ -243,12 +248,30 @@ class LifeHubEngine:
             interface: self.routes.resolve(component.ref, interface)
             for interface in component.requires
         }
+        initial_live = {
+            route.provider_ref: tuple(item.execution_id for item in self._executions.values()
+                                      if item.component.ref == route.provider_ref
+                                      and item.state == ExecutionState.RUNNING and item.ready)
+            for route in initial.values()
+        }
 
         def call(interface, request):
+            self._refresh_background()
             route = self.routes.resolve(component.ref, interface)
             if initial.get(interface) != route:
                 raise PermissionError("interface execution snapshot changed")
             provider = self.component(route.provider_ref)
+            if provider.runner_id == "lifehub.wasm-background":
+                live = [item for item in self._executions.values()
+                        if item.component.ref == provider.ref
+                        and item.state == ExecutionState.RUNNING and item.ready]
+                if (len(live) != 1
+                        or initial_live.get(provider.ref) != (live[0].execution_id,)):
+                    raise PermissionError("interface needs exactly one ready live provider")
+                output = live[0].handle.call(request)
+                if self.routes.resolve(component.ref, interface) != route:
+                    raise PermissionError("interface snapshots changed during call")
+                return output
             if provider.runner_id != "lifehub.wasm" or provider.contract != SERVICE_JSON_CONTRACT:
                 raise ValueError("interface provider must use bounded lifehub.service-json@1")
             # This slice supports pure providers only, with no delegated downstream authority.
@@ -296,6 +319,13 @@ class LifeHubEngine:
         if self._closed:
             raise RuntimeError("Engine is closed")
         component = self.component(ref)
+        if (component.runner_id == "lifehub.wasm-background"
+                and any(item.component.ref == ref and item.state == ExecutionState.RUNNING
+                        for item in self._executions.values())):
+            self._refresh_background()
+            if any(item.component.ref == ref and item.state == ExecutionState.RUNNING
+                   for item in self._executions.values()):
+                raise ValueError("background component already has a live execution")
         for interface in component.requires:
             self.routes.resolve(component.ref, interface)
         runner = self.runners.resolve(component.runner_id)
@@ -349,6 +379,7 @@ class LifeHubEngine:
         return self._view(execution)
 
     def execution(self, execution_id: str) -> ExecutionView:
+        self._refresh_background()
         if execution_id in self._executions:
             return self._view(self._executions[execution_id])
         row = self.kernel.store.conn.execute(
@@ -372,6 +403,7 @@ class LifeHubEngine:
         )
 
     def executions(self, *, limit: int = 100) -> tuple[ExecutionView, ...]:
+        self._refresh_background()
         if type(limit) is not int or not 1 <= limit <= 1000:
             raise ValueError("execution limit must be an integer from 1 to 1000")
         rows = self.kernel.store.conn.execute(
@@ -448,6 +480,18 @@ class LifeHubEngine:
             raise KeyError(
                 f"execution {execution_id} has no live runner handle in this engine process"
             ) from exc
+
+    def _refresh_background(self) -> None:
+        for item in self._executions.values():
+            if (item.component.runner_id == "lifehub.wasm-background"
+                    and item.state == ExecutionState.RUNNING
+                    and item.handle is not None and item.handle.process.poll() is not None):
+                item.state = ExecutionState.FAILED
+                item.ready = False
+                item.error = "background guest process exited"
+                item.updated_at = datetime.now(UTC).isoformat()
+                item.handle.stop()
+                self._persist(item)
 
     def _init_execution_ledger(self) -> None:
         self.kernel.store.conn.executescript(_ENGINE_SCHEMA)

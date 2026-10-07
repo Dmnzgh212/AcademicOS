@@ -1,0 +1,14 @@
+manifest_version = 1
+api = "lifehub@1"
+id = "thirdparty.heartbeat"
+name = "Independent Background Counter"
+version = "1.0.0"
+
+[[components]]
+id = "counter"
+runner = "lifehub.wasm-background"
+contract = "lifehub.service-json@1"
+provides = ["example.heartbeat@1"]
+
+[components.config]
+module = "worker.wasm"
