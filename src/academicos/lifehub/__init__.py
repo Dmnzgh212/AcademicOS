@@ -7,11 +7,12 @@ from academicos.lifehub.engine import (
     RunnerStart,
 )
 from academicos.lifehub.kernel import LifeHub
-from academicos.lifehub.manifest import ExtensionContribution, PermissionSpec, PluginManifest
-from academicos.lifehub.registry import PluginRegistry, RegisteredExtension
+from academicos.lifehub.manifest import ComponentSpec, ExtensionContribution, PermissionSpec, PluginManifest
+from academicos.lifehub.registry import PluginRegistry, RegisteredComponent, RegisteredExtension
 
 __all__ = [
     "ComponentDescriptor",
+    "ComponentSpec",
     "ExecutionState",
     "ExtensionContribution",
     "LifeHub",
@@ -19,6 +20,7 @@ __all__ = [
     "PermissionSpec",
     "PluginManifest",
     "PluginRegistry",
+    "RegisteredComponent",
     "RegisteredExtension",
     "RunnerStart",
 ]

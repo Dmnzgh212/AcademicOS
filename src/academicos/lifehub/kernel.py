@@ -225,17 +225,37 @@ class LifeHub:
         return output
 
     def run_wasm(self, ref: str) -> int:
-        """Run approved WebAssembly and persist proposals only after successful return."""
+        """Compatibility entrypoint for v0.1 extension-declared core-Wasm."""
         extension = self.extension(ref)
         require_contract(extension.contribution, "lifehub.core-wasm@1")
-        bundle = self.bundle(extension.plugin_id)
         if extension.contribution.entrypoint != "lifehub.wasm":
             raise ValueError(f"extension is not a WebAssembly entrypoint: {ref}")
+        return self.run_component_wasm(
+            plugin_id=extension.plugin_id,
+            ref=ref,
+            contract=extension.contribution.contract,
+            config=extension.contribution.config,
+        )
+
+    def run_component_wasm(
+        self,
+        *,
+        plugin_id: str,
+        ref: str,
+        contract: str | None,
+        config: dict,
+    ) -> int:
+        """Run an approved package component through the bounded core-Wasm runtime."""
+        if contract not in (None, "lifehub.core-wasm@1"):
+            raise ValueError(
+                f"unsupported component contract: {contract}; expected lifehub.core-wasm@1"
+            )
+        bundle = self.bundle(plugin_id)
         if not self.packages.is_managed():
             raise PermissionError("WebAssembly execution requires an installed, approved package")
-        module_name = extension.contribution.config.get("module")
+        module_name = config.get("module")
         if not isinstance(module_name, str) or not module_name.endswith(".wasm"):
-            raise ValueError("WebAssembly contribution needs a .wasm module path")
+            raise ValueError("WebAssembly component needs a .wasm module path")
         initial_approval = self.store.conn.execute(
             "SELECT content_hash FROM lifehub_installed_packages WHERE plugin_id=?",
             (bundle.manifest.id,),
@@ -247,7 +267,7 @@ class LifeHub:
         if module_name not in files:
             raise ValueError("WebAssembly module is not in the approved package")
         runner = WasmRunner(
-            self.scoped_store(extension.plugin_id),
+            self.scoped_store(plugin_id),
             bundle.manifest,
             self.effects,
             service_call=lambda target, request: self.call_service(

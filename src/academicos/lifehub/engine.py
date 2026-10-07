@@ -11,7 +11,7 @@ from typing import Any, Protocol
 from uuid import uuid4
 
 from academicos.lifehub.kernel import LifeHub
-from academicos.lifehub.registry import RegisteredExtension
+from academicos.lifehub.registry import RegisteredComponent, RegisteredExtension
 
 
 _ENGINE_SCHEMA = """
@@ -43,9 +43,11 @@ class ComponentDescriptor:
 
     ref: str
     plugin_id: str
-    point: str
+    point: str | None
     runner_id: str
     contract: str | None
+    provides: tuple[str, ...]
+    requires: tuple[str, ...]
     activation: tuple[str, ...]
     config: dict[str, Any]
 
@@ -129,7 +131,12 @@ class CoreWasmRunner:
     id = "lifehub.wasm"
 
     def start(self, engine: "LifeHubEngine", component: ComponentDescriptor) -> RunnerStart:
-        result = engine.kernel.run_wasm(component.ref)
+        result = engine.kernel.run_component_wasm(
+            plugin_id=component.plugin_id,
+            ref=component.ref,
+            contract=component.contract,
+            config=component.config,
+        )
         return RunnerStart(ExecutionState.COMPLETED, result=result)
 
     def stop(
@@ -169,20 +176,27 @@ class LifeHubEngine:
         self.runners.register(runner)
 
     def components(self) -> tuple[ComponentDescriptor, ...]:
-        items = []
+        items = [self._describe_component(item) for item in self.kernel.registry.components()]
+        explicit_refs = {item.ref for item in items}
         for extension in self.kernel.extensions():
+            if extension.ref in explicit_refs:
+                continue
             runner_id = self._runner_id(extension)
             if runner_id is None:
                 continue
-            items.append(self._describe(extension, runner_id))
+            items.append(self._describe_legacy_extension(extension, runner_id))
         return tuple(items)
 
     def component(self, ref: str) -> ComponentDescriptor:
+        try:
+            return self._describe_component(self.kernel.registry.component(ref))
+        except KeyError:
+            pass
         extension = self.kernel.extension(ref)
         runner_id = self._runner_id(extension)
         if runner_id is None:
             raise ValueError(f"extension is not an executable component: {ref}")
-        return self._describe(extension, runner_id)
+        return self._describe_legacy_extension(extension, runner_id)
 
     def start(self, ref: str) -> ExecutionView:
         component = self.component(ref)
@@ -292,7 +306,24 @@ class LifeHubEngine:
         return None
 
     @staticmethod
-    def _describe(extension: RegisteredExtension, runner_id: str) -> ComponentDescriptor:
+    def _describe_component(component: RegisteredComponent) -> ComponentDescriptor:
+        spec = component.component
+        return ComponentDescriptor(
+            ref=component.ref,
+            plugin_id=component.plugin_id,
+            point=None,
+            runner_id=spec.runner,
+            contract=spec.contract,
+            provides=tuple(spec.provides),
+            requires=tuple(spec.requires),
+            activation=tuple(spec.activation),
+            config=deepcopy(spec.config),
+        )
+
+    @staticmethod
+    def _describe_legacy_extension(
+        extension: RegisteredExtension, runner_id: str
+    ) -> ComponentDescriptor:
         contribution = extension.contribution
         return ComponentDescriptor(
             ref=extension.ref,
@@ -300,6 +331,8 @@ class LifeHubEngine:
             point=contribution.point,
             runner_id=runner_id,
             contract=contribution.contract,
+            provides=(),
+            requires=(),
             activation=tuple(contribution.activation),
             config=deepcopy(contribution.config),
         )

@@ -136,3 +136,36 @@ commands.
 This daemon is not a Web server and exposes no HTTP routes. It is an engine control
 process. Restart policy, automatic activation and OS service installation remain
 future engine work.
+
+
+## First-class component model
+
+Executable software is now declared independently from extension/shell surfaces.
+
+A package can contain no UI contribution at all:
+
+```toml
+[[components]]
+id = "worker"
+runner = "lifehub.wasm"
+contract = "lifehub.core-wasm@1"
+provides = ["example.output@1"]
+requires = ["example.input@1"]
+
+[components.config]
+module = "worker.wasm"
+```
+
+The Engine treats this as an executable component even when `contributes = []`.
+The fields `provides` and `requires` are open interface identifiers; they are
+not a closed list of app/domain types.
+
+Legacy v0.1 executable contributions remain readable as a compatibility path,
+but explicit `[[components]]` declarations are the primary execution model.
+
+Core-Wasm execution was also decoupled from extension rendering: the bounded
+Wasm runtime can now execute a first-class component directly from its package
+identity, contract and component configuration.
+
+This establishes the boundary needed for the next platform slice: Engine-level
+interface resolution and capability routing.

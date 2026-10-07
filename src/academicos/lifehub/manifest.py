@@ -40,6 +40,47 @@ class PermissionSpec(BaseModel):
         return value
 
 
+class ComponentSpec(BaseModel):
+    """One executable unit supplied by a package.
+
+    Components are runtime objects, not UI surfaces. Interface identifiers are
+    intentionally open strings so the Engine does not own a closed application taxonomy.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    runner: str
+    contract: str | None = None
+    provides: list[str] = Field(default_factory=list)
+    requires: list[str] = Field(default_factory=list)
+    activation: list[str] = Field(default_factory=list)
+    config: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("id", "runner")
+    @classmethod
+    def validate_identifier(cls, value: str) -> str:
+        cleaned = value.strip()
+        if not cleaned or any(ch.isspace() for ch in cleaned):
+            raise ValueError("component id/runner must be nonempty without whitespace")
+        return cleaned
+
+    @field_validator("provides", "requires")
+    @classmethod
+    def validate_interfaces(cls, values: list[str]) -> list[str]:
+        cleaned: list[str] = []
+        seen: set[str] = set()
+        for value in values:
+            item = value.strip()
+            if not item or any(ch.isspace() for ch in item):
+                raise ValueError("component interface ids must be nonempty without whitespace")
+            if item in seen:
+                raise ValueError(f"duplicate component interface: {item}")
+            seen.add(item)
+            cleaned.append(item)
+        return cleaned
+
+
 class ExtensionContribution(BaseModel):
     """One extension supplied by a plugin.
 
@@ -91,6 +132,7 @@ class PluginManifest(BaseModel):
     description: str | None = None
     activation: list[str] = Field(default_factory=list)
     permissions: PermissionSpec = Field(default_factory=PermissionSpec)
+    components: list[ComponentSpec] = Field(default_factory=list)
     contributes: list[ExtensionContribution] = Field(default_factory=list)
 
     @field_validator("manifest_version")
@@ -117,11 +159,15 @@ class PluginManifest(BaseModel):
         return cleaned
 
     @model_validator(mode="after")
-    def validate_unique_extensions(self) -> PluginManifest:
+    def validate_unique_package_entries(self) -> PluginManifest:
         seen: set[str] = set()
+        for component in self.components:
+            if component.id in seen:
+                raise ValueError(f"duplicate package entry id in plugin {self.id}: {component.id}")
+            seen.add(component.id)
         for extension in self.contributes:
             if extension.id in seen:
-                raise ValueError(f"duplicate extension id in plugin {self.id}: {extension.id}")
+                raise ValueError(f"duplicate package entry id in plugin {self.id}: {extension.id}")
             seen.add(extension.id)
         return self
 
@@ -170,5 +216,6 @@ def _upgrade_legacy_manifest(payload: dict[str, Any]) -> dict[str, Any]:
             "network_retrieval": permissions.get("network_hosts", []),
             "localhost_ports": permissions.get("localhost_ports", []),
         },
+        "components": [],
         "contributes": contributions,
     }
