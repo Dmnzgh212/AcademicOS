@@ -39,3 +39,23 @@ def test_legacy_web_module_is_only_a_compatibility_shim() -> None:
     assert "shells.reference_web" in source
     assert "ThreadingHTTPServer" not in source
     assert "CSS = " not in source
+
+
+def test_platform_store_has_no_workspace_schema_or_api(tmp_path) -> None:
+    from academicos.lifehub.store import LifeStore
+
+    store = LifeStore(tmp_path / "platform.db")
+    try:
+        tables = {
+            row[0]
+            for row in store.conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()
+        }
+        assert "lifehub_workspace_items" not in tables
+        assert "lifehub_reference_web_workspace_items" not in tables
+        assert not hasattr(store, "workspace_layout")
+        assert not hasattr(store, "save_workspace_layout")
+        assert not hasattr(store, "sync_workspace_extensions")
+    finally:
+        store.close()
