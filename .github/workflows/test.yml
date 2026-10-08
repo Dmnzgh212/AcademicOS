@@ -44,6 +44,21 @@ jobs:
         run: |
           & "$env:RUNNER_TEMP/lifehub-win-wheel/Scripts/python.exe" -I examples/lifehub-background-apps/run_recovery.py --output "$env:RUNNER_TEMP/lifehub-recovery-evidence" | Tee-Object -FilePath "$env:RUNNER_TEMP/lifehub-recovery-proof.log"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: External AI integrator energy apps (installed Windows wheel)
+        shell: pwsh
+        run: |
+          & "$env:RUNNER_TEMP/lifehub-win-wheel/Scripts/python.exe" -I examples/lifehub-external-energy/independent_proof.py --output "$env:RUNNER_TEMP/external-energy-evidence"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Preserve independent Windows integration evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: independent-energy-windows-python-3.12
+          path: |
+            ${{ runner.temp }}/external-energy-evidence/packages/*.lhpkg
+            ${{ runner.temp }}/external-energy-evidence/evidence.json
+            ${{ runner.temp }}/external-energy-evidence/engine.log
+            dist/*.whl
       - name: Check Windows retained evidence
         shell: pwsh
         run: |
@@ -105,6 +120,20 @@ jobs:
       - name: Automatic recovery proof
         run: |
           "$RUNNER_TEMP/lifehub-wheel-venv/bin/python" -I examples/lifehub-background-apps/run_recovery.py --output "$RUNNER_TEMP/lifehub-recovery-evidence" | tee "$RUNNER_TEMP/lifehub-recovery-proof.log"
+      - name: External AI integrator energy apps (installed Linux wheel)
+        run: |
+          python -m ruff check examples/lifehub-external-energy/independent_proof.py
+          "$RUNNER_TEMP/lifehub-wheel-venv/bin/python" -I examples/lifehub-external-energy/independent_proof.py --output "$RUNNER_TEMP/external-energy-evidence"
+      - name: Preserve independent Linux integration evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: independent-energy-linux-python-${{ matrix.python-version }}
+          path: |
+            ${{ runner.temp }}/external-energy-evidence/packages/*.lhpkg
+            ${{ runner.temp }}/external-energy-evidence/evidence.json
+            ${{ runner.temp }}/external-energy-evidence/engine.log
+            dist/*.whl
       - name: Check Linux retained evidence
         run: |
           python scripts/check_lifehub_recovery_evidence.py "$RUNNER_TEMP/lifehub-recovery-evidence" dist/academicos-*.whl "$RUNNER_TEMP/lifehub-recovery-proof.log" "$GITHUB_SHA" "$RUNNER_TEMP/lifehub-recovery-evidence/validation.json"
