@@ -590,6 +590,7 @@ class LifeHubEngine:
     @_lifecycle_locked
     def stop_component(self, ref):
         recovery.suppress(self, ref)
+        self._refresh_background()
         for item in tuple(self._executions.values()):
             if item.component.ref == ref and item.state == ExecutionState.RUNNING:
                 self.stop(item.execution_id)

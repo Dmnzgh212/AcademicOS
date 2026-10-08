@@ -14,7 +14,7 @@ recovery scripts passed on both AF_UNIX and AF_PIPE.
 | --- | --- | --- |
 | M1.1 | Separately packaged heartbeat Wasm provider and observer Wasm consumer; shell-free guest counter advances. Both examples were implemented within this development effort. | NOT VERIFIED: independent authorship by someone other than the Engine author is not established. |
 | M1.2 | Actual worker kill, autonomous new execution, two-retry crash-loop quarantine; another provider remains callable. Prior process-death script records failure before a client query. | Behavioral checks PASS; only process death is monitored, not live stalls. |
-| M1.3 | Actual Engine termination, new manager automatically restores approved desired state, old history interrupted, new IDs, retained revoke; lease tests reject simultaneous owners. | Recovery checks PASS; old-worker exit observation is added in this follow-up and awaits cross-platform CI. |
+| M1.3 | Actual Engine termination, new manager automatically restores approved desired state, old history interrupted, new IDs, retained revoke; lease tests reject simultaneous owners. | Recovery checks PASS; old-worker exit by replacement readiness verified on both platforms in CI run 367. |
 | M1.4 | Uninstall without calls, reinstall invalidation, stop cancellation, multi-worker cleanup and lease release after injected errors, observable fail-closed supervisor health. | Covered by separate scripts/tests; consolidate evidence. Missing aggregate worker/memory ceilings are documented. |
 | M1.5 | Guest observer invokes a live ready provider through host-resolved route; package and execution binding; revoke, tamper and stale-handle rejection. | Checks PASS. Synchronous control dispatch cannot process a second-client revoke during an active request. |
 | M1.6 | Installed wheels and real daemon proofs passed on Windows/Linux. | Evidence retention PASS in CI run 366: Windows 3.12 and Linux 3.11/3.12 artifacts uploaded. |
@@ -52,8 +52,8 @@ and requires the old process to be terminated by replacement readiness. This
 observes absence of a live orphan at that point, not a zero-overlap guarantee
 throughout startup or OS reaping of zombie entries. Linux proof requires pidfd
 support (Linux 5.3+); this is a proof-tool requirement, not a runtime dependency.
-Consolidate exact packages, logs, commit/PR map and every mandatory gate after
-both platform jobs pass.
+Both platform jobs passed in CI run 367. The proof does not establish
+zero transient overlap during restart. Independent integration remains open.
 Do not invent a percentage of M1 completion or treat green CI as acceptance.
 
 No guest-memory persistence, stalled-guest recovery, aggregate worker ceiling,
@@ -61,3 +61,43 @@ OS process memory/CPU quota, complete compilation wall-time budget, or concurren
 control dispatch is claimed. PersonIR and the WIT spike remain isolated research.
 
 Evidence-retention run: [CI 366](https://github.com/Dmnzgh212/AcademicOS/actions/runs/37706653263), commit `ab6860258cd1e6915d1beeede15a6559fb122087`.
+
+## Delivery index and revision map
+
+- [Canonical M1 criteria](https://github.com/Dmnzgh212/AcademicOS/blob/docs/lifehub-m1-acceptance-gate/docs/lifehub/M1_ACCEPTANCE.md): agreed gate; acceptance remains a separate decision.
+- [Independent integrator guide](INDEPENDENT_INTEGRATOR_GUIDE.md): installed-wheel commands, manifests, ABI and honest evidence requirements.
+- [Background runner/reference proof](../../examples/lifehub-background-apps/README.md): public boundaries and lifecycle.
+- [Recovery proof](../../examples/lifehub-background-apps/run_recovery.py): actual process kills and retained artifact metadata.
+
+| Draft PR | Scope | Evidence baseline |
+| --- | --- | --- |
+| #44–#50 | Route lifetime, resilient control, guest interface calls, readiness/cleanup, lease and Windows transport | Pre-background security/transport foundation; retain individual PR review requirements. |
+| #51 | Isolated WIT research | Not a runtime dependency or M1 gate shortcut. |
+| #52 | Independently packaged one-shot apps | Packaging and IPC baseline; not independently authored external integration evidence. |
+| #53–#55 | Persistent guest, unattended monitor, uninstall/reinstall lifetime | Real installed-wheel background proof and matching lifecycle tests. |
+| #57 | Fail-closed monitor health and unconditional cleanup | CI 364. |
+| #58 | Bounded automatic guest recovery and persistent desired state | Commit `9b3d47719848a6d97839c7a2b7d461e190b462de`, CI 365. |
+| #59 | Retained packages/logs and old-worker exit observation | Commit `7ef4ec4308497bb14cc57576b43f17d3b6a66069`, [CI 367](https://github.com/Dmnzgh212/AcademicOS/actions/runs/37707048863). |
+| #60 | Independent integration guide | Commit `e846e65d747c609c11a9ba06b11c4a4340047b1e`, [CI 368](https://github.com/Dmnzgh212/AcademicOS/actions/runs/37707525023), success. |
+
+CI 367 contains three downloadable recovery artifacts: Linux Python 3.11,
+Linux Python 3.12 and Windows Python 3.12. Each includes exact package archives,
+wheel, structured evidence, proof stdout and Engine log. The metadata's git SHA
+identifies the actual Actions checkout; the table identifies the source PR head.
+No operator authkey or personal database is included. Raw job logs remain in
+Actions. Do not treat artifacts as a production release or merge authorization.
+
+## Stop-at-death regression found during audit
+
+When an opted-in guest had actually exited before its monitor reconciled state,
+`stop-component` cancelled desired state but attempted `stop` on the stale
+RUNNING row. `stop` reconciled it to FAILED and returned an error instead of the
+component-level stopped result. The fix reconciles process death after intent
+suppression and before selecting live executions. It does not grant authority
+or erase FAILED history.
+
+Regression checks cover stop immediately after actual guest death, uninstall
+and identical reinstall before replacement, and rejection of a stop against an
+old failed execution without cancelling the replacement's desired state. These
+are lifecycle/security checks, not new Core features. Validation of this follow-up
+must be reported separately from the already green CI 367/368 baselines.
