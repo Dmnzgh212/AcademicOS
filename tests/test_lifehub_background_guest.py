@@ -5,6 +5,7 @@ from pathlib import Path
 import time
 import sqlite3
 import threading
+import zipfile
 
 import pytest
 
@@ -13,13 +14,22 @@ from academicos.lifehub.background import BackgroundHandle
 from academicos.lifehub.control import CONTROL_API, EngineController
 
 
-def installed(tmp_path):
+def installed(tmp_path, restart=False):
     path = Path(__file__).resolve().parents[1] / "examples/lifehub-background-apps/run_demo.py"
     spec = importlib.util.spec_from_file_location("background_proof", path)
     proof = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(proof)
     db, plugins = tmp_path / "state.db", tmp_path / "plugins"
-    proof.util.install_packages(db, plugins, proof.util.build_packages(tmp_path / "archives"))
+    archives = proof.util.build_packages(tmp_path / "archives")
+    if restart:
+        for archive in (archives[0], archives[2]):
+            with zipfile.ZipFile(archive) as source:
+                manifest, module = source.read("plugin.toml"), source.read("worker.wasm")
+            manifest += b'\n[components.config.restart]\nmax_retries=2\nwindow=60\nbackoff=0.1\nmax_backoff=0.4\n'
+            with zipfile.ZipFile(archive, "w") as target:
+                target.writestr("plugin.toml", manifest)
+                target.writestr("worker.wasm", module)
+    proof.util.install_packages(db, plugins, archives)
     return proof, LifeHubEngine(db_path=db, plugins_path=plugins)
 
 
@@ -228,6 +238,45 @@ def test_shutdown_reconciliation_failure_still_cleans_up(tmp_path, monkeypatch):
     replacement.shutdown()
 
 
+def test_automatic_recovery_and_crash_loop_are_bounded(tmp_path):
+    proof, engine = installed(tmp_path, restart=True)
+    try:
+        first = engine.start(proof.PROVIDER)
+        old_call = None
+        review = engine.routes.review(proof.CONSUMER, proof.INTERFACE, proof.PROVIDER)
+        engine.routes.grant(proof.CONSUMER, proof.INTERFACE, proof.PROVIDER,
+                            approved_digest=review["approval_digest"])
+        old_call = engine._interface_call_for(engine.component(proof.CONSUMER))
+        handle = engine._execution(first.execution_id).handle
+        handle.process.kill()
+        handle.process.wait(timeout=3)
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            intent = engine.desired_components()[0]
+            if intent["execution_id"] != first.execution_id and engine.execution(intent["execution_id"]).ready:
+                break
+            time.sleep(0.03)
+        assert intent["execution_id"] != first.execution_id
+        assert engine.execution(intent["execution_id"]).ready
+        with pytest.raises(PermissionError):
+            old_call(proof.INTERFACE, {})
+        assert engine.start(proof.CONSUMER).state == "completed"
+        engine.start("thirdparty.fault-probe:fail")
+        deadline = time.monotonic() + 6
+        while time.monotonic() < deadline:
+            rows = engine.desired_components()
+            fault = next(row for row in rows if "fault-probe" in row["ref"])
+            if fault["status"] == "quarantined":
+                break
+            time.sleep(0.03)
+        assert fault["status"] == "quarantined" and len(fault["failures"]) == 3
+        engine.stop_component(proof.PROVIDER)
+        time.sleep(0.3)
+        assert next(row for row in engine.desired_components() if row["ref"] == proof.PROVIDER)["status"] == "stopped"
+    finally:
+        engine.shutdown()
+
+
 def test_background_tamper_and_inflight_revocation_fail_closed(tmp_path):
     proof, engine = installed(tmp_path)
     try:
@@ -250,3 +299,36 @@ def test_background_tamper_and_inflight_revocation_fail_closed(tmp_path):
             original({})
     finally:
         engine.shutdown()
+
+
+def test_engine_reopens_and_restores_only_approved_intent(tmp_path):
+    proof, engine = installed(tmp_path, restart=True)
+    first = engine.start(proof.PROVIDER)
+    review = engine.routes.review(proof.CONSUMER, proof.INTERFACE, proof.PROVIDER)
+    engine.routes.grant(proof.CONSUMER, proof.INTERFACE, proof.PROVIDER,
+                        approved_digest=review['approval_digest'])
+    engine.routes.revoke(proof.CONSUMER, proof.INTERFACE, proof.PROVIDER)
+    engine.close()
+    replacement = LifeHubEngine(db_path=tmp_path / 'state.db', plugins_path=tmp_path / 'plugins')
+    try:
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            intent = replacement.desired_components()[0]
+            if intent['execution_id'] != first.execution_id and replacement.execution(intent['execution_id']).ready:
+                break
+            time.sleep(0.03)
+        assert intent['execution_id'] != first.execution_id
+        assert replacement.execution(intent['execution_id']).ready
+        assert replacement.execution(first.execution_id).state == 'interrupted'
+        with pytest.raises(PermissionError):
+            replacement.start(proof.CONSUMER)
+        replacement.shutdown()
+    finally:
+        replacement.close()
+    final = LifeHubEngine(db_path=tmp_path / 'state.db', plugins_path=tmp_path / 'plugins')
+    try:
+        time.sleep(0.3)
+        assert final.desired_components()[0]['status'] == 'stopped'
+        assert not final._executions
+    finally:
+        final.shutdown()

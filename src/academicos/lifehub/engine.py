@@ -9,6 +9,7 @@ from enum import StrEnum
 from functools import wraps
 from pathlib import Path
 import sqlite3
+import json
 import threading
 from typing import Any, Protocol
 from uuid import uuid4
@@ -19,6 +20,7 @@ from academicos.lifehub.background import BackgroundWasmRunner
 from academicos.lifehub.registry import RegisteredComponent, RegisteredExtension
 from academicos.lifehub.routing import InterfaceRouter
 from academicos.lifehub.service_runtime import SERVICE_JSON_CONTRACT, run_json_service
+from academicos.lifehub import recovery
 
 
 _ENGINE_SCHEMA = """
@@ -189,6 +191,7 @@ class LifeHubEngine:
         self._monitor = None
         self._monitor_error = None
         self._ledger_path = str(Path(db_path).resolve())
+        self._plugins_path = str(Path(plugins_path).resolve())
         try:
             self.kernel = LifeHub(db_path=db_path, plugins_path=plugins_path)
             self.runners = RunnerRegistry()
@@ -252,6 +255,13 @@ class LifeHubEngine:
             return
         failures = []
         try:
+            try:
+                with self.kernel.store.conn:
+                    self.kernel.store.conn.execute(
+                        "UPDATE lifehub_engine_desired SET status='stopped' WHERE status IN ('wanted','recovering')"
+                    )
+            except Exception as exc:
+                failures.append(exc)
             try:
                 self._refresh_background()
             except Exception as exc:
@@ -371,6 +381,7 @@ class LifeHubEngine:
         if self._closed:
             raise RuntimeError("Engine is closed")
         component = self.component(ref)
+        policy = recovery.policy_for(component) if component.runner_id == "lifehub.wasm-background" else None
         if component.runner_id == "lifehub.wasm-background" and self._monitor_error is not None:
             raise PermissionError("background supervisor failed; start a new Engine manager")
         if (component.runner_id == "lifehub.wasm-background"
@@ -394,6 +405,8 @@ class LifeHubEngine:
         self._executions[execution.execution_id] = execution
         self._persist(execution)
         try:
+            if component.runner_id == "lifehub.wasm-background":
+                recovery.remember(self, component, execution.execution_id, policy)
             started = runner.start(self, component)
             if started.state not in {ExecutionState.RUNNING, ExecutionState.COMPLETED}:
                 raise ValueError("runner start must return running or completed state")
@@ -419,6 +432,7 @@ class LifeHubEngine:
         execution = self._execution(execution_id)
         if execution.state != ExecutionState.RUNNING:
             raise ValueError(f"execution is not running: {execution_id}")
+        recovery.suppress(self, execution.component.ref)
         execution.ready = False
         runner = self.runners.resolve(execution.component.runner_id)
         try:
@@ -558,8 +572,28 @@ class LifeHubEngine:
             "status": ("failed" if self._monitor_error is not None else
                        "stopped" if self._closed else "running"),
             "error": self._monitor_error,
-            "automatic_restart": False,
+            "automatic_restart": True,
+            "workers": [{"execution_id": item.execution_id, "pid": item.handle.process.pid}
+                        for item in self._executions.values()
+                        if item.component.runner_id == "lifehub.wasm-background"
+                        and item.state == ExecutionState.RUNNING and item.handle is not None],
         }
+
+    @_lifecycle_locked
+    def desired_components(self):
+        rows = self.kernel.store.conn.execute("SELECT * FROM lifehub_engine_desired ORDER BY component_ref").fetchall()
+        return [{"ref": row["component_ref"], "status": row["status"],
+                 "execution_id": row["execution_id"], "next_at": row["next_at"],
+                 "failures": json.loads(row["failures"]), "policy": json.loads(row["policy"])}
+                for row in rows]
+
+    @_lifecycle_locked
+    def stop_component(self, ref):
+        recovery.suppress(self, ref)
+        for item in tuple(self._executions.values()):
+            if item.component.ref == ref and item.state == ExecutionState.RUNNING:
+                self.stop(item.execution_id)
+        return {"ref": ref, "status": "stopped"}
 
     def _monitor_entry(self) -> None:
         try:
@@ -605,7 +639,7 @@ class LifeHubEngine:
                 try:
                     if self._monitor_stop.is_set():
                         return
-                    for item in self._executions.values():
+                    for item in tuple(self._executions.values()):
                         if (item.component.runner_id != "lifehub.wasm-background"
                                 or item.state != ExecutionState.RUNNING or item.handle is None):
                             continue
@@ -646,6 +680,10 @@ class LifeHubEngine:
                         item.updated_at = now
                         item.error = error
                         item.handle.stop()
+                    try:
+                        recovery.reconcile(self, conn)
+                    except sqlite3.OperationalError:
+                        retry = True
                 finally:
                     self._lifecycle_lock.release()
                 if retry:
@@ -655,6 +693,7 @@ class LifeHubEngine:
 
     def _init_execution_ledger(self) -> None:
         self.kernel.store.conn.executescript(_ENGINE_SCHEMA)
+        self.kernel.store.conn.executescript(recovery.SCHEMA)
         self.kernel.store.conn.commit()
 
     def _recover_interrupted_executions(self) -> None:
@@ -670,9 +709,10 @@ class LifeHubEngine:
                 (ExecutionState.INTERRUPTED, now, ExecutionState.RUNNING),
             )
 
-    def _persist(self, execution: _Execution) -> None:
-        with self.kernel.store.conn:
-            self.kernel.store.conn.execute(
+    def _persist(self, execution: _Execution, *, connection=None) -> None:
+        conn = self.kernel.store.conn if connection is None else connection
+        with conn:
+            conn.execute(
                 """
                 INSERT INTO lifehub_engine_executions(
                     execution_id, component_ref, runner_id, state,
