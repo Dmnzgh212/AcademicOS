@@ -14,7 +14,7 @@ from academicos.lifehub.background import BackgroundHandle
 from academicos.lifehub.control import CONTROL_API, EngineController
 
 
-def installed(tmp_path, restart=False):
+def installed(tmp_path, restart=False, backoff=0.1):
     path = Path(__file__).resolve().parents[1] / "examples/lifehub-background-apps/run_demo.py"
     spec = importlib.util.spec_from_file_location("background_proof", path)
     proof = importlib.util.module_from_spec(spec)
@@ -25,7 +25,8 @@ def installed(tmp_path, restart=False):
         for archive in (archives[0], archives[2]):
             with zipfile.ZipFile(archive) as source:
                 manifest, module = source.read("plugin.toml"), source.read("worker.wasm")
-            manifest += b'\n[components.config.restart]\nmax_retries=2\nwindow=60\nbackoff=0.1\nmax_backoff=0.4\n'
+            manifest += (f'\n[components.config.restart]\nmax_retries=2\nwindow=60\n'
+                         f'backoff={backoff}\nmax_backoff={max(0.4, backoff)}\n').encode()
             with zipfile.ZipFile(archive, "w") as target:
                 target.writestr("plugin.toml", manifest)
                 target.writestr("worker.wasm", module)
@@ -258,6 +259,10 @@ def test_automatic_recovery_and_crash_loop_are_bounded(tmp_path):
             time.sleep(0.03)
         assert intent["execution_id"] != first.execution_id
         assert engine.execution(intent["execution_id"]).ready
+        with pytest.raises(ValueError, match="not running"):
+            engine.stop(first.execution_id)
+        assert engine.desired_components()[0]["status"] == "wanted"
+        assert engine.execution(intent["execution_id"]).ready
         with pytest.raises(PermissionError):
             old_call(proof.INTERFACE, {})
         assert engine.start(proof.CONSUMER).state == "completed"
@@ -332,3 +337,96 @@ def test_engine_reopens_and_restores_only_approved_intent(tmp_path):
         assert not final._executions
     finally:
         final.shutdown()
+
+
+@pytest.mark.parametrize('action', ['stop', 'uninstall-reinstall'])
+def test_dead_guest_intent_cannot_survive_stop_or_reinstallation(tmp_path, action):
+    proof, engine = installed(tmp_path, restart=True)
+    try:
+        first = engine.start(proof.PROVIDER)
+        review = engine.routes.review(proof.CONSUMER, proof.INTERFACE, proof.PROVIDER)
+        engine.routes.grant(proof.CONSUMER, proof.INTERFACE, proof.PROVIDER,
+                            approved_digest=review['approval_digest'])
+        handle = engine._execution(first.execution_id).handle
+        # Hold lifecycle coordination only to place the operator action exactly
+        # after real guest death and before the unattended monitor can restart.
+        with engine._lifecycle_lock:
+            handle.process.kill()
+            handle.process.wait(timeout=3)
+            if action == 'stop':
+                engine.stop_component(proof.PROVIDER)
+            else:
+                engine.kernel.packages.uninstall('thirdparty.heartbeat')
+                archive = tmp_path / 'archives' / 'thirdparty.heartbeat.lhpkg'
+                proof.util.install_packages(tmp_path / 'state.db', tmp_path / 'plugins', (archive,))
+        time.sleep(0.8)
+        intent = engine.desired_components()[0]
+        assert intent['status'] == 'stopped'
+        assert intent['execution_id'] == first.execution_id
+        assert engine.execution(first.execution_id).state == 'failed'
+        assert not any(row.ready for row in engine.executions())
+        if action == 'uninstall-reinstall':
+            with pytest.raises(PermissionError):
+                engine.start(proof.CONSUMER)
+    finally:
+        engine.shutdown()
+
+
+def wait_for_intent(engine, predicate, timeout=5):
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        intent = engine.desired_components()[0]
+        if predicate(intent):
+            return intent
+        time.sleep(0.02)
+    raise AssertionError(f'intent did not reach required state: {intent!r}')
+
+
+def test_stop_during_declared_backoff_prevents_replacement(tmp_path):
+    proof, engine = installed(tmp_path, restart=True, backoff=0.5)
+    try:
+        first = engine.start(proof.PROVIDER)
+        handle = engine._execution(first.execution_id).handle
+        handle.process.kill()
+        handle.process.wait(timeout=3)
+        waiting = wait_for_intent(engine, lambda row: row['status'] == 'recovering')
+        assert waiting['execution_id'] == first.execution_id
+        assert waiting['next_at'] > time.time()
+        engine.stop_component(proof.PROVIDER)
+        time.sleep(0.8)  # Past the original retry deadline, without a client call.
+        intent = engine.desired_components()[0]
+        assert intent['status'] == 'stopped'
+        assert intent['execution_id'] == first.execution_id
+        assert not any(row.ready for row in engine.executions())
+    finally:
+        engine.shutdown()
+
+
+def test_recovery_budget_survives_manager_recreation(tmp_path):
+    proof, engine = installed(tmp_path, restart=True)
+    try:
+        first = engine.start(proof.PROVIDER)
+        handle = engine._execution(first.execution_id).handle
+        handle.process.kill()
+        handle.process.wait(timeout=3)
+        recovered = wait_for_intent(engine, lambda row: row['execution_id'] != first.execution_id)
+        assert engine.execution(recovered['execution_id']).ready
+        assert len(recovered['failures']) == 1
+        engine.close()  # Keep approved intent, interrupt its in-memory instance.
+        engine = LifeHubEngine(db_path=tmp_path / 'state.db', plugins_path=tmp_path / 'plugins')
+        restored = wait_for_intent(engine, lambda row: row['execution_id'] != recovered['execution_id'])
+        assert engine.execution(restored['execution_id']).ready
+        assert len(restored['failures']) == 2
+        engine.close()
+        engine = LifeHubEngine(db_path=tmp_path / 'state.db', plugins_path=tmp_path / 'plugins')
+        quarantined = wait_for_intent(engine, lambda row: row['status'] == 'quarantined')
+        assert len(quarantined['failures']) == 3
+        assert quarantined['execution_id'] == restored['execution_id']
+        assert not any(row.ready for row in engine.executions())
+        engine.close()
+        engine = LifeHubEngine(db_path=tmp_path / 'state.db', plugins_path=tmp_path / 'plugins')
+        time.sleep(0.3)
+        assert engine.desired_components()[0]['status'] == 'quarantined'
+        assert not engine._executions
+    finally:
+        engine.shutdown()
