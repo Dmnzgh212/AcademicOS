@@ -101,3 +101,13 @@ and identical reinstall before replacement, and rejection of a stop against an
 old failed execution without cancelling the replacement's desired state. These
 are lifecycle/security checks, not new Core features. Validation of this follow-up
 must be reported separately from the already green CI 367/368 baselines.
+
+Additional budget/cancellation checks: stop after the public desired state reports
+RECOVERING and before its declared retry deadline; after that deadline no new
+execution appears. Real guest death consumes one retry, successive manager
+recreation retains failure-window history and consumes the remaining allowance,
+and further recreation retains quarantine instead of resetting the budget.
+The local budget test closes/recreates managers while preserving intent; it is
+not described as repeated OS Engine kills. The separate installed-wheel proof
+continues to exercise actual Engine process termination. No recovery mechanism
+or authority boundary was expanded for these tests.
