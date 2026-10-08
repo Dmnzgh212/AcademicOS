@@ -63,6 +63,8 @@ CLI / Desktop / Web / Mobile / other replaceable Shells
 
 ## IV. Reuse established technology; invent only where there is a gap
 
+> **2026-10-07 项目最高工程方法补充决议：** 大型成熟模块先查、先用、先接入做适配测试，发现具体问题后局部修改；小型简单模块允许按效率自行编写，不为复用而增加复杂依赖。**研究成熟方案不等于已经完成实际集成；不得研究完后默认从头重写。** 具体执行程序、对 PR #63/#64 的裁决、许可与证据要求见 **[LH-D-REUSE-001 — 工程复用最高指导](ENGINEERING_REUSE_DIRECTIVE.md)**。
+
 **Do not reinvent common infrastructure simply to look novel.**
 
 - Prefer mature, documented libraries and protocols for Wasm execution, serialization, process supervision, persistence, package management, cryptography, signing, typed interfaces and development tooling.
