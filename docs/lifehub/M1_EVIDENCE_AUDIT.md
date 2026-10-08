@@ -1,4 +1,8 @@
+> **Current consolidated candidate:** [M1 integration handoff](M1_INTEGRATION_CANDIDATE_2026-10-08.md) includes CI 391, strengthened OS-exit observations and the standalone proof source kit. Older checkpoints below remain historical. Acceptance and merge are still pending.
+
 # M1 evidence audit — not acceptance
+
+> **2026-10-08 acceptance scope correction (project owner):** the external-human-plugin-developer condition in earlier paragraphs below is superseded by [M1 revised gate PR #56](https://github.com/Dmnzgh212/AcademicOS/pull/56) and [LH-D-LOCAL-002](https://github.com/Dmnzgh212/AcademicOS/blob/docs/lifehub-supreme-direction-reaffirmed/docs/lifehub/LOCALIZATION_AND_USER_ACCEPTANCE_DIRECTIVE.md). M1 measures separately packaged **locally prepared/adapted** modules and technical/safety behavior. AI/Engine team may author them; no external human author required. User tests need only import/run/revoke/copy error when a user-facing delivery exists. The older "NOT VERIFIED" authorship judgment is historical, **not a remaining M1 technical blocker**. M1 is **still NOT ACCEPTED**, because code review, gate-by-gate technical assessment and explicit merge decision are pending.
 
 Status: **M1 NOT ACCEPTED**. This is a working audit against
 `docs/lifehub/M1_ACCEPTANCE.md` on `docs/lifehub-m1-acceptance-gate`, not
@@ -12,7 +16,7 @@ recovery scripts passed on both AF_UNIX and AF_PIPE.
 
 | Gate | Current evidence | Assessment |
 | --- | --- | --- |
-| M1.1 | Separately packaged heartbeat Wasm provider and observer Wasm consumer; shell-free guest counter advances. Both examples were implemented within this development effort. | NOT VERIFIED: independent authorship by someone other than the Engine author is not established. |
+| M1.1 | Separately packaged heartbeat provider/observer and distinct AI-authored energy provider/consumer in PR #65; guest-owned work observed with no Shell connected in CI #384. | **Engineering behavior demonstrated** under revised gate; external human authorship is no longer required. Pending final M1 gate review. |
 | M1.2 | Actual worker kill, autonomous new execution, two-retry crash-loop quarantine; another provider remains callable. Prior process-death script records failure before a client query. | Behavioral checks PASS; only process death is monitored, not live stalls. |
 | M1.3 | Actual Engine termination, new manager automatically restores approved desired state, old history interrupted, new IDs, retained revoke; lease tests reject simultaneous owners. | Recovery checks PASS; old-worker exit by replacement readiness verified on both platforms in CI run 367. |
 | M1.4 | Uninstall without calls, reinstall invalidation, stop cancellation, multi-worker cleanup and lease release after injected errors, observable fail-closed supervisor health. | Covered by separate scripts/tests; consolidate evidence. Missing aggregate worker/memory ceilings are documented. |
@@ -42,9 +46,7 @@ These are observed test conditions, not real-time platform guarantees.
 
 ## Remaining decisions and limits
 
-A genuine independent integrator must package and exercise applications through
-public contracts without app-specific Core edits. Existing examples demonstrate
-mechanics and cannot establish that external developer result by themselves.
+Engineering integrators must be able to adapt, package and exercise local modules through controlled public contracts without app-specific Core edits. Existing examples and the distinct AI-authored PR #65 application exercise this technical property; **unrelated external-human authorship is no longer a M1 gate**. User-friendly import/run/revoke/error reporting is a separate usability delivery goal.
 
 The recovery proof now pins the old process with a Linux pidfd or Windows
 SYNCHRONIZE handle before Engine termination, starts a replacement manager,
@@ -124,15 +126,11 @@ this tested revision, including the stop-at-death fix rather than an older wheel
 This supersedes the pending-validation wording in the regression section above:
 stop/death, uninstall/reinstall, stale stop, backoff cancellation and persisted
 retry-budget regressions passed in CI 370. Prior run references remain historical.
-No newly authored external packages or independent integration report have been
-received or verified. M1.1 remains NOT VERIFIED; full M1 is NOT ACCEPTED.
+Historical as of this earlier baseline: no newly authored external packages had yet been checked. **Superseded by PR #65 / CI #384:** new AI-authored, separately packaged energy provider/consumer verified on Linux and Windows. External human authorship remains unverified but **is no longer mandatory for M1**. Full M1 remains NOT ACCEPTED pending revised technical/safety assessment and merge review.
 
 Isolated research #63/#64 and actual PROV serializer reuse do not satisfy M1.1 or
 replace the installed Engine proof. They add no runtime dependency and should
-not be included as product acceptance evidence. The next missing deliverable is
-an independently authored provider/consumer integration with source/package
-identities, no Core modifications, disconnected guest work, routed calls,
-revocation, failure recovery and Windows/Linux evidence under the published gate.
+not be included as product acceptance evidence. Under the **old** gate, the next deliverable was an external developer integration. Under the **revised** gate, the next action is consolidate PR #61/#65 evidence and check each retained engineering/safety requirement, known limits and package/source identities before a separate technical-Alpha acceptance decision; **do not recruit an outside human plugin programmer solely to clear M1**.
 
 ## Windows proof startup failure discovered in follow-up CI
 
@@ -174,6 +172,15 @@ including proof startup cleanup and actual retained-evidence validation on all
 three jobs. This supersedes CI 370 as the handoff target; older references above
 remain historical. Recovery artifacts: Linux 3.11 11526642079, Linux 3.12
 11526900858, Windows 3.12 11526268561; available/non-expired when checked
-2026-10-07. The guide lists independent submission materials. No external
-integration submission has been verified; M1 remains NOT ACCEPTED. Further
-self-authored fixtures cannot establish independent authorship.
+2026-10-07. The guide lists independent submission materials. AI-authored PR #65 now contributes different-source engineering integration proof. It is **not** external-human evidence and need not be under the revised M1 gate. M1 remains NOT ACCEPTED until final technical/safety review. Additional self-authored fixtures should address genuine gaps rather than endlessly prove authorship.
+
+## Revised M1 technical-gate evidence checkpoint (2026-10-08)
+
+Project owner's scope revision replaces the historical requirement for a separate outside human program author with **locally adapted, separately packaged modules and concrete Engine tests**. It does **not** weaken sandbox, package review, default-deny routing, revocation, process recovery, safety/cleanup or artifact verification.
+
+- [PR #61](https://github.com/Dmnzgh212/AcademicOS/pull/61), latest documented pre-revision runtime CI #383: cross-platform Engine tests and evidence checker run green; its Draft stack still requires integration review.
+- [PR #65](https://github.com/Dmnzgh212/AcademicOS/pull/65), [CI #384](https://github.com/Dmnzgh212/AcademicOS/actions/runs/37730269391): separate AI-authored synthetic-energy provider/consumer in two genuine packages, no app-specific Core modifications; Linux Python 3.11/3.12 each 324 tests passed (2 Windows-only skipped), Windows Python 3.12 49 targeted tests passed. New installed-wheel application integration verified: background work without Shell, mediated provider→consumer response, deny before grant, revoke/deny, actual guest death and autonomous restart, actual Engine death and desired-state restoration, stop/reinstall/revoke safety. Preserve identity labels: AI-generated exercise, not human certification.
+- Remaining technical review: aggregate/OS worker resource limits and live-stall behavior, synchronous control dispatch semantics, package/transport/data boundaries, limits stated accurately; explicit PR review and gate assessment. Existing statements about absent CPU/memory quotas etc must not be silently marked PASS by changing the authorship rule.
+- **Operator UX** is a separate engineering deliverable: [operator guide](LOCAL_MODULE_OPERATOR_GUIDE.md) says ordinary users should import, run, review/revoke rights, stop/uninstall and copy redacted errors, without writing modules or manually conducting security audits. Current M1's developer CLI is not claimed to be a one-click UI.
+
+**Decision after review:** accepted technical Alpha, deferred risk with explicit scope, or not accepted. No author-count or outside-human recruitment criterion is applicable. Documents in separate Draft PRs are not automatically merged or accepted.
