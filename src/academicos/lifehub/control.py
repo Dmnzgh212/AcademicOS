@@ -47,6 +47,14 @@ class EngineController:
             _require_keys(request, {"api", "op"})
             return self.engine.supervisor_health()
 
+        if op == "desired-components":
+            _require_keys(request, {"api", "op"})
+            return self.engine.desired_components()
+
+        if op == "stop-component":
+            _require_keys(request, {"api", "op", "ref"})
+            return self.engine.stop_component(_nonempty(request, "ref"))
+
         if op == "components":
             _require_keys(request, {"api", "op"})
             return [

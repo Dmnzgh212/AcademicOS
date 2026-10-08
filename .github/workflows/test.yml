@@ -39,6 +39,10 @@ jobs:
         shell: pwsh
         run: |
           & "$env:RUNNER_TEMP/lifehub-win-wheel/Scripts/python.exe" -I examples/lifehub-background-apps/run_demo.py
+      - name: Windows automatic recovery proof
+        shell: pwsh
+        run: |
+          & "$env:RUNNER_TEMP/lifehub-win-wheel/Scripts/python.exe" -I examples/lifehub-background-apps/run_recovery.py
   test:
     runs-on: ubuntu-latest
     strategy:
@@ -80,6 +84,9 @@ jobs:
       - name: Persistent background guest proof (real daemon process)
         run: |
           "$RUNNER_TEMP/lifehub-wheel-venv/bin/python" -I examples/lifehub-background-apps/run_demo.py
+      - name: Automatic recovery proof
+        run: |
+          "$RUNNER_TEMP/lifehub-wheel-venv/bin/python" -I examples/lifehub-background-apps/run_recovery.py
       - name: Examples archive smoke
         run: |
           python scripts/build_lifehub_examples.py "$RUNNER_TEMP/lifehub-examples.zip"
