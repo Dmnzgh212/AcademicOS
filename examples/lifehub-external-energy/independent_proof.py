@@ -254,7 +254,7 @@ def prove(root: Path):
         time.sleep(0.75)
         intent = next(x for x in ok("desired-components") if x["ref"] == METER)
         assert intent["status"] == "stopped"
-        assert not any(x["ready"] for x in ok("executions") if x["component"]["ref"] == METER)
+        assert not any(x["ready"] for x in ok("executions") if x["component_ref"] == METER)
         evidence["checks"].append({"name": "Engine OS restart restores only desired guest; "
                                             "revocation and stop persist", "pass": True})
         print("PASS Engine OS restart restored authorized intent, not revoked route")
