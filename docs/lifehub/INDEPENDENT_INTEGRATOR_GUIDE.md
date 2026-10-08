@@ -191,4 +191,4 @@ reproduction, affected contract and proposed ownership: documentation/SDK,
 plugin domain logic, or a candidate generic platform mechanism. A requested Core
 change needs evidence under the existing Core admission rules. Missing aggregate
 process/memory ceilings and live-stall detection remain documented limits;
-PersonIR and compiler work remain frozen.
+PersonIR semantics research remains separate; production language/compiler work stays deferred.
