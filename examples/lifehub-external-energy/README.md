@@ -65,3 +65,16 @@ Passing this AI-authored integration is supporting evidence that an unrelated ap
 can be built under the documented contracts. It is **not** a human independent
 integration, a security certification, or full M1 acceptance. Any actual bug,
 missing API or failure is recorded before proposing an Engine change.
+
+## OS cleanup observations
+
+The proof pins worker identity with a Linux pidfd or Windows SYNCHRONIZE handle
+before guest death, Engine death and uninstall. It requires the old worker exited
+by replacement readiness. After uninstall it polls only the OS handle before
+issuing another Engine request, so that request cannot trigger the observed cleanup.
+Handles close on success and failure. Linux observation requires pidfd support.
+These checks do not establish zero transient overlap or zombie reaping.
+
+CI runs the proof from the extracted developer source archive against an installed
+wheel. The archive includes the background proof and its relative helper, manifests,
+WAT sources and SHA256 source inventory; it contains no authkey or database.
