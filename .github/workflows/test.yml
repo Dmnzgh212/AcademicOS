@@ -42,7 +42,19 @@ jobs:
       - name: Windows automatic recovery proof
         shell: pwsh
         run: |
-          & "$env:RUNNER_TEMP/lifehub-win-wheel/Scripts/python.exe" -I examples/lifehub-background-apps/run_recovery.py
+          & "$env:RUNNER_TEMP/lifehub-win-wheel/Scripts/python.exe" -I examples/lifehub-background-apps/run_recovery.py --output "$env:RUNNER_TEMP/lifehub-recovery-evidence" | Tee-Object -FilePath "$env:RUNNER_TEMP/lifehub-recovery-proof.log"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Preserve Windows recovery evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: recovery-windows-python-3.12
+          path: |
+            ${{ runner.temp }}/lifehub-recovery-evidence/packages/*.lhpkg
+            ${{ runner.temp }}/lifehub-recovery-evidence/evidence.json
+            ${{ runner.temp }}/lifehub-recovery-evidence/engine.log
+            ${{ runner.temp }}/lifehub-recovery-proof.log
+            dist/*.whl
   test:
     runs-on: ubuntu-latest
     strategy:
@@ -86,7 +98,18 @@ jobs:
           "$RUNNER_TEMP/lifehub-wheel-venv/bin/python" -I examples/lifehub-background-apps/run_demo.py
       - name: Automatic recovery proof
         run: |
-          "$RUNNER_TEMP/lifehub-wheel-venv/bin/python" -I examples/lifehub-background-apps/run_recovery.py
+          "$RUNNER_TEMP/lifehub-wheel-venv/bin/python" -I examples/lifehub-background-apps/run_recovery.py --output "$RUNNER_TEMP/lifehub-recovery-evidence" | tee "$RUNNER_TEMP/lifehub-recovery-proof.log"
+      - name: Preserve Linux recovery evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: recovery-linux-python-${{ matrix.python-version }}
+          path: |
+            ${{ runner.temp }}/lifehub-recovery-evidence/packages/*.lhpkg
+            ${{ runner.temp }}/lifehub-recovery-evidence/evidence.json
+            ${{ runner.temp }}/lifehub-recovery-evidence/engine.log
+            ${{ runner.temp }}/lifehub-recovery-proof.log
+            dist/*.whl
       - name: Examples archive smoke
         run: |
           python scripts/build_lifehub_examples.py "$RUNNER_TEMP/lifehub-examples.zip"
