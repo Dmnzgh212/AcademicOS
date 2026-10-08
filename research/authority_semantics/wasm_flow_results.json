@@ -1,0 +1,134 @@
+{
+  "scope": "real core-Wasm, custom research host, synthetic one-bit input and in-memory sink",
+  "production_ABI": false,
+  "PersonIR_executed": false,
+  "external_effects": false,
+  "unique_IR_advantage_demonstrated": false,
+  "negative_control_leaks_one_bit": [
+    {
+      "module": "implicit_branch",
+      "synthetic_secret": 0,
+      "mode": "literal_only_negative_control",
+      "delegated_initially": false,
+      "revoke_before_release": false,
+      "released": [
+        0
+      ],
+      "trace": [
+        "private input accessed",
+        "release allowed"
+      ]
+    },
+    {
+      "module": "implicit_branch",
+      "synthetic_secret": 1,
+      "mode": "literal_only_negative_control",
+      "delegated_initially": false,
+      "revoke_before_release": false,
+      "released": [
+        1
+      ],
+      "trace": [
+        "private input accessed",
+        "release allowed"
+      ]
+    }
+  ],
+  "ordinary_conservative_host_blocks_release": [
+    {
+      "module": "implicit_branch",
+      "synthetic_secret": 0,
+      "mode": "conservative_execution_label",
+      "delegated_initially": false,
+      "revoke_before_release": false,
+      "released": [],
+      "trace": [
+        "private input accessed",
+        "release denied"
+      ]
+    },
+    {
+      "module": "implicit_branch",
+      "synthetic_secret": 1,
+      "mode": "conservative_execution_label",
+      "delegated_initially": false,
+      "revoke_before_release": false,
+      "released": [],
+      "trace": [
+        "private input accessed",
+        "release denied"
+      ]
+    }
+  ],
+  "conservative_label_also_blocks_secret_independent_constant": [
+    {
+      "module": "constant_after_private_read",
+      "synthetic_secret": 0,
+      "mode": "conservative_execution_label",
+      "delegated_initially": false,
+      "revoke_before_release": false,
+      "released": [],
+      "trace": [
+        "private input accessed",
+        "release denied"
+      ]
+    },
+    {
+      "module": "constant_after_private_read",
+      "synthetic_secret": 1,
+      "mode": "conservative_execution_label",
+      "delegated_initially": false,
+      "revoke_before_release": false,
+      "released": [],
+      "trace": [
+        "private input accessed",
+        "release denied"
+      ]
+    }
+  ],
+  "public_without_private_read": {
+    "module": "public_constant",
+    "synthetic_secret": 0,
+    "mode": "conservative_execution_label",
+    "delegated_initially": false,
+    "revoke_before_release": false,
+    "released": [
+      7
+    ],
+    "trace": [
+      "release allowed"
+    ]
+  },
+  "authorized_disclosure": {
+    "module": "implicit_branch",
+    "synthetic_secret": 1,
+    "mode": "conservative_execution_label",
+    "delegated_initially": true,
+    "revoke_before_release": false,
+    "released": [
+      1
+    ],
+    "trace": [
+      "private input accessed",
+      "release allowed"
+    ]
+  },
+  "revoked_before_release": {
+    "module": "implicit_branch",
+    "synthetic_secret": 1,
+    "mode": "conservative_execution_label",
+    "delegated_initially": true,
+    "revoke_before_release": true,
+    "released": [],
+    "trace": [
+      "private input accessed",
+      "delegation revoked before release check",
+      "release denied"
+    ]
+  },
+  "WAT_sources": {
+    "implicit_branch": "(module\n      (import \"research\" \"read_private_bit\" (func $read (result i32)))\n      (import \"research\" \"release\" (func $release (param i32) (result i32)))\n      (func (export \"run\") (result i32)\n        (if (call $read)\n          (then (drop (call $release (i32.const 1))))\n          (else (drop (call $release (i32.const 0)))))\n        i32.const 0))",
+    "constant_after_private_read": "(module\n      (import \"research\" \"read_private_bit\" (func $read (result i32)))\n      (import \"research\" \"release\" (func $release (param i32) (result i32)))\n      (func (export \"run\") (result i32)\n        (drop (call $read))\n        (drop (call $release (i32.const 7)))\n        i32.const 0))",
+    "public_constant": "(module\n      (import \"research\" \"release\" (func $release (param i32) (result i32)))\n      (func (export \"run\") (result i32)\n        (drop (call $release (i32.const 7)))\n        i32.const 0))"
+  }
+}
