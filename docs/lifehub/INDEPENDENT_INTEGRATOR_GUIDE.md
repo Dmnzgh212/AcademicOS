@@ -1,12 +1,12 @@
-# Independent background application integration
+# Engineering integration reference: locally adapted background modules
+
+> **2026-10-08 current direction:** This is a technical manual for engineers/AI assistants preparing and testing local Wasm modules; it is **not** a to-do list for ordinary users. Prefer lawful copying/selection and local modification of useful open-source application code under LifeHub-controlled contracts; complex underlying runtimes should use maintained dependencies. See [LH-D-LOCAL-002](https://github.com/Dmnzgh212/AcademicOS/blob/docs/lifehub-supreme-direction-reaffirmed/docs/lifehub/LOCALIZATION_AND_USER_ACCEPTANCE_DIRECTIVE.md) and [nondeveloper operator guide](LOCAL_MODULE_OPERATOR_GUIDE.md). A non-Engine-author **external human programmer** is **not mandatory** for M1 technical Alpha; independent authorship may be studied later as ecosystem UX. Runtime trust, auth, crash/cleanup and true Windows/Linux behavior remain mandatory.
 
 This guide targets the verified stacked prototype at PR #61, source commit
 `421542bba98036dfa8f35c78f8d72ddb92a28c43`.
 It includes the stop-at-guest-death fix, proof startup cleanup and retained-evidence checking.
 These features are not represented as merged main or an accepted M1 release.
-M1 still requires an actual developer outside Engine implementation to perform
-and report an integration. Running the author's examples is a baseline check,
-not evidence of independent authorship.
+M1 requires **separately packaged local modules with real Engine behavior and security evidence**, not a separate outside human programmer. Running the author's examples is an engineering baseline; also record distinct locally adapted examples and their real behavior, including AI-authored scenarios (e.g. PR #65), without claiming outside-human validation.
 
 ## Start from an installed artifact
 
@@ -32,9 +32,7 @@ required source language or a WIT Component Model interface.
 
 ## Package and guest contracts
 
-Create two separately reviewable packages: a persistent provider and a consumer
-that calls it. Give them your own package IDs and document the domain payload
-schema and observable background work. Keep domain rules in these packages.
+Engineering/AI integrators create two separately reviewable packages: a persistent provider and a consumer that calls it. The same developer may create both. Give them their own package IDs, preserve lawful source attribution when adapted, and document the domain payload schema and observable background work. Keep domain rules in these packages.
 A package is a ZIP archive named `.lhpkg`; the minimal layout is:
 
 - `plugin.toml`
@@ -183,9 +181,9 @@ history, retained revocation and old-guest termination observations. Do not call
 your own packages. Adapt operator orchestration, not Engine Core, and retain
 that script plus your sources and exact compiled archives.
 
-## Independent report and friction record
+## Engineering integration report and friction record
 
-Provide developer identity/role and authorship provenance, exact source revision,
+Provide the implementer's actual role (AI-assisted/engineer/external human; no false authorship claims) and source provenance, exact source revision,
 wheel/package SHA256 and reviewed content digests, OS/Python, commands,
 work interval and observations, execution IDs, policy, logs, failures and Core diff.
 The evidence must state whether the developer participated in Engine authoring.
@@ -200,7 +198,7 @@ PersonIR semantics research remains isolated under the newer PR #62 direction;
 production language/compiler work remains deferred and is not an M1 dependency.
 
 
-## Independent integration submission
+## Engineering integration submission (optional future external-human SDK test)
 
 Use the pinned source/wheel revision above; reference proofs and checker must
 come from the same revision. The verified artifacts are Linux 3.11 (11526642079),
@@ -208,10 +206,9 @@ Linux 3.12 (11526900858), Windows 3.12 (11526268561), available when checked on
 2026-10-07. Artifact retention can expire; the linked successful run and exact
 source revision identify the baseline without relying on a moving branch.
 
-Submit your own provider/consumer sources and standalone packages with:
+The engineering/AI team submits locally prepared provider/consumer sources and standalone packages with:
 
-- Developer identity and an honest authorship statement; distinguish copied or
-  adapted reference examples from independently developed application logic.
+- Honest author/adapter role and a source/license attribution statement; distinguish copied or locally adapted upstream/reference code from independently developed application logic. No unrelated outside-human author is needed for M1.
 - Domain behavior, declared interfaces, requested/granted capabilities and
   toolchain/build commands; identify all departures from the public guide.
 - Engine source/checkout identity, installed wheel digest, package SHA256,
@@ -223,6 +220,4 @@ Submit your own provider/consumer sources and standalone packages with:
   PASS/FAIL/NOT VERIFIED table. Record problems before changing Core.
 
 Do not submit authkeys, personal databases or real private payloads. File-integrity
-validation cannot verify authorship or the truth of logs. Existing author-built
-reference examples and isolated PROV/Wasm studies remain supporting baselines,
-not independent integration evidence. Acceptance remains a separate decision.
+validation cannot verify authorship or the truth of logs. Existing author-built reference examples and isolated PROV/Wasm studies remain supporting baselines. The distinct AI-authored integration in [PR #65](https://github.com/Dmnzgh212/AcademicOS/pull/65) passed [CI #384](https://github.com/Dmnzgh212/AcademicOS/actions/runs/37730269391) as **engineering behavior evidence**; it is not a human-independent authorship attestation. Technical M1 acceptance remains a separate code/security review and explicit decision.
