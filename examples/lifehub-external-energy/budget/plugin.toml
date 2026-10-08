@@ -1,0 +1,13 @@
+manifest_version = 1
+api = "lifehub@1"
+id = "external.energy-budget"
+name = "External Energy Budget"
+version = "1.0.0"
+
+[[components]]
+id = "remaining"
+runner = "lifehub.wasm"
+requires = ["lab.energy.spent@1"]
+
+[components.config]
+module = "worker.wasm"
