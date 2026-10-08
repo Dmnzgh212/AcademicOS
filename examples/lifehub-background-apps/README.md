@@ -108,3 +108,5 @@ claimed. Replacement startup holds the lifecycle lock and can delay other work.
 There is currently no aggregate worker-count or process-memory ceiling, and
 filesystem/compilation work is not fully wall-time bounded. These are explicit
 M1 resource-bound limitations, not evidence of complete M1 acceptance.
+
+Independent developers: see [the integration guide](../../docs/lifehub/INDEPENDENT_INTEGRATOR_GUIDE.md) for manifests, guest ABI, operator commands and evidence requirements. Reference example success does not establish independent authorship.
