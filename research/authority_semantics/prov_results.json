@@ -4,38 +4,40 @@
     {
       "document": {
         "agent": {
-          "lh:person_alice": [
+          "person:alice": [
             {},
             {}
           ]
         },
         "entity": {
-          "lh:n0": {
+          "record:n0": {
             "lh:kind": "evidence",
             "lh:status": "recorded"
           },
-          "lh:n1": {
+          "record:n1": {
             "lh:kind": "proposal",
             "lh:status": "rejected"
           }
         },
         "prefix": {
-          "lh": "urn:lifehub:research:"
+          "lh": "urn:lifehub:research:",
+          "person": "urn:lifehub:research:person:",
+          "record": "urn:lifehub:research:record:"
         },
         "wasAttributedTo": {
           "_:id1": {
-            "prov:agent": "lh:person_alice",
-            "prov:entity": "lh:n0"
+            "prov:agent": "person:alice",
+            "prov:entity": "record:n0"
           },
           "_:id2": {
-            "prov:agent": "lh:person_alice",
-            "prov:entity": "lh:n1"
+            "prov:agent": "person:alice",
+            "prov:entity": "record:n1"
           }
         },
         "wasDerivedFrom": {
           "_:id3": {
-            "prov:generatedEntity": "lh:n1",
-            "prov:usedEntity": "lh:n0"
+            "prov:generatedEntity": "record:n1",
+            "prov:usedEntity": "record:n0"
           }
         }
       },
@@ -46,38 +48,40 @@
     {
       "document": {
         "agent": {
-          "lh:person_alice": [
+          "person:alice": [
             {},
             {}
           ]
         },
         "entity": {
-          "lh:n0": {
+          "record:n0": {
             "lh:kind": "evidence",
             "lh:status": "recorded"
           },
-          "lh:n1": {
+          "record:n1": {
             "lh:kind": "derived",
             "lh:status": "recorded"
           }
         },
         "prefix": {
-          "lh": "urn:lifehub:research:"
+          "lh": "urn:lifehub:research:",
+          "person": "urn:lifehub:research:person:",
+          "record": "urn:lifehub:research:record:"
         },
         "wasAttributedTo": {
           "_:id1": {
-            "prov:agent": "lh:person_alice",
-            "prov:entity": "lh:n0"
+            "prov:agent": "person:alice",
+            "prov:entity": "record:n0"
           },
           "_:id2": {
-            "prov:agent": "lh:person_alice",
-            "prov:entity": "lh:n1"
+            "prov:agent": "person:alice",
+            "prov:entity": "record:n1"
           }
         },
         "wasDerivedFrom": {
           "_:id3": {
-            "prov:generatedEntity": "lh:n1",
-            "prov:usedEntity": "lh:n0"
+            "prov:generatedEntity": "record:n1",
+            "prov:usedEntity": "record:n0"
           }
         }
       },
@@ -88,58 +92,60 @@
     {
       "document": {
         "agent": {
-          "lh:person_alice": [
+          "person:alice": [
             {},
             {}
           ],
-          "lh:person_bob": [
+          "person:bob": [
             {},
             {}
           ]
         },
         "entity": {
-          "lh:n0": {
+          "record:n0": {
             "lh:kind": "evidence",
             "lh:status": "recorded"
           },
-          "lh:n1": {
+          "record:n1": {
             "lh:kind": "evidence",
             "lh:status": "recorded"
           },
-          "lh:n2": {
+          "record:n2": {
             "lh:kind": "derived",
             "lh:status": "recorded"
           }
         },
         "prefix": {
-          "lh": "urn:lifehub:research:"
+          "lh": "urn:lifehub:research:",
+          "person": "urn:lifehub:research:person:",
+          "record": "urn:lifehub:research:record:"
         },
         "wasAttributedTo": {
           "_:id1": {
-            "prov:agent": "lh:person_alice",
-            "prov:entity": "lh:n0"
+            "prov:agent": "person:alice",
+            "prov:entity": "record:n0"
           },
           "_:id2": {
-            "prov:agent": "lh:person_bob",
-            "prov:entity": "lh:n1"
+            "prov:agent": "person:bob",
+            "prov:entity": "record:n1"
           },
           "_:id3": {
-            "prov:agent": "lh:person_alice",
-            "prov:entity": "lh:n2"
+            "prov:agent": "person:alice",
+            "prov:entity": "record:n2"
           },
           "_:id4": {
-            "prov:agent": "lh:person_bob",
-            "prov:entity": "lh:n2"
+            "prov:agent": "person:bob",
+            "prov:entity": "record:n2"
           }
         },
         "wasDerivedFrom": {
           "_:id5": {
-            "prov:generatedEntity": "lh:n2",
-            "prov:usedEntity": "lh:n0"
+            "prov:generatedEntity": "record:n2",
+            "prov:usedEntity": "record:n0"
           },
           "_:id6": {
-            "prov:generatedEntity": "lh:n2",
-            "prov:usedEntity": "lh:n1"
+            "prov:generatedEntity": "record:n2",
+            "prov:usedEntity": "record:n1"
           }
         }
       },
@@ -150,21 +156,23 @@
     {
       "document": {
         "agent": {
-          "lh:person_alice": {}
+          "person:alice": {}
         },
         "entity": {
-          "lh:n0": {
+          "record:n0": {
             "lh:kind": "evidence",
             "lh:status": "recorded"
           }
         },
         "prefix": {
-          "lh": "urn:lifehub:research:"
+          "lh": "urn:lifehub:research:",
+          "person": "urn:lifehub:research:person:",
+          "record": "urn:lifehub:research:record:"
         },
         "wasAttributedTo": {
           "_:id1": {
-            "prov:agent": "lh:person_alice",
-            "prov:entity": "lh:n0"
+            "prov:agent": "person:alice",
+            "prov:entity": "record:n0"
           }
         }
       },
@@ -175,21 +183,23 @@
     {
       "document": {
         "agent": {
-          "lh:person_alice": {}
+          "person:alice": {}
         },
         "entity": {
-          "lh:n0": {
+          "record:n0": {
             "lh:kind": "evidence",
             "lh:status": "recorded"
           }
         },
         "prefix": {
-          "lh": "urn:lifehub:research:"
+          "lh": "urn:lifehub:research:",
+          "person": "urn:lifehub:research:person:",
+          "record": "urn:lifehub:research:record:"
         },
         "wasAttributedTo": {
           "_:id1": {
-            "prov:agent": "lh:person_alice",
-            "prov:entity": "lh:n0"
+            "prov:agent": "person:alice",
+            "prov:entity": "record:n0"
           }
         }
       },
@@ -200,21 +210,23 @@
     {
       "document": {
         "agent": {
-          "lh:person_alice": {}
+          "person:alice": {}
         },
         "entity": {
-          "lh:n0": {
+          "record:n0": {
             "lh:kind": "evidence",
             "lh:status": "recorded"
           }
         },
         "prefix": {
-          "lh": "urn:lifehub:research:"
+          "lh": "urn:lifehub:research:",
+          "person": "urn:lifehub:research:person:",
+          "record": "urn:lifehub:research:record:"
         },
         "wasAttributedTo": {
           "_:id1": {
-            "prov:agent": "lh:person_alice",
-            "prov:entity": "lh:n0"
+            "prov:agent": "person:alice",
+            "prov:entity": "record:n0"
           }
         }
       },
@@ -225,6 +237,7 @@
   ],
   "guest_attribution_assertion_is_serializable": true,
   "import_to_authority_supported": false,
+  "record_agent_namespace_and_escaped_id_collision_test": true,
   "scope": "trusted synthetic records to PROV-JSON; not Engine integration",
   "unsupported_kind_and_dangling_source_rejected": true,
   "upstream": "prov",

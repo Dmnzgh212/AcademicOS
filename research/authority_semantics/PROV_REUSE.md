@@ -56,3 +56,14 @@ The upstream library is now actually reused for this bounded task. The inputs
 remain synthetic and the same shared-host fixtures; this adds no independent
 integration or PersonIR superiority evidence. No Core/dependency/production ABI
 change, no compiler. M1 remains separate and unaccepted.
+
+## Adapter correction: resource identity
+
+Review found that the initial `lh:{record}` / `lh:person_{owner}` mapping could
+collapse a record named `person_alice` and the `alice` agent onto one resource.
+This was an adapter bug, not an upstream PROV bug or production Core defect.
+Separate record/person namespaces now preserve the distinction. Percent-encode
+local identifiers so `a/b` and literal `a%2Fb` remain distinct, with matching
+input-edge references. A concrete collision fixture roundtrips three distinct
+entities and three distinct agents, with no overlap. Existing six traces still
+roundtrip. No upstream fork or new provenance implementation was required.

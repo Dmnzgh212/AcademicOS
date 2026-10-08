@@ -3,6 +3,7 @@ import json
 import sys
 from importlib.metadata import version
 from pathlib import Path
+from urllib.parse import quote
 
 from prov.model import ProvDocument
 
@@ -14,20 +15,22 @@ def export_records(records):
     """Accept trusted synthetic host records, not guest-provided provenance."""
     doc = ProvDocument()
     doc.add_namespace("lh", "urn:lifehub:research:")
+    doc.add_namespace("record", "urn:lifehub:research:record:")
+    doc.add_namespace("person", "urn:lifehub:research:person:")
     for key, record in records.items():
         if record["kind"] not in KINDS:
             raise ValueError("unsupported record kind")
-        doc.entity(f"lh:{key}", {"lh:kind": record["kind"],
+        doc.entity(f"record:{quote(key, safe='')}", {"lh:kind": record["kind"],
                                "lh:status": record.get("status", "recorded")})
         for owner in record["owners"]:
-            doc.agent(f"lh:person_{owner}")
+            doc.agent(f"person:{quote(owner, safe='')}")
             # Attribution expresses an assertion, not ownership/permission proof.
-            doc.wasAttributedTo(f"lh:{key}", f"lh:person_{owner}")
+            doc.wasAttributedTo(f"record:{quote(key, safe='')}", f"person:{quote(owner, safe='')}")
     for key, record in records.items():
         for source in record["inputs"]:
             if source not in records:
                 raise ValueError("dangling source")
-            doc.wasDerivedFrom(f"lh:{key}", f"lh:{source}")
+            doc.wasDerivedFrom(f"record:{quote(key, safe='')}", f"record:{quote(source, safe='')}")
     return doc
 
 
@@ -55,6 +58,19 @@ def run(output):
             pass
         else:
             raise AssertionError("malformed host record accepted")
+    # Record IDs and agent IDs must not merge into the same PROV resource.
+    collision = export_records({
+        "person_alice": {"kind": "evidence", "owners": ["alice"], "inputs": []},
+        "a/b": {"kind": "derived", "owners": ["a/b"], "inputs": ["person_alice"]},
+        "a%2Fb": {"kind": "proposal", "owners": ["a%2Fb"], "inputs": ["a/b"]},
+    })
+    collision_wire = collision.serialize(format="json")
+    encoded = json.loads(collision_wire)
+    assert len(encoded["entity"]) == 3 and len(encoded["agent"]) == 3
+    assert set(encoded["entity"]).isdisjoint(encoded["agent"])
+    assert "record:a%2Fb" in encoded["entity"]
+    assert "record:a%252Fb" in encoded["entity"]
+    assert ProvDocument.deserialize(content=collision_wire, format="json") == collision
     # The upstream library accepts an untrusted attribution assertion. This
     # adapter intentionally offers no import-to-grant/host-state operation.
     forged = ProvDocument()
@@ -69,6 +85,7 @@ def run(output):
               "authorization_enforced_by_PROV": False,
               "guest_attribution_assertion_is_serializable": True,
               "import_to_authority_supported": False,
+              "record_agent_namespace_and_escaped_id_collision_test": True,
               "unsupported_kind_and_dangling_source_rejected": True,
               "cases": cases}
     Path(output).write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
