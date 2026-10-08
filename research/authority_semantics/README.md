@@ -1,7 +1,8 @@
 # Authority semantics — stage-zero executable model
 
 Research only. No LifeHub Core imports, runtime dependency, upstream source copy,
-compiler, real Wasm execution, personal data or external effects.
+compiler, personal data or external effects. The stage-zero model below does
+not execute Wasm; the separate stage-one probe does, with a custom research ABI.
 
 ```sh
 python research/authority_semantics/compare.py results.json
@@ -60,3 +61,40 @@ Keep comparison failures and conventional solutions. Do not weaken the ordinary
 baseline to create an apparent IR advantage. Do not promote this miniature host
 into the production Engine or replace mature authorization libraries with it.
 M1 independent integration and acceptance remain separate.
+
+## Stage one: real core-Wasm implicit-flow probe
+
+```sh
+python -m pip install 'wasmtime>=36,<37'
+python research/authority_semantics/wasm_flow.py wasm-results.json
+```
+
+`wasm_flow.py` uses the existing Wasmtime major-version baseline, without imports
+from LifeHub Core. A custom research host supplies a synthetic bit and observes
+released i32 values in memory. No network, filesystem/WASI or real effect API is
+linked into guests. Module fuel and store limits are applied; no OS containment
+or timing-side-channel guarantee is claimed.
+
+| Experiment | Observed output | Interpretation |
+| --- | --- | --- |
+| Secret-dependent branch emitting literal 0/1, literal-only negative control | [0] versus [1] | This deliberately incomplete host leaks the synthetic bit through control dependence. It is not a fair conventional baseline or an identified production bug. |
+| Same guest, conservative execution-wide private label, no delegation | [] for both bits | An ordinary host can block this observed release without a new language. |
+| Read/drop private bit, emit constant 7, conservative label | [] for both bits | Conservative tracking rejects this value even though it is independent of the bit in this specific module. Precision costs need evaluation. |
+| Emit constant 7 without private access | [7] | Public-only execution remains usable. |
+| Branch with explicitly delegated disclosure | [1] | Authorized disclosure is distinct from a leak. |
+| Trusted test revokes before output check | [] | Already processed revocation prevents release; this is not concurrent revocation testing. |
+
+The WAT sources and nine exact runs are retained in `wasm_flow_results.json`.
+The negative control is deliberately broken to validate that the probe can see a
+leak; **no superiority claim may use that negative control as B1**. The meaningful
+ordinary baseline here is the conservative host. No PersonIR is executed. This
+is not a production ABI or LifeHub installed-package execution proof, and does
+not replace M1 evidence.
+
+This probe observes one in-memory output channel only. It does not cover timing,
+termination, traps, repeated invocation interactions, shared memory, arbitrary
+foreign imports or full implicit-flow enforcement. An IR would need its own
+validated semantics and escape-path checks before a stronger claim was justified.
+The possible next question is precision: can existing IFC/instrumentation or a
+restricted auditable graph permit this constant result without unsafe release,
+and at what measured authoring/runtime cost? No compiler decision follows yet.
