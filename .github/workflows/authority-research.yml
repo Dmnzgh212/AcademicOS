@@ -1,0 +1,30 @@
+name: isolated-authority-research
+
+on:
+  pull_request:
+    paths:
+      - 'research/authority_semantics/**'
+      - '.github/workflows/authority-research.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic-traces:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Execute isolated model and compare retained traces
+        run: |
+          python research/authority_semantics/compare.py "$RUNNER_TEMP/authority-results.json"
+          python -c "import json, pathlib; a=json.loads(pathlib.Path('research/authority_semantics/results.json').read_text()); b=json.loads(pathlib.Path('$RUNNER_TEMP/authority-results.json').read_text()); assert a == b"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: synthetic-authority-traces-python-${{ matrix.python-version }}
+          path: ${{ runner.temp }}/authority-results.json

@@ -1,0 +1,1045 @@
+{
+  "scope": "synthetic closed-operation trace model; not production enforcement",
+  "B0_executed": false,
+  "Wasm_executed": false,
+  "PersonIR_compiler": false,
+  "equivalence_by_shared_host": true,
+  "unique_IR_advantage_demonstrated": false,
+  "cases": [
+    {
+      "name": "observation_survives_proposal_rejection",
+      "status": "PASS",
+      "fixture": [
+        {
+          "id": "n0",
+          "op": "observe",
+          "role": "operator",
+          "owners": [
+            "alice"
+          ],
+          "after": []
+        },
+        {
+          "id": "n1",
+          "op": "propose",
+          "input": "n0",
+          "after": [
+            "n0"
+          ]
+        },
+        {
+          "id": "n2",
+          "op": "reject",
+          "input": "n1",
+          "after": [
+            "n1"
+          ]
+        },
+        {
+          "id": "n3",
+          "op": "reject",
+          "input": "n0",
+          "after": [
+            "n2"
+          ]
+        }
+      ],
+      "B1": {
+        "trace": [
+          [
+            "n0",
+            "observe",
+            "allow",
+            null
+          ],
+          [
+            "n1",
+            "propose",
+            "allow",
+            null
+          ],
+          [
+            "n2",
+            "reject",
+            "allow",
+            null
+          ],
+          [
+            "n3",
+            "reject",
+            "deny",
+            "only proposals can be rejected"
+          ]
+        ],
+        "records": {
+          "n0": {
+            "kind": "evidence",
+            "owners": [
+              "alice"
+            ],
+            "inputs": []
+          },
+          "n1": {
+            "kind": "proposal",
+            "owners": [
+              "alice"
+            ],
+            "inputs": [
+              "n0"
+            ],
+            "status": "rejected"
+          }
+        },
+        "effects": {},
+        "snapshot": 1
+      },
+      "R_graph": {
+        "trace": [
+          [
+            "n0",
+            "observe",
+            "allow",
+            null
+          ],
+          [
+            "n1",
+            "propose",
+            "allow",
+            null
+          ],
+          [
+            "n2",
+            "reject",
+            "allow",
+            null
+          ],
+          [
+            "n3",
+            "reject",
+            "deny",
+            "only proposals can be rejected"
+          ]
+        ],
+        "records": {
+          "n0": {
+            "kind": "evidence",
+            "owners": [
+              "alice"
+            ],
+            "inputs": []
+          },
+          "n1": {
+            "kind": "proposal",
+            "owners": [
+              "alice"
+            ],
+            "inputs": [
+              "n0"
+            ],
+            "status": "rejected"
+          }
+        },
+        "effects": {},
+        "snapshot": 1
+      }
+    },
+    {
+      "name": "derived_mail_cannot_launder_label",
+      "status": "PASS",
+      "fixture": [
+        {
+          "id": "n0",
+          "op": "observe",
+          "role": "operator",
+          "owners": [
+            "alice"
+          ],
+          "after": []
+        },
+        {
+          "id": "n1",
+          "op": "derive",
+          "inputs": [
+            "n0"
+          ],
+          "claimed_owners": [],
+          "claimed_kind": "evidence",
+          "after": [
+            "n0"
+          ]
+        },
+        {
+          "id": "n2",
+          "op": "disclose",
+          "input": "n1",
+          "destination": "ai",
+          "after": [
+            "n1"
+          ]
+        }
+      ],
+      "B1": {
+        "trace": [
+          [
+            "n0",
+            "observe",
+            "allow",
+            null
+          ],
+          [
+            "n1",
+            "derive",
+            "allow",
+            null
+          ],
+          [
+            "n2",
+            "disclose",
+            "deny",
+            "disclosure authority missing or stale"
+          ]
+        ],
+        "records": {
+          "n0": {
+            "kind": "evidence",
+            "owners": [
+              "alice"
+            ],
+            "inputs": []
+          },
+          "n1": {
+            "kind": "derived",
+            "owners": [
+              "alice"
+            ],
+            "inputs": [
+              "n0"
+            ]
+          }
+        },
+        "effects": {},
+        "snapshot": 1
+      },
+      "R_graph": {
+        "trace": [
+          [
+            "n0",
+            "observe",
+            "allow",
+            null
+          ],
+          [
+            "n1",
+            "derive",
+            "allow",
+            null
+          ],
+          [
+            "n2",
+            "disclose",
+            "deny",
+            "disclosure authority missing or stale"
+          ]
+        ],
+        "records": {
+          "n0": {
+            "kind": "evidence",
+            "owners": [
+              "alice"
+            ],
+            "inputs": []
+          },
+          "n1": {
+            "kind": "derived",
+            "owners": [
+              "alice"
+            ],
+            "inputs": [
+              "n0"
+            ]
+          }
+        },
+        "effects": {},
+        "snapshot": 1
+      }
+    },
+    {
+      "name": "shared_note_requires_both_owners",
+      "status": "PASS",
+      "fixture": [
+        {
+          "id": "n0",
+          "op": "observe",
+          "role": "operator",
+          "owners": [
+            "alice"
+          ],
+          "after": []
+        },
+        {
+          "id": "n1",
+          "op": "observe",
+          "role": "operator",
+          "owners": [
+            "bob"
+          ],
+          "after": [
+            "n0"
+          ]
+        },
+        {
+          "id": "n2",
+          "op": "derive",
+          "inputs": [
+            "n0",
+            "n1"
+          ],
+          "after": [
+            "n1"
+          ]
+        },
+        {
+          "id": "n3",
+          "op": "grant",
+          "role": "operator",
+          "action": "disclose",
+          "resource": "export",
+          "owner": "alice",
+          "after": [
+            "n2"
+          ]
+        },
+        {
+          "id": "n4",
+          "op": "disclose",
+          "input": "n2",
+          "destination": "export",
+          "after": [
+            "n3"
+          ]
+        },
+        {
+          "id": "n5",
+          "op": "grant",
+          "role": "operator",
+          "action": "disclose",
+          "resource": "export",
+          "owner": "bob",
+          "after": [
+            "n4"
+          ]
+        },
+        {
+          "id": "n6",
+          "op": "disclose",
+          "input": "n2",
+          "destination": "export",
+          "after": [
+            "n5"
+          ]
+        }
+      ],
+      "B1": {
+        "trace": [
+          [
+            "n0",
+            "observe",
+            "allow",
+            null
+          ],
+          [
+            "n1",
+            "observe",
+            "allow",
+            null
+          ],
+          [
+            "n2",
+            "derive",
+            "allow",
+            null
+          ],
+          [
+            "n3",
+            "grant",
+            "allow",
+            null
+          ],
+          [
+            "n4",
+            "disclose",
+            "deny",
+            "disclosure authority missing or stale"
+          ],
+          [
+            "n5",
+            "grant",
+            "allow",
+            null
+          ],
+          [
+            "n6",
+            "disclose",
+            "allow",
+            "synthetic disclosure only"
+          ]
+        ],
+        "records": {
+          "n0": {
+            "kind": "evidence",
+            "owners": [
+              "alice"
+            ],
+            "inputs": []
+          },
+          "n1": {
+            "kind": "evidence",
+            "owners": [
+              "bob"
+            ],
+            "inputs": []
+          },
+          "n2": {
+            "kind": "derived",
+            "owners": [
+              "alice",
+              "bob"
+            ],
+            "inputs": [
+              "n0",
+              "n1"
+            ]
+          }
+        },
+        "effects": {},
+        "snapshot": 1
+      },
+      "R_graph": {
+        "trace": [
+          [
+            "n0",
+            "observe",
+            "allow",
+            null
+          ],
+          [
+            "n1",
+            "observe",
+            "allow",
+            null
+          ],
+          [
+            "n2",
+            "derive",
+            "allow",
+            null
+          ],
+          [
+            "n3",
+            "grant",
+            "allow",
+            null
+          ],
+          [
+            "n4",
+            "disclose",
+            "deny",
+            "disclosure authority missing or stale"
+          ],
+          [
+            "n5",
+            "grant",
+            "allow",
+            null
+          ],
+          [
+            "n6",
+            "disclose",
+            "allow",
+            "synthetic disclosure only"
+          ]
+        ],
+        "records": {
+          "n0": {
+            "kind": "evidence",
+            "owners": [
+              "alice"
+            ],
+            "inputs": []
+          },
+          "n1": {
+            "kind": "evidence",
+            "owners": [
+              "bob"
+            ],
+            "inputs": []
+          },
+          "n2": {
+            "kind": "derived",
+            "owners": [
+              "alice",
+              "bob"
+            ],
+            "inputs": [
+              "n0",
+              "n1"
+            ]
+          }
+        },
+        "effects": {},
+        "snapshot": 1
+      }
+    },
+    {
+      "name": "read_is_not_payment_authority",
+      "status": "PASS",
+      "fixture": [
+        {
+          "id": "n0",
+          "op": "observe",
+          "role": "operator",
+          "owners": [
+            "alice"
+          ],
+          "after": []
+        },
+        {
+          "id": "n1",
+          "op": "grant",
+          "role": "operator",
+          "action": "read",
+          "resource": "payment",
+          "owner": "alice",
+          "after": [
+            "n0"
+          ]
+        },
+        {
+          "id": "n2",
+          "op": "request",
+          "input": "n0",
+          "kind": "payment",
+          "after": [
+            "n1"
+          ]
+        },
+        {
+          "id": "n3",
+          "op": "execute",
+          "input": "n2",
+          "outcome": "completed",
+          "after": [
+            "n2"
+          ]
+        },
+        {
+          "id": "n4",
+          "op": "grant",
+          "role": "guest",
+          "action": "effect",
+          "resource": "payment",
+          "owner": "alice",
+          "after": [
+            "n3"
+          ]
+        }
+      ],
+      "B1": {
+        "trace": [
+          [
+            "n0",
+            "observe",
+            "allow",
+            null
+          ],
+          [
+            "n1",
+            "grant",
+            "allow",
+            null
+          ],
+          [
+            "n2",
+            "request",
+            "allow",
+            null
+          ],
+          [
+            "n3",
+            "execute",
+            "deny",
+            "effect authority missing or stale"
+          ],
+          [
+            "n4",
+            "grant",
+            "deny",
+            "trusted source required"
+          ]
+        ],
+        "records": {
+          "n0": {
+            "kind": "evidence",
+            "owners": [
+              "alice"
+            ],
+            "inputs": []
+          }
+        },
+        "effects": {
+          "n2": {
+            "kind": "payment",
+            "owners": [
+              "alice"
+            ],
+            "snapshot": 1,
+            "status": "pending"
+          }
+        },
+        "snapshot": 1
+      },
+      "R_graph": {
+        "trace": [
+          [
+            "n0",
+            "observe",
+            "allow",
+            null
+          ],
+          [
+            "n1",
+            "grant",
+            "allow",
+            null
+          ],
+          [
+            "n2",
+            "request",
+            "allow",
+            null
+          ],
+          [
+            "n3",
+            "execute",
+            "deny",
+            "effect authority missing or stale"
+          ],
+          [
+            "n4",
+            "grant",
+            "deny",
+            "trusted source required"
+          ]
+        ],
+        "records": {
+          "n0": {
+            "kind": "evidence",
+            "owners": [
+              "alice"
+            ],
+            "inputs": []
+          }
+        },
+        "effects": {
+          "n2": {
+            "kind": "payment",
+            "owners": [
+              "alice"
+            ],
+            "snapshot": 1,
+            "status": "pending"
+          }
+        },
+        "snapshot": 1
+      }
+    },
+    {
+      "name": "device_revoke_and_unknown_replay",
+      "status": "PASS",
+      "fixture": [
+        {
+          "id": "n0",
+          "op": "observe",
+          "role": "operator",
+          "owners": [
+            "alice"
+          ],
+          "after": []
+        },
+        {
+          "id": "n1",
+          "op": "grant",
+          "role": "operator",
+          "action": "effect",
+          "resource": "device",
+          "owner": "alice",
+          "after": [
+            "n0"
+          ]
+        },
+        {
+          "id": "n2",
+          "op": "request",
+          "input": "n0",
+          "kind": "device",
+          "after": [
+            "n1"
+          ]
+        },
+        {
+          "id": "n3",
+          "op": "revoke",
+          "role": "operator",
+          "action": "effect",
+          "resource": "device",
+          "owner": "alice",
+          "after": [
+            "n2"
+          ]
+        },
+        {
+          "id": "n4",
+          "op": "execute",
+          "input": "n2",
+          "outcome": "completed",
+          "after": [
+            "n3"
+          ]
+        },
+        {
+          "id": "n5",
+          "op": "grant",
+          "role": "operator",
+          "action": "effect",
+          "resource": "device",
+          "owner": "alice",
+          "after": [
+            "n4"
+          ]
+        },
+        {
+          "id": "n6",
+          "op": "execute",
+          "input": "n2",
+          "outcome": "unknown",
+          "after": [
+            "n5"
+          ]
+        },
+        {
+          "id": "n7",
+          "op": "execute",
+          "input": "n2",
+          "outcome": "completed",
+          "after": [
+            "n6"
+          ]
+        }
+      ],
+      "B1": {
+        "trace": [
+          [
+            "n0",
+            "observe",
+            "allow",
+            null
+          ],
+          [
+            "n1",
+            "grant",
+            "allow",
+            null
+          ],
+          [
+            "n2",
+            "request",
+            "allow",
+            null
+          ],
+          [
+            "n3",
+            "revoke",
+            "allow",
+            null
+          ],
+          [
+            "n4",
+            "execute",
+            "deny",
+            "effect authority missing or stale"
+          ],
+          [
+            "n5",
+            "grant",
+            "allow",
+            null
+          ],
+          [
+            "n6",
+            "execute",
+            "allow",
+            "unknown"
+          ],
+          [
+            "n7",
+            "execute",
+            "deny",
+            "effect cannot be blindly replayed"
+          ]
+        ],
+        "records": {
+          "n0": {
+            "kind": "evidence",
+            "owners": [
+              "alice"
+            ],
+            "inputs": []
+          }
+        },
+        "effects": {
+          "n2": {
+            "kind": "device",
+            "owners": [
+              "alice"
+            ],
+            "snapshot": 1,
+            "status": "unknown"
+          }
+        },
+        "snapshot": 1
+      },
+      "R_graph": {
+        "trace": [
+          [
+            "n0",
+            "observe",
+            "allow",
+            null
+          ],
+          [
+            "n1",
+            "grant",
+            "allow",
+            null
+          ],
+          [
+            "n2",
+            "request",
+            "allow",
+            null
+          ],
+          [
+            "n3",
+            "revoke",
+            "allow",
+            null
+          ],
+          [
+            "n4",
+            "execute",
+            "deny",
+            "effect authority missing or stale"
+          ],
+          [
+            "n5",
+            "grant",
+            "allow",
+            null
+          ],
+          [
+            "n6",
+            "execute",
+            "allow",
+            "unknown"
+          ],
+          [
+            "n7",
+            "execute",
+            "deny",
+            "effect cannot be blindly replayed"
+          ]
+        ],
+        "records": {
+          "n0": {
+            "kind": "evidence",
+            "owners": [
+              "alice"
+            ],
+            "inputs": []
+          }
+        },
+        "effects": {
+          "n2": {
+            "kind": "device",
+            "owners": [
+              "alice"
+            ],
+            "snapshot": 1,
+            "status": "unknown"
+          }
+        },
+        "snapshot": 1
+      }
+    },
+    {
+      "name": "replacement_invalidates_old_authority",
+      "status": "PASS",
+      "fixture": [
+        {
+          "id": "n0",
+          "op": "observe",
+          "role": "operator",
+          "owners": [
+            "alice"
+          ],
+          "after": []
+        },
+        {
+          "id": "n1",
+          "op": "grant",
+          "role": "operator",
+          "action": "effect",
+          "resource": "device",
+          "owner": "alice",
+          "after": [
+            "n0"
+          ]
+        },
+        {
+          "id": "n2",
+          "op": "request",
+          "input": "n0",
+          "kind": "device",
+          "after": [
+            "n1"
+          ]
+        },
+        {
+          "id": "n3",
+          "op": "replace",
+          "role": "operator",
+          "after": [
+            "n2"
+          ]
+        },
+        {
+          "id": "n4",
+          "op": "execute",
+          "input": "n2",
+          "outcome": "completed",
+          "after": [
+            "n3"
+          ]
+        }
+      ],
+      "B1": {
+        "trace": [
+          [
+            "n0",
+            "observe",
+            "allow",
+            null
+          ],
+          [
+            "n1",
+            "grant",
+            "allow",
+            null
+          ],
+          [
+            "n2",
+            "request",
+            "allow",
+            null
+          ],
+          [
+            "n3",
+            "replace",
+            "allow",
+            null
+          ],
+          [
+            "n4",
+            "execute",
+            "deny",
+            "stale effect snapshot"
+          ]
+        ],
+        "records": {
+          "n0": {
+            "kind": "evidence",
+            "owners": [
+              "alice"
+            ],
+            "inputs": []
+          }
+        },
+        "effects": {
+          "n2": {
+            "kind": "device",
+            "owners": [
+              "alice"
+            ],
+            "snapshot": 1,
+            "status": "pending"
+          }
+        },
+        "snapshot": 2
+      },
+      "R_graph": {
+        "trace": [
+          [
+            "n0",
+            "observe",
+            "allow",
+            null
+          ],
+          [
+            "n1",
+            "grant",
+            "allow",
+            null
+          ],
+          [
+            "n2",
+            "request",
+            "allow",
+            null
+          ],
+          [
+            "n3",
+            "replace",
+            "allow",
+            null
+          ],
+          [
+            "n4",
+            "execute",
+            "deny",
+            "stale effect snapshot"
+          ]
+        ],
+        "records": {
+          "n0": {
+            "kind": "evidence",
+            "owners": [
+              "alice"
+            ],
+            "inputs": []
+          }
+        },
+        "effects": {
+          "n2": {
+            "kind": "device",
+            "owners": [
+              "alice"
+            ],
+            "snapshot": 1,
+            "status": "pending"
+          }
+        },
+        "snapshot": 2
+      }
+    }
+  ]
+}
