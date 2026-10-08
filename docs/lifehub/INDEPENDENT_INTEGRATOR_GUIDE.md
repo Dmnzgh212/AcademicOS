@@ -1,8 +1,8 @@
 # Independent background application integration
 
-This guide targets the stacked prototype at PR #59, runtime base
-`9b3d47719848a6d97839c7a2b7d461e190b462de`, proof revision
-`7ef4ec4308497bb14cc57576b43f17d3b6a66069`.
+This guide targets the verified stacked prototype at PR #61, source commit
+`ff74cc2f2e0d9c256ee5c88e8a4ecca17ac49b6e`.
+It includes the stop-at-guest-death fix and persisted recovery-budget regressions.
 These features are not represented as merged main or an accepted M1 release.
 M1 still requires an actual developer outside Engine implementation to perform
 and report an integration. Running the author's examples is a baseline check,
@@ -11,7 +11,12 @@ not evidence of independent authorship.
 ## Start from an installed artifact
 
 Download the matching wheel and recovery evidence from
-[CI run 367](https://github.com/Dmnzgh212/AcademicOS/actions/runs/37707048863).
+[CI run 370](https://github.com/Dmnzgh212/AcademicOS/actions/runs/37709612021).
+Use the artifact for your platform/Python: `recovery-linux-python-3.11`,
+`recovery-linux-python-3.12`, or `recovery-windows-python-3.12`. Keep its wheel,
+package bytes and evidence together; do not mix wheels from earlier PR revisions.
+The evidence metadata records the actual CI checkout SHA; the source commit above
+identifies the PR head. Artifact availability must be checked when downloading.
 Create a disposable virtual environment with Python 3.11 or 3.12 and install:
 
 ```sh

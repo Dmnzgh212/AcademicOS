@@ -4,10 +4,10 @@ Status: **M1 NOT ACCEPTED**. This is a working audit against
 `docs/lifehub/M1_ACCEPTANCE.md` on `docs/lifehub-m1-acceptance-gate`, not
 permission to merge the stacked runtime drafts.
 
-Verified baseline: PR #58, commit `9b3d47719848a6d97839c7a2b7d461e190b462de`,
-[CI run 365](https://github.com/Dmnzgh212/AcademicOS/actions/runs/37705519626).
-Linux Python 3.11/3.12 each passed 311 tests (2 Windows tests skipped);
-Windows Python 3.12 passed 36 selected boundary tests. Real installed-wheel
+Verified runtime baseline: PR #61, commit `ff74cc2f2e0d9c256ee5c88e8a4ecca17ac49b6e`,
+[CI run 370](https://github.com/Dmnzgh212/AcademicOS/actions/runs/37709612021).
+Linux Python 3.11/3.12 each passed 315 tests (2 Windows tests skipped);
+Windows Python 3.12 passed 40 selected boundary tests. Real installed-wheel
 recovery scripts passed on both AF_UNIX and AF_PIPE.
 
 | Gate | Current evidence | Assessment |
@@ -111,3 +111,25 @@ The local budget test closes/recreates managers while preserving intent; it is
 not described as repeated OS Engine kills. The separate installed-wheel proof
 continues to exercise actual Engine process termination. No recovery mechanism
 or authority boundary was expanded for these tests.
+
+## Current handoff evidence (2026-10-07)
+
+CI run 370 succeeded for Linux Python 3.11/3.12 and Windows boundaries. Its three
+recovery artifacts were checked as available and not expired on 2026-10-07:
+`recovery-linux-python-3.11` (11521730527), `recovery-linux-python-3.12`
+(11521625316), `recovery-windows-python-3.12` (11521565981). Download through the
+linked Actions run; retention may expire later. The integrator guide now targets
+this tested revision, including the stop-at-death fix rather than an older wheel.
+
+This supersedes the pending-validation wording in the regression section above:
+stop/death, uninstall/reinstall, stale stop, backoff cancellation and persisted
+retry-budget regressions passed in CI 370. Prior run references remain historical.
+No newly authored external packages or independent integration report have been
+received or verified. M1.1 remains NOT VERIFIED; full M1 is NOT ACCEPTED.
+
+Isolated research #63/#64 and actual PROV serializer reuse do not satisfy M1.1 or
+replace the installed Engine proof. They add no runtime dependency and should
+not be included as product acceptance evidence. The next missing deliverable is
+an independently authored provider/consumer integration with source/package
+identities, no Core modifications, disconnected guest work, routed calls,
+revocation, failure recovery and Windows/Linux evidence under the published gate.
