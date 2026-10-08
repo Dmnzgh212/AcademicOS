@@ -7,12 +7,14 @@ from __future__ import annotations
 
 import argparse
 import ctypes
+from contextlib import ExitStack
 from datetime import UTC, datetime
 import hashlib
 import json
 import os
 from pathlib import Path
 import re
+import select
 import subprocess
 import sys
 from tempfile import TemporaryDirectory
@@ -116,6 +118,47 @@ def kill_process(pid: int):
         api.CloseHandle(handle)
 
 
+class ProcessObservation:
+    """Operator-only observation, pinned against PID reuse; not a guest API."""
+
+    def __init__(self, pid):
+        self.pid = pid
+        self.handle = None
+        self.pidfd = None
+        if os.name == "nt":
+            self.api = ctypes.WinDLL("kernel32", use_last_error=True)
+            self.api.OpenProcess.argtypes = [ctypes.c_uint, ctypes.c_int, ctypes.c_uint]
+            self.api.OpenProcess.restype = ctypes.c_void_p
+            self.api.WaitForSingleObject.argtypes = [ctypes.c_void_p, ctypes.c_uint]
+            self.api.WaitForSingleObject.restype = ctypes.c_uint
+            self.api.CloseHandle.argtypes = [ctypes.c_void_p]
+            self.handle = self.api.OpenProcess(0x100000, False, pid)
+            if not self.handle:
+                raise ctypes.WinError(ctypes.get_last_error())
+        elif sys.platform == "linux":
+            self.pidfd = os.pidfd_open(pid)
+            self.poller = select.poll()
+            self.poller.register(self.pidfd, select.POLLIN)
+        else:
+            raise RuntimeError("process observation supports Linux and Windows only")
+
+    def exited(self):
+        if self.handle is not None:
+            result = self.api.WaitForSingleObject(self.handle, 0)
+            if result not in (0, 258):
+                raise ctypes.WinError(ctypes.get_last_error())
+            return result == 0
+        return bool(self.poller.poll(0))
+
+    def close(self):
+        if self.pidfd is not None:
+            os.close(self.pidfd)
+            self.pidfd = None
+        if self.handle is not None:
+            self.api.CloseHandle(self.handle)
+            self.handle = None
+
+
 def wait_until(fetch, condition, seconds=12):
     deadline = time.monotonic() + seconds
     latest = None
@@ -169,6 +212,11 @@ def begin_engine(root, db, installed, address, family):
 
 
 def prove(root: Path):
+    with ExitStack() as observations:
+        _prove(root, observations)
+
+
+def _prove(root: Path, observations):
     start_at = time.monotonic()
     evidence = {"status": "NOT COMPLETED", "author_type": "separate AI integrator",
                 "independent_human_authorship": False,
@@ -222,6 +270,8 @@ def prove(root: Path):
 
         workers = ok("supervisor-health")["workers"]
         victim = next(item["pid"] for item in workers if item["execution_id"] == ids["initial"])
+        killed_worker = ProcessObservation(victim)
+        observations.callback(killed_worker.close)
         kill_process(victim)
         newer = wait_until(lambda: ok("desired-components"),
                            lambda items: any(x["ref"] == METER and
@@ -231,11 +281,17 @@ def prove(root: Path):
         wait_until(lambda: ok("executions"),
                    lambda items: any(x["execution_id"] == ids["guest_recovery"] and x["ready"]
                                      for x in items))
+        assert killed_worker.exited(), "killed worker remains live after recovery readiness"
         assert 0 < ok("start", ref=BUDGET)["result"] <= 200
         evidence["checks"].append({"name": "guest death automatically recovered", "pass": True})
         print(f"PASS guest OS crash recovered: {ids['initial']} -> {ids['guest_recovery']}")
 
         ok("route-revoke", **binding)
+        old_pid = next(x["pid"] for x in ok("supervisor-health")["workers"]
+                       if x["execution_id"] == ids["guest_recovery"])
+        old_worker = ProcessObservation(old_pid)
+        observations.callback(old_worker.close)
+        assert not old_worker.exited()
     finally:
         end_engine(engine, address, family)
 
@@ -249,6 +305,8 @@ def prove(root: Path):
         wait_until(lambda: ok("executions"),
                    lambda items: any(x["execution_id"] == ids["engine_recovery"] and x["ready"]
                                      for x in items))
+        assert old_worker.exited(), "old worker remains live after Engine recovery readiness"
+        evidence["old_guest_exited_by_replacement_ready"] = True
         denied(ask("start", ref=BUDGET))
         ok("stop-component", ref=METER)
         time.sleep(0.75)
@@ -261,9 +319,15 @@ def prove(root: Path):
 
         fresh = ok("start", ref=METER)
         ids["before_uninstall"] = fresh["execution_id"]
+        uninstall_pid = next(x["pid"] for x in ok("supervisor-health")["workers"]
+                             if x["execution_id"] == ids["before_uninstall"])
+        uninstalled_worker = ProcessObservation(uninstall_pid)
+        observations.callback(uninstalled_worker.close)
         cli("uninstall-package", "external.energy-meter", "--db", str(db),
             "--installed", str(installed))
-        time.sleep(0.6)  # Worker must terminate without another operator call.
+        # OS-only observation: no Engine request can trigger cleanup here.
+        wait_until(uninstalled_worker.exited, bool)
+        evidence["uninstalled_guest_exited_before_next_request"] = True
         terminated = next(x for x in ok("executions")
                           if x["execution_id"] == ids["before_uninstall"])
         assert terminated["state"] == "failed" and not terminated["ready"], terminated
