@@ -1,6 +1,8 @@
 """Installed-wheel real-process recovery proof, using two independent guest apps."""
 
+import argparse
 import ctypes
+import hashlib
 import importlib.util
 import json
 import os
@@ -46,6 +48,7 @@ def wait_for(function, predicate, timeout=10):
 
 
 def run(root):
+    began = time.monotonic()
     db, installed = root / "engine.db", root / "installed"
     archives = proof.util.build_packages(root / "packages")
     for archive in (archives[0], archives[2]):
@@ -58,6 +61,10 @@ def run(root):
                 entry.external_attr = 0o644 << 16
                 target.writestr(entry, contents)
     proof.util.install_packages(db, installed, archives)
+    evidence = {"status": "NOT COMPLETED", "git_sha": os.environ.get("GITHUB_SHA"),
+                "platform": sys.platform, "python": sys.version,
+                "packages": {path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in archives}}
+    (root / "evidence.json").write_text(json.dumps(evidence, indent=2), encoding="utf-8")
     address, family = proof.util.endpoint_for(root)
     process, key = proof.util.start_daemon(root, db, installed, address, family)
 
@@ -80,8 +87,8 @@ def run(root):
         kill_guest(pid)
         time.sleep(1)  # All clients disconnected during recovery.
         recovered = wait_for(intents, lambda rows: rows[proof.PROVIDER]["execution_id"] != first["execution_id"])[proof.PROVIDER]
-        assert any(row["execution_id"] == recovered["execution_id"] and row["ready"]
-                   for row in ok("executions"))
+        wait_for(lambda: ok("executions"), lambda rows: any(
+            row["execution_id"] == recovered["execution_id"] and row["ready"] for row in rows))
         assert ok("start", ref=proof.CONSUMER)["state"] == "completed"
         print(f"PASS actual guest death -> automatic new execution {first['execution_id']} -> {recovered['execution_id']}")
         ok("start", ref="thirdparty.fault-probe:fail")
@@ -109,8 +116,19 @@ def run(root):
     print(json.dumps({"status": "PASS", "platform": sys.platform,
                       "automatic_guest_recovery": True, "automatic_engine_restoration": True,
                       "max_retries": 2, "window": 60, "backoff": [0.2, 0.4, 0.8]}))
+    evidence.update(status="PASS", elapsed_seconds=time.monotonic() - began,
+                    execution_ids=[first["execution_id"], recovered["execution_id"], restored["execution_id"]],
+                    policy={"max_retries": 2, "window": 60, "backoff": 0.2, "max_backoff": 0.8})
+    (root / "evidence.json").write_text(json.dumps(evidence, indent=2), encoding="utf-8")
 
 
 if __name__ == "__main__":
-    with TemporaryDirectory(prefix="lifehub-recovery-proof-") as directory:
-        run(Path(directory))
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--output", type=Path, help="Preserve exact packages and run evidence in a fresh directory")
+    arguments = parser.parse_args()
+    if arguments.output is None:
+        with TemporaryDirectory(prefix="lifehub-recovery-proof-") as directory:
+            run(Path(directory))
+    else:
+        arguments.output.mkdir(parents=True, exist_ok=False)
+        run(arguments.output)
