@@ -1,5 +1,7 @@
 # LifeHub — Core Thesis & Highest-Level Engineering Direction
 
+> **2026-10-08 latest project decision (controlling): [LH-D-LOCAL-002 — Localization-first reuse and low-barrier user validation](LOCALIZATION_AND_USER_ACCEPTANCE_DIRECTIVE.md).** Open architecture is not an unfiltered external-plugin ingress. Prioritize lawful selective local copying/adaptation of mature application code; preserve maintained dependencies for complex infrastructure when safer. Engineers/AI assistants own integration and security verification. Ordinary users only need import/run/revoke/error-report workflows. An external human software developer is **not** mandatory for the M1 technical gate. Older contradictory language below has been reconciled; M1 acceptance still requires explicit review.
+
 **Status:** Reaffirmation proposed for review; not an already-merged directive or a claim of M1 acceptance.
 **Scope:** Product identity, sovereign-person authority, architecture, reuse/research discipline and milestone governance.
 **Priority:** These project-wide principles constrain stage-specific implementation plans. The separate [M1 acceptance gate](https://github.com/Dmnzgh212/AcademicOS/blob/docs/lifehub-m1-acceptance-gate/docs/lifehub/M1_ACCEPTANCE.md) describes the current delivery checkpoint, **not** the final product identity.
@@ -14,7 +16,7 @@
 
 The aim is an open, extensible substrate comparable **in openness and platform role** to Linux/Android or an engine used by many applications; it is **not** a claim to be a new OS kernel, a browser renderer, or a replacement for their security models.
 
-An unknown third-party developer must be able to build, package, install, run, and connect independent software through published contracts **without any app-specific modification to LifeHub Core**. AcademicOS, a course planner, mail assistant, task manager, calendar, AI assistant, or robotic system may be applications **on** LifeHub; none defines LifeHub itself.
+An **independent, locally adapted module**, whether built by project engineers, an AI assistant or a later outside contributor, must be able to install, run and communicate through controlled, documented contracts **without app-specific modification to LifeHub Core**. Outside authorship is not a prerequisite for Engine technical verification. Upstream code has no automatic import, execution or data authority; the default product path is to select useful mature open-source code and turn it into a reviewed, replaceable LifeHub-local capability. AcademicOS, a course planner, mail assistant, task manager, calendar, AI assistant, or robotic system may be applications **on** LifeHub; none defines LifeHub itself.
 
 **A dashboard, approval inbox, calendar, widget container, or Web app is not evidence that the platform exists.** These can be optional replaceable Shells or apps. When every optional Shell is absent or closed, the Engine and approved background software must still operate.
 
@@ -63,11 +65,12 @@ CLI / Desktop / Web / Mobile / other replaceable Shells
 
 ## IV. Reuse established technology; invent only where there is a gap
 
-> **2026-10-07 项目最高工程方法补充决议：** 大型成熟模块先查、先用、先接入做适配测试，发现具体问题后局部修改；小型简单模块允许按效率自行编写，不为复用而增加复杂依赖。**研究成熟方案不等于已经完成实际集成；不得研究完后默认从头重写。** 具体执行程序、对 PR #63/#64 的裁决、许可与证据要求见 **[LH-D-REUSE-001 — 工程复用最高指导](ENGINEERING_REUSE_DIRECTIVE.md)**。
+> **2026-10-08 最新修订：** 应用层优先选择性复制、裁剪并本地化成熟开源代码，统一接口与权限，经过工程安全验证才纳入 LifeHub；复杂底层基础设施仍依赖安全、可维护的成熟实现，不为“复制”而重写。小型功能可自行编写。参见 [LH-D-LOCAL-002](LOCALIZATION_AND_USER_ACCEPTANCE_DIRECTIVE.md)。**历史 2026-10-07 决议适用于不与最新决议冲突的部分：** 大型成熟模块先查、先用、先接入做适配测试，发现具体问题后局部修改；小型简单模块允许按效率自行编写，不为复用而增加复杂依赖。**研究成熟方案不等于已经完成实际集成；不得研究完后默认从头重写。** 具体执行程序、对 PR #63/#64 的裁决、许可与证据要求见 **[LH-D-REUSE-001 — 工程复用最高指导](ENGINEERING_REUSE_DIRECTIVE.md)**。
 
 **Do not reinvent common infrastructure simply to look novel.**
 
-- Prefer mature, documented libraries and protocols for Wasm execution, serialization, process supervision, persistence, package management, cryptography, signing, typed interfaces and development tooling.
+- **For app/domain functionality, localize first:** search mature OSS; when legally compatible, selectively copy the needed source modules into a controlled local package, trim unnecessary dependencies, adapt LifeHub contracts and security, test and track upstream updates. Do not default to direct unfiltered upstream plugin ingestion.
+- **For foundational infrastructure**, prefer maintained mature libraries, system APIs or locally version-pinned dependencies; copying or reimplementing a VM, crypto, database or OS primitives without compelling evidence is unsafe.
 - Reuse already-installed project dependencies and learn from relevant open-source projects before writing a new module. Keep *reference/inspiration*, *adopted dependency*, and *copied source code* as separate decisions.
 - Copying a module is **not automatically simpler** than using its maintained library: first inspect license/attribution obligations (including copyleft implications), security history, transitive assumptions, maintenance cost and platform compatibility. Never copy an entire project by default.
 - Preserve the trust model: reusing `Wasmtime`, `SQLite`, OS process controls or mature supervision mechanisms does not itself prove complete isolation, real-time guarantees, memory/CPU containment, or cryptographic trust.
@@ -91,13 +94,13 @@ Research reopening and production freeze are different decisions. Do not frame e
 
 ## VI. Development and audit policy
 
-**Proof of progress = independent software exercising actual platform capabilities.**
+**Proof of engineering progress = separately packaged, reviewed local modules exercising actual platform capabilities**, not an outside programmer's identity. Engineering/AI integration and security review are the developer responsibility; end-user usability validation should require only guided import, run, permission review/revoke and error reporting.
 
-Prefer the observable sequence `build → package → review → install → run through an actual Engine process → communicate via granted interface → revoke/deny → stop/crash/recover`. Use at least one unrelated developer exercising documented public contracts for the independent-integration gate. The author's own examples alone are not that proof.
+Prefer the observable sequence `build → package → review → install → run through an actual Engine process → communicate via granted interface → revoke/deny → stop/crash/recover`. Use more than one non-Core application scenario and real installed-artifact validation for the M1 technical gate. Independent external **human** authorship is **not** mandatory for M1; it may be evaluated later as a separate ecosystem/SDK objective. Self-written fixtures still need actual runnable, permission-constrained behavior and honest evidence.
 
 - Green CI, rising pytest count, hundreds of PRs, code volume or an invented completion percentage are **supporting indicators only**; none answers whether the platform can actually run independent software.
 - Use real Windows and Linux installed-artifact smoke runs, bounded faults, reproducible commands and retained logs. State precisely what is verified, limited, or unverified.
-- Keep stage work coherent. The current **M1 — Background Supervisor** acceptance checklist is in [the dedicated documentation PR](https://github.com/Dmnzgh212/AcademicOS/pull/56). M1 is not the whole project. Only after it is actually accepted should the team shift toward public SDK and genuinely useful applications.
+- Keep stage work coherent. The current **M1 — Background Supervisor** technical acceptance checklist (being revised to remove the mandatory external-human-author gate) is in [the dedicated documentation PR](https://github.com/Dmnzgh212/AcademicOS/pull/56). M1 is not the whole project. Only after it is actually accepted should the team shift toward public SDK and genuinely useful applications.
 - Work continuously between milestone gates. Routine PR-by-PR leadership reports are unnecessary. Escalate urgent security/data-loss defects, changes to the project thesis/trust boundary or blocked design decisions. Otherwise submit a consolidated evidence package at M1.
 - Stacked runtime PRs remain Draft until individual CI/code review and a separate integration decision; documentation-only agreement does not authorize a main merge.
 
@@ -119,4 +122,4 @@ Read the [2026-09-28 handoff](HANDOFF_2026-09-28.md), [research frontier](RESEAR
 
 The older mainline direction audit said **No-Go for the compiler** and the v0.1 engineering line kept PersonIR research frozen during platform acceptance. Later project guidance reopened **semantics research**, **not** automatic compiler production. This document keeps both boundaries explicit rather than silently choosing one old sentence.
 
-**One-sentence north star:** Build an open, independently extensible personal computing Engine that executes software under **person-rooted, revocable authority**, while keeping its Shells, applications, AI and research languages replaceable.
+**One-sentence north star:** Build a person-sovereign, locally controlled computing Engine that can absorb and adapt excellent existing code into **reviewed, replaceable local modules** under revocable authority, with Shells, AI and research languages interchangeable and easy import/run/revoke/error reporting for ordinary users.
