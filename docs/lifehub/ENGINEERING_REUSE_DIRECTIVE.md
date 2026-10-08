@@ -1,5 +1,7 @@
 # LifeHub 最高工程指示补充决议：复用优先、适配驱动、大小模块分别处理
 
+> **优先级与修订说明：** 本文件 LH-D-REUSE-001 记录 2026-10-07 讨论背景；其中默认“直接依赖/直接接入优先于复制”及“必须外部人类开发者验收”的推论，已由项目方于 2026-10-08 发布的 **[LH-D-LOCAL-002](LOCALIZATION_AND_USER_ACCEPTANCE_DIRECTIVE.md)** 修订。执行时最新指导优先：**应用源码合法选择性复制→本地裁剪与改造→权限/安全验证→交给普通用户轻松导入运行；复杂基础设施优先保留成熟可维护依赖；外部人类作者不是 M1 必选。** 请勿仅按本文件旧的 A→D 路径决定应用模块引入方式。
+
 **决议编号：LH-D-REUSE-001**  
 **日期：2026-10-07（北美东部时间）**  
 **性质：项目方明确确认的工程执行原则，作为《LifeHub 核心理念与最高工程指导》的补充。**  
@@ -31,7 +33,7 @@
   → 将有效实现接入产品的公开组件契约，保留可复现实验证据
 ```
 
-**所谓“先拿来用”，优先级是：**
+**历史“先拿来用”路径（仅用于复杂基础设施或经评估确需依赖的场景；应用源码默认采用 LH-D-LOCAL-002 的本地化复制优先顺序）：**
 
 - **A. 直接使用成熟依赖/系统 API**，通过常规包管理或系统调用固定版本；优先获取上游安全维护和更新。
 - **B. 通过薄 Adapter / wrapper 适配 LifeHub**，尽量不修改上游，保留替换自由。
@@ -85,4 +87,4 @@
 
 > **最高执行口径：先找现成的，先拿来做适配测试；哪里有问题改哪里。复杂大模块优先复用成熟实现；简单小模块按效率自己写。只有真实缺口才值得原创。**
 
-**Decision scope:** This is an engineering method directive, not approval to broaden Core, merge Draft PRs, ship a compiler, or claim M1 complete. It supplements [CORE_VISION_AND_HIGHEST_DIRECTION.md](CORE_VISION_AND_HIGHEST_DIRECTION.md) and leaves [M1 acceptance PR #56](https://github.com/Dmnzgh212/AcademicOS/pull/56) unchanged.
+**Decision scope:** Historical engineering method, superseded where inconsistent by [LH-D-LOCAL-002](LOCALIZATION_AND_USER_ACCEPTANCE_DIRECTIVE.md). It does not approve broader Core, automatic Draft merges or compiler production. **M1 gate PR #56 must be separately revised to remove mandatory external-human developer authorship**; acceptance is still not automatic.
