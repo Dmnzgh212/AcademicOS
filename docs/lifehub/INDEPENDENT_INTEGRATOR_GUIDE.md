@@ -1,8 +1,8 @@
 # Independent background application integration
 
 This guide targets the verified stacked prototype at PR #61, source commit
-`ff74cc2f2e0d9c256ee5c88e8a4ecca17ac49b6e`.
-It includes the stop-at-guest-death fix and persisted recovery-budget regressions.
+`421542bba98036dfa8f35c78f8d72ddb92a28c43`.
+It includes the stop-at-guest-death fix, proof startup cleanup and retained-evidence checking.
 These features are not represented as merged main or an accepted M1 release.
 M1 still requires an actual developer outside Engine implementation to perform
 and report an integration. Running the author's examples is a baseline check,
@@ -11,7 +11,7 @@ not evidence of independent authorship.
 ## Start from an installed artifact
 
 Download the matching wheel and recovery evidence from
-[CI run 370](https://github.com/Dmnzgh212/AcademicOS/actions/runs/37709612021).
+[CI run 37723233133](https://github.com/Dmnzgh212/AcademicOS/actions/runs/37723233133).
 Use the artifact for your platform/Python: `recovery-linux-python-3.11`,
 `recovery-linux-python-3.12`, or `recovery-windows-python-3.12`. Keep its wheel,
 package bytes and evidence together; do not mix wheels from earlier PR revisions.
@@ -198,3 +198,31 @@ change needs evidence under the existing Core admission rules. Missing aggregate
 process/memory ceilings and live-stall detection remain documented limits;
 PersonIR semantics research remains isolated under the newer PR #62 direction;
 production language/compiler work remains deferred and is not an M1 dependency.
+
+
+## Independent integration submission
+
+Use the pinned source/wheel revision above; reference proofs and checker must
+come from the same revision. The verified artifacts are Linux 3.11 (11526642079),
+Linux 3.12 (11526900858), Windows 3.12 (11526268561), available when checked on
+2026-10-07. Artifact retention can expire; the linked successful run and exact
+source revision identify the baseline without relying on a moving branch.
+
+Submit your own provider/consumer sources and standalone packages with:
+
+- Developer identity and an honest authorship statement; distinguish copied or
+  adapted reference examples from independently developed application logic.
+- Domain behavior, declared interfaces, requested/granted capabilities and
+  toolchain/build commands; identify all departures from the public guide.
+- Engine source/checkout identity, installed wheel digest, package SHA256,
+  Python/platform, execution IDs, commands, observed timings and raw logs.
+- Observable guest work with clients disconnected, real consumer calls,
+  revoke/deny, guest crash/recovery, bounded crash loop, Engine kill/restoration,
+  stale-handle/uninstall/stop results under each applicable M1 gate.
+- Separate Windows AF_PIPE and Linux AF_UNIX evidence and a gate-by-gate
+  PASS/FAIL/NOT VERIFIED table. Record problems before changing Core.
+
+Do not submit authkeys, personal databases or real private payloads. File-integrity
+validation cannot verify authorship or the truth of logs. Existing author-built
+reference examples and isolated PROV/Wasm studies remain supporting baselines,
+not independent integration evidence. Acceptance remains a separate decision.

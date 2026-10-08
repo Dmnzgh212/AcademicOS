@@ -164,3 +164,16 @@ artifacts remain useful diagnostics but are not accepted as complete evidence.
 This is local file consistency checking, not attestation: forged metadata/logs
 can pass, wheel hash recording does not prove that wheel was installed, and
 independent authorship and M1 acceptance remain unverified. No Core changes.
+
+
+## Current pinned integration baseline
+
+The guide now pins source `421542bba98036dfa8f35c78f8d72ddb92a28c43` and
+[successful run 37723233133](https://github.com/Dmnzgh212/AcademicOS/actions/runs/37723233133),
+including proof startup cleanup and actual retained-evidence validation on all
+three jobs. This supersedes CI 370 as the handoff target; older references above
+remain historical. Recovery artifacts: Linux 3.11 11526642079, Linux 3.12
+11526900858, Windows 3.12 11526268561; available/non-expired when checked
+2026-10-07. The guide lists independent submission materials. No external
+integration submission has been verified; M1 remains NOT ACCEPTED. Further
+self-authored fixtures cannot establish independent authorship.
