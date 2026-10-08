@@ -29,9 +29,15 @@ jobs:
           python -m pip install 'wasmtime>=36,<37'
           python research/authority_semantics/wasm_flow.py "$RUNNER_TEMP/wasm-flow-results.json"
           python -c "import json, pathlib; a=json.loads(pathlib.Path('research/authority_semantics/wasm_flow_results.json').read_text()); b=json.loads(pathlib.Path('$RUNNER_TEMP/wasm-flow-results.json').read_text()); assert a == b"
+      - name: Run original PROV library with thin research adapter
+        run: |
+          python -m pip install --require-hashes -r research/authority_semantics/prov-requirements.txt
+          python research/authority_semantics/prov_adapter.py "$RUNNER_TEMP/prov-results.json"
+          python -c "import json, pathlib; a=json.loads(pathlib.Path('research/authority_semantics/prov_results.json').read_text()); b=json.loads(pathlib.Path('$RUNNER_TEMP/prov-results.json').read_text()); assert a == b"
       - uses: actions/upload-artifact@v4
         with:
           name: synthetic-authority-traces-python-${{ matrix.python-version }}
           path: |
             ${{ runner.temp }}/authority-results.json
             ${{ runner.temp }}/wasm-flow-results.json
+            ${{ runner.temp }}/prov-results.json

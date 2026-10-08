@@ -1,0 +1,232 @@
+{
+  "authorization_enforced_by_PROV": false,
+  "cases": [
+    {
+      "document": {
+        "agent": {
+          "lh:person_alice": [
+            {},
+            {}
+          ]
+        },
+        "entity": {
+          "lh:n0": {
+            "lh:kind": "evidence",
+            "lh:status": "recorded"
+          },
+          "lh:n1": {
+            "lh:kind": "proposal",
+            "lh:status": "rejected"
+          }
+        },
+        "prefix": {
+          "lh": "urn:lifehub:research:"
+        },
+        "wasAttributedTo": {
+          "_:id1": {
+            "prov:agent": "lh:person_alice",
+            "prov:entity": "lh:n0"
+          },
+          "_:id2": {
+            "prov:agent": "lh:person_alice",
+            "prov:entity": "lh:n1"
+          }
+        },
+        "wasDerivedFrom": {
+          "_:id3": {
+            "prov:generatedEntity": "lh:n1",
+            "prov:usedEntity": "lh:n0"
+          }
+        }
+      },
+      "frontend_documents_equal": true,
+      "name": "observation_survives_proposal_rejection",
+      "roundtrip": true
+    },
+    {
+      "document": {
+        "agent": {
+          "lh:person_alice": [
+            {},
+            {}
+          ]
+        },
+        "entity": {
+          "lh:n0": {
+            "lh:kind": "evidence",
+            "lh:status": "recorded"
+          },
+          "lh:n1": {
+            "lh:kind": "derived",
+            "lh:status": "recorded"
+          }
+        },
+        "prefix": {
+          "lh": "urn:lifehub:research:"
+        },
+        "wasAttributedTo": {
+          "_:id1": {
+            "prov:agent": "lh:person_alice",
+            "prov:entity": "lh:n0"
+          },
+          "_:id2": {
+            "prov:agent": "lh:person_alice",
+            "prov:entity": "lh:n1"
+          }
+        },
+        "wasDerivedFrom": {
+          "_:id3": {
+            "prov:generatedEntity": "lh:n1",
+            "prov:usedEntity": "lh:n0"
+          }
+        }
+      },
+      "frontend_documents_equal": true,
+      "name": "derived_mail_cannot_launder_label",
+      "roundtrip": true
+    },
+    {
+      "document": {
+        "agent": {
+          "lh:person_alice": [
+            {},
+            {}
+          ],
+          "lh:person_bob": [
+            {},
+            {}
+          ]
+        },
+        "entity": {
+          "lh:n0": {
+            "lh:kind": "evidence",
+            "lh:status": "recorded"
+          },
+          "lh:n1": {
+            "lh:kind": "evidence",
+            "lh:status": "recorded"
+          },
+          "lh:n2": {
+            "lh:kind": "derived",
+            "lh:status": "recorded"
+          }
+        },
+        "prefix": {
+          "lh": "urn:lifehub:research:"
+        },
+        "wasAttributedTo": {
+          "_:id1": {
+            "prov:agent": "lh:person_alice",
+            "prov:entity": "lh:n0"
+          },
+          "_:id2": {
+            "prov:agent": "lh:person_bob",
+            "prov:entity": "lh:n1"
+          },
+          "_:id3": {
+            "prov:agent": "lh:person_alice",
+            "prov:entity": "lh:n2"
+          },
+          "_:id4": {
+            "prov:agent": "lh:person_bob",
+            "prov:entity": "lh:n2"
+          }
+        },
+        "wasDerivedFrom": {
+          "_:id5": {
+            "prov:generatedEntity": "lh:n2",
+            "prov:usedEntity": "lh:n0"
+          },
+          "_:id6": {
+            "prov:generatedEntity": "lh:n2",
+            "prov:usedEntity": "lh:n1"
+          }
+        }
+      },
+      "frontend_documents_equal": true,
+      "name": "shared_note_requires_both_owners",
+      "roundtrip": true
+    },
+    {
+      "document": {
+        "agent": {
+          "lh:person_alice": {}
+        },
+        "entity": {
+          "lh:n0": {
+            "lh:kind": "evidence",
+            "lh:status": "recorded"
+          }
+        },
+        "prefix": {
+          "lh": "urn:lifehub:research:"
+        },
+        "wasAttributedTo": {
+          "_:id1": {
+            "prov:agent": "lh:person_alice",
+            "prov:entity": "lh:n0"
+          }
+        }
+      },
+      "frontend_documents_equal": true,
+      "name": "read_is_not_payment_authority",
+      "roundtrip": true
+    },
+    {
+      "document": {
+        "agent": {
+          "lh:person_alice": {}
+        },
+        "entity": {
+          "lh:n0": {
+            "lh:kind": "evidence",
+            "lh:status": "recorded"
+          }
+        },
+        "prefix": {
+          "lh": "urn:lifehub:research:"
+        },
+        "wasAttributedTo": {
+          "_:id1": {
+            "prov:agent": "lh:person_alice",
+            "prov:entity": "lh:n0"
+          }
+        }
+      },
+      "frontend_documents_equal": true,
+      "name": "device_revoke_and_unknown_replay",
+      "roundtrip": true
+    },
+    {
+      "document": {
+        "agent": {
+          "lh:person_alice": {}
+        },
+        "entity": {
+          "lh:n0": {
+            "lh:kind": "evidence",
+            "lh:status": "recorded"
+          }
+        },
+        "prefix": {
+          "lh": "urn:lifehub:research:"
+        },
+        "wasAttributedTo": {
+          "_:id1": {
+            "prov:agent": "lh:person_alice",
+            "prov:entity": "lh:n0"
+          }
+        }
+      },
+      "frontend_documents_equal": true,
+      "name": "replacement_invalidates_old_authority",
+      "roundtrip": true
+    }
+  ],
+  "guest_attribution_assertion_is_serializable": true,
+  "import_to_authority_supported": false,
+  "scope": "trusted synthetic records to PROV-JSON; not Engine integration",
+  "unsupported_kind_and_dangling_source_rejected": true,
+  "upstream": "prov",
+  "version": "3.1.0"
+}
