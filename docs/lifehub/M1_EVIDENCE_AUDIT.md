@@ -133,3 +133,21 @@ not be included as product acceptance evidence. The next missing deliverable is
 an independently authored provider/consumer integration with source/package
 identities, no Core modifications, disconnected guest work, routed calls,
 revocation, failure recovery and Windows/Linux evidence under the published gate.
+
+## Windows proof startup failure discovered in follow-up CI
+
+Run 37721889158 passed both Linux jobs but failed Windows one-shot app smoke:
+the launcher observed the newly created auth-file before its contents were
+written, and `load_authkey` correctly rejected the short key. The exception
+escaped startup before the child handle reached the caller's cleanup block;
+the surviving child held the temporary database open. This is a proof launcher
+race/cleanup defect, not permission to weaken runtime key validation.
+
+The proof launcher now polls unfinished key reads within its existing bounded
+startup interval and closes its own child on every unsuccessful startup exit.
+A failed control response is still an immediate error. Fault-injection checks
+cover partial-key retry, permanently invalid-key timeout cleanup and rejected
+ping cleanup; real Windows/Linux installed-wheel CI must validate the follow-up.
+The failed Windows run uploaded only a wheel: artifact presence alone is not
+proof that recovery ran or that an evidence bundle is complete. CI 370 remains
+the last fully verified runtime handoff until the new run passes.

@@ -19,7 +19,7 @@ jobs:
       - name: Install
         run: python -m pip install -e '.[dev,wasm]'
       - name: Windows Engine boundaries
-        run: python -m pytest -q tests/test_lifehub_engine_lease.py tests/test_lifehub_windows_control.py tests/test_lifehub_component_ipc.py tests/test_lifehub_readiness_shutdown.py tests/test_lifehub_background_guest.py
+        run: python -m pytest -q tests/test_lifehub_engine_lease.py tests/test_lifehub_windows_control.py tests/test_lifehub_component_ipc.py tests/test_lifehub_readiness_shutdown.py tests/test_lifehub_background_guest.py tests/test_lifehub_proof_startup.py
       - name: Build and install Windows wheel
         shell: pwsh
         run: |

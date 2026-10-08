@@ -111,21 +111,31 @@ def start_daemon(
             stderr=subprocess.STDOUT,
             cwd=root,
         )
-    for _ in range(200):
-        if process.poll() is not None:
-            raise RuntimeError(
-                f"Engine daemon exited early ({process.returncode}); see {log}"
-            )
-        if auth_file.is_file():
-            try:
-                key = load_authkey(auth_file)
-                require_ok(request(address, family, key, "ping"))
-                return process, key
-            except (ConnectionError, OSError, EOFError):
-                pass
-        time.sleep(0.05)
-    stop_daemon(process, address, family)
-    raise TimeoutError(f"Engine daemon did not become ready; see {log}")
+    try:
+        for _ in range(200):
+            if process.poll() is not None:
+                raise RuntimeError(
+                    f"Engine daemon exited early ({process.returncode}); see {log}"
+                )
+            if auth_file.is_file():
+                # Creation precedes writing: a new file may still be incomplete.
+                # Only this disposable startup polls invalid/unfinished keys;
+                # runtime authentication continues to reject them.
+                try:
+                    key = load_authkey(auth_file)
+                except (ValueError, OSError):
+                    time.sleep(0.05)
+                    continue
+                try:
+                    require_ok(request(address, family, key, "ping"))
+                    return process, key
+                except (ConnectionError, OSError, EOFError):
+                    pass
+            time.sleep(0.05)
+        raise TimeoutError(f"Engine daemon did not become ready; see {log}")
+    except BaseException:
+        stop_daemon(process, address, family)
+        raise
 
 
 def stop_daemon(process: subprocess.Popen, address: str, family: str) -> None:
