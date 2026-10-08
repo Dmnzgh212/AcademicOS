@@ -19,7 +19,7 @@ jobs:
       - name: Install
         run: python -m pip install -e '.[dev,wasm]'
       - name: Windows Engine boundaries
-        run: python -m pytest -q tests/test_lifehub_engine_lease.py tests/test_lifehub_windows_control.py tests/test_lifehub_component_ipc.py tests/test_lifehub_readiness_shutdown.py tests/test_lifehub_background_guest.py tests/test_lifehub_proof_startup.py
+        run: python -m pytest -q tests/test_lifehub_engine_lease.py tests/test_lifehub_windows_control.py tests/test_lifehub_component_ipc.py tests/test_lifehub_readiness_shutdown.py tests/test_lifehub_background_guest.py tests/test_lifehub_proof_startup.py tests/test_lifehub_recovery_evidence.py
       - name: Build and install Windows wheel
         shell: pwsh
         run: |
@@ -44,6 +44,11 @@ jobs:
         run: |
           & "$env:RUNNER_TEMP/lifehub-win-wheel/Scripts/python.exe" -I examples/lifehub-background-apps/run_recovery.py --output "$env:RUNNER_TEMP/lifehub-recovery-evidence" | Tee-Object -FilePath "$env:RUNNER_TEMP/lifehub-recovery-proof.log"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Check Windows retained evidence
+        shell: pwsh
+        run: |
+          $wheel = (Get-ChildItem dist/academicos-*.whl)[0].FullName
+          python scripts/check_lifehub_recovery_evidence.py "$env:RUNNER_TEMP/lifehub-recovery-evidence" $wheel "$env:RUNNER_TEMP/lifehub-recovery-proof.log" "$env:GITHUB_SHA" "$env:RUNNER_TEMP/lifehub-recovery-evidence/validation.json"
       - name: Preserve Windows recovery evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -52,6 +57,7 @@ jobs:
           path: |
             ${{ runner.temp }}/lifehub-recovery-evidence/packages/*.lhpkg
             ${{ runner.temp }}/lifehub-recovery-evidence/evidence.json
+            ${{ runner.temp }}/lifehub-recovery-evidence/validation.json
             ${{ runner.temp }}/lifehub-recovery-evidence/engine.log
             ${{ runner.temp }}/lifehub-recovery-proof.log
             dist/*.whl
@@ -99,6 +105,9 @@ jobs:
       - name: Automatic recovery proof
         run: |
           "$RUNNER_TEMP/lifehub-wheel-venv/bin/python" -I examples/lifehub-background-apps/run_recovery.py --output "$RUNNER_TEMP/lifehub-recovery-evidence" | tee "$RUNNER_TEMP/lifehub-recovery-proof.log"
+      - name: Check Linux retained evidence
+        run: |
+          python scripts/check_lifehub_recovery_evidence.py "$RUNNER_TEMP/lifehub-recovery-evidence" dist/academicos-*.whl "$RUNNER_TEMP/lifehub-recovery-proof.log" "$GITHUB_SHA" "$RUNNER_TEMP/lifehub-recovery-evidence/validation.json"
       - name: Preserve Linux recovery evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -107,6 +116,7 @@ jobs:
           path: |
             ${{ runner.temp }}/lifehub-recovery-evidence/packages/*.lhpkg
             ${{ runner.temp }}/lifehub-recovery-evidence/evidence.json
+            ${{ runner.temp }}/lifehub-recovery-evidence/validation.json
             ${{ runner.temp }}/lifehub-recovery-evidence/engine.log
             ${{ runner.temp }}/lifehub-recovery-proof.log
             dist/*.whl

@@ -151,3 +151,16 @@ ping cleanup; real Windows/Linux installed-wheel CI must validate the follow-up.
 The failed Windows run uploaded only a wheel: artifact presence alone is not
 proof that recovery ran or that an evidence bundle is complete. CI 370 remains
 the last fully verified runtime handoff until the new run passes.
+
+
+## Retained-evidence check
+
+`python scripts/check_lifehub_recovery_evidence.py ROOT WHEEL PROOF_LOG CHECKOUT_SHA OUTPUT`
+checks completed metadata, explicit checkout identity, distinct replacement IDs,
+old-worker exit observation, exact package inventory/digests and nonempty logs/wheel.
+CI runs it after recovery and preserves `validation.json`. Missing metadata,
+NOT COMPLETED status, mismatched identity and changed package bytes fail. Failure
+artifacts remain useful diagnostics but are not accepted as complete evidence.
+This is local file consistency checking, not attestation: forged metadata/logs
+can pass, wheel hash recording does not prove that wheel was installed, and
+independent authorship and M1 acceptance remain unverified. No Core changes.
