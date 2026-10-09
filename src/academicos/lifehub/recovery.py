@@ -93,13 +93,14 @@ def reconcile(engine, conn):
         stamp = datetime.now(UTC).isoformat()
         item = _Execution(uuid4().hex, component, ExecutionState.RUNNING, stamp, stamp)
         engine._executions[item.execution_id] = item
-        engine._persist(item, connection=conn)
-        with conn:
-            conn.execute("UPDATE lifehub_engine_desired SET execution_id=?,status='wanted' WHERE component_ref=?",
-                         (item.execution_id, ref))
         kernel = None
         handle = None
         try:
+            # Ledger failure is a failed attempt, never a live handleless execution.
+            engine._persist(item, connection=conn)
+            with conn:
+                conn.execute("UPDATE lifehub_engine_desired SET execution_id=?,status='wanted' WHERE component_ref=?",
+                             (item.execution_id, ref))
             kernel = LifeHub(db_path=engine._ledger_path, plugins_path=engine._plugins_path)
             bundle = kernel.bundle(component.plugin_id)
             manifest = bundle.manifest.model_copy(deep=True)

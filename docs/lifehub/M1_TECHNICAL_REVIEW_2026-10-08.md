@@ -87,3 +87,27 @@ M1 technical approval and merges remain separate explicit decisions.
 No author-recruitment blocker, user SDK exam, Core feature expansion or compiler work is required.
 After this review closes, select one lawful upstream application function for local adaptation,
 with provenance/license/update path and a simple import/run/revoke/error workflow.
+
+
+## Follow-up code review: recovery ledger failure
+
+A reproducible lifecycle defect was found after the initial scoped review:
+reconcile inserted a RUNNING replacement execution before entering its try/except.
+If execution persistence or the following desired-state update raised an SQLite
+OperationalError, a handleless RUNNING item survived. A later shutdown attempted
+handle.stop() on None. This is a truthful-lifecycle/cleanup defect, not a reproduced
+capability bypass or authority leak.
+
+The follow-up moves both ledger operations inside the existing failed-attempt
+handling. Injected execution-insert and desired-update failures must leave a
+FAILED/not-ready attempt in memory and persisted history; a subsequent reconciliation
+starts a new ready execution, and shutdown succeeds. Tests use real installed Wasm
+packages and a real killed worker with deterministic DB-operation fault injection;
+they do not claim OS disk-full or actual SQLite-lock stress coverage.
+
+The old implementation failed the desired-update regression with RUNNING instead
+of FAILED and a shutdown AttributeError. Follow-up validation: the initial focused
+lifecycle/snapshot/lease/evidence/startup suite passed 45 tests; both parametrized
+ledger cases then passed; Ruff passed. Matching full Linux/Windows installed-wheel
+CI is required for this runtime follow-up; prior CI 392 alone does not validate it.
+No new feature, permission, recovery policy, Core domain logic or acceptance decision.

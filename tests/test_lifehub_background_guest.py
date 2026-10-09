@@ -430,3 +430,68 @@ def test_recovery_budget_survives_manager_recreation(tmp_path):
         assert not engine._executions
     finally:
         engine.shutdown()
+
+
+@pytest.mark.parametrize("stage", ["execution", "desired"])
+def test_recovery_ledger_failure_never_leaves_handleless_running_execution(tmp_path, stage):
+    from academicos.lifehub import recovery
+
+    proof, engine = installed(tmp_path, restart=True)
+    conn = None
+    try:
+        first = engine.start(proof.PROVIDER)
+        # Pause only the monitor so the injected transaction boundary is deterministic.
+        engine._monitor_stop.set()
+        engine._monitor.join(timeout=3)
+        assert not engine._monitor.is_alive()
+        handle = engine._execution(first.execution_id).handle
+        handle.process.kill()
+        handle.process.wait(timeout=3)
+        engine._refresh_background()
+        conn = sqlite3.connect(engine._ledger_path)
+        recovery.reconcile(engine, conn)
+        with conn:
+            conn.execute("UPDATE lifehub_engine_desired SET next_at=0")
+
+        class FailDesiredUpdateOnce:
+            def __init__(self):
+                self.failed = False
+
+            def execute(self, sql, params=()):
+                target = ("INSERT INTO lifehub_engine_executions" if stage == "execution"
+                          else "SET execution_id=?,status='wanted'")
+                if target in sql and not self.failed:
+                    self.failed = True
+                    raise sqlite3.OperationalError("injected desired ledger busy")
+                return conn.execute(sql, params)
+
+            def __enter__(self):
+                return conn.__enter__()
+
+            def __exit__(self, *args):
+                return conn.__exit__(*args)
+
+        injected = FailDesiredUpdateOnce()
+        try:
+            recovery.reconcile(engine, injected)
+        except sqlite3.OperationalError:
+            pass  # The monitor normally retries this error.
+        assert injected.failed
+        failed_attempts = [x for x in engine._executions.values()
+                           if x.execution_id != first.execution_id]
+        assert len(failed_attempts) == 1
+        attempt = failed_attempts[0]
+        assert attempt.handle is None and not attempt.ready
+        assert attempt.state == "failed"
+        assert engine.execution(attempt.execution_id).state == "failed"
+        row = conn.execute("SELECT state FROM lifehub_engine_executions WHERE execution_id=?",
+                           (attempt.execution_id,)).fetchone()
+        assert row[0] == "failed"
+        recovery.reconcile(engine, conn)
+        intent = engine.desired_components()[0]
+        assert intent["execution_id"] != attempt.execution_id
+        assert engine.execution(intent["execution_id"]).ready
+    finally:
+        if conn is not None:
+            conn.close()
+        engine.shutdown()
