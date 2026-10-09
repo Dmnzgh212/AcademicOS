@@ -52,7 +52,7 @@ def build(destination):
     with tempfile.TemporaryDirectory() as temp:
         module = Path(temp) / 'sort.wasm'
         subprocess.run([sys.executable, '-m', 'ziglang', 'cc', '-target', 'wasm32-freestanding',
-                        '-Oz', '-nostdlib', '-fno-builtin', '-Wl,--no-entry',
+                        '-O2', '-nostdlib', '-fno-builtin', '-Wl,--no-entry',
                         '-Wl,--export-memory', '-Wl,--initial-memory=0x200000',
                         '-Wl,--max-memory=0x200000',
                         str(HERE / 'module.c'), str(HERE / 'vendor/strnatcmp.c'),

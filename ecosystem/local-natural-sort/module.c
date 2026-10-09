@@ -4,11 +4,11 @@ __attribute__((import_module("lifehub_service"), import_name("read_request")))
 extern int read_request(char *, int);
 __attribute__((import_module("lifehub_service"), import_name("write_response")))
 extern int write_response(char *, int);
-#define ITEMS 32
-#define LABEL 128
+#define ITEMS 16
+#define LABEL 64
 #define BYTES 8192
 static char input[BYTES], output[BYTES], labels[ITEMS][LABEL + 1];
-static int starts[ITEMS], ends[ITEMS], order[ITEMS];
+static int starts[ITEMS], ends[ITEMS], order[ITEMS], scratch[ITEMS];
 static int ws(char c) { return c == ' ' || c == '\n' || c == '\r' || c == '\t'; }
 __attribute__((export_name("run"))) int run(void) {
     int n = read_request(input, BYTES), p = 0, count = 0;
@@ -48,13 +48,21 @@ __attribute__((export_name("run"))) int run(void) {
     if (p >= n || input[p++] != ']') return 1;
     while (p < n && ws(input[p])) p++;
     if (p != n) return 1;
-    /* Stable insertion sort; preserve exact original escaped JSON strings. */
-    for (int i = 1; i < count; i++) {
-        int key = order[i], j = i;
-        while (j > 0 && strnatcmp(labels[order[j-1]], labels[key]) > 0) {
-            order[j] = order[j-1]; j--;
+    /* Stable bottom-up merge sort: long shared prefixes stay within host fuel. */
+    for (int width = 1; width < count; width *= 2) {
+        for (int base = 0; base < count; base += 2 * width) {
+            int mid = base + width < count ? base + width : count;
+            int end = base + 2 * width < count ? base + 2 * width : count;
+            int left = base, right = mid, at = base;
+            while (left < mid && right < end) {
+                if (strnatcmp(labels[order[left]], labels[order[right]]) <= 0)
+                    scratch[at++] = order[left++];
+                else scratch[at++] = order[right++];
+            }
+            while (left < mid) scratch[at++] = order[left++];
+            while (right < end) scratch[at++] = order[right++];
         }
-        order[j] = key;
+        for (int i = 0; i < count; i++) order[i] = scratch[i];
     }
     int used = 0;
     output[used++] = '[';

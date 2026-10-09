@@ -6,12 +6,12 @@ https://github.com/sourcefrog/natsort/tree/cdd8df9602e727482ae5e051cff74b7ec7ffa
 
 The upstream license and copyright remain in vendor/strnatcmp.c and .h.
 LifeHub modifications: replace locale/ctype calls with fixed ASCII classification;
-add bounded label-list JSON glue and stable sorting, compile with Zig 0.13.0 into
+add bounded label-list JSON glue and stable merge sorting, compile with Zig 0.13.0 into
 core Wasm without libc/WASI. The reserved unreferenced compiler table is removed
 and resulting module validated by Wasmtime; no host table limit is widened.
 This is not the unmodified upstream distribution and not an original LifeHub algorithm.
 
-Module input/output only: up to 32 printable ASCII labels, each up to 128 bytes.
+Module input/output only: up to 16 printable ASCII labels, each up to 64 bytes.
 No filesystem, network, storage or effect permissions; the independent Shell may
 invoke the sort service only after an explicit host-mediated service grant.
 No Unicode collation, locale sorting, credential/data collection or automatic updates.

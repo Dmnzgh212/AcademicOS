@@ -80,6 +80,15 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & "$env:RUNNER_TEMP/lifehub-win-wheel/Scripts/python.exe" -I ecosystem/local-natural-sort/verify.py "$env:RUNNER_TEMP/local-sort-packages"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Preserve localized sort packages (Windows)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: local-natural-sort-windows
+          path: |
+            ${{ runner.temp }}/local-sort-packages/*.lhpkg
+            ${{ runner.temp }}/local-sort-packages/package-hashes.json
+            dist/*.whl
       - name: Preserve Windows recovery evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -186,3 +195,12 @@ jobs:
           python -m pytest -q ecosystem/local-natural-sort/test_module.py
           python ecosystem/local-natural-sort/build.py "$RUNNER_TEMP/local-sort-packages"
           "$RUNNER_TEMP/lifehub-wheel-venv/bin/python" -I ecosystem/local-natural-sort/verify.py "$RUNNER_TEMP/local-sort-packages"
+      - name: Preserve localized sort packages (Linux)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: local-natural-sort-linux-python-${{ matrix.python-version }}
+          path: |
+            ${{ runner.temp }}/local-sort-packages/*.lhpkg
+            ${{ runner.temp }}/local-sort-packages/package-hashes.json
+            dist/*.whl

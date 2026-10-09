@@ -53,9 +53,9 @@ def run(args):
             '--approve-hash', review['approval_digest'], *options)
         print('Sorting enabled.')
     elif args.action == 'sort':
-        if len(args.labels) > 32 or any(len(s) > 128 or
+        if len(args.labels) > 16 or any(len(s) > 64 or
                 any(ord(c) < 32 or ord(c) > 126 for c in s) for s in args.labels):
-            raise RuntimeError('LHSORT_INPUT_LIMIT: at most 32 printable ASCII labels, 128 chars each')
+            raise RuntimeError('LHSORT_INPUT_LIMIT: at most 16 printable ASCII labels, 64 chars each')
         with tempfile.TemporaryDirectory() as temp:
             request = Path(temp) / 'request.json'
             request.write_text(json.dumps(args.labels), encoding='utf-8')

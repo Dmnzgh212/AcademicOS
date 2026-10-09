@@ -9,10 +9,10 @@ It is a separate one-shot package, not a background service or a calendar featur
 Original C algorithm: Martin Pool/sourcefrog natsort, pinned commit
 cdd8df9602e727482ae5e051cff74b7ec7ffa07a, Zlib license. See NOTICE.md and retained
 source headers. Locale calls were replaced with fixed ASCII classification; the
-LifeHub adapter supplies bounded array IO and stable insertion sort. No Core edits.
+LifeHub adapter supplies bounded array IO and stable merge sort. No Core edits.
 Zig 0.13.0 is an engineering build dependency only, not a platform runtime dependency.
 No compiler or PersonIR research was introduced. Tiny JSON glue deliberately accepts
-only an array of printable ASCII labels (32 labels / 128 chars each), preserving
+only an array of printable ASCII labels (16 labels / 64 chars each), preserving
 escaped quote/backslash spelling. Unicode and control characters fail closed.
 
 ## Engineering preparation
@@ -66,3 +66,9 @@ rebuild reviewed package hashes and revoke/reinstall tests. No auto-update path.
 
 M1/merge acceptance is separate. This practical module candidate supplies a localized
 application function; it is not proof of a mature ecosystem or full user delivery.
+
+Observed adaptation friction: the initial 32 × 128 input ceiling exhausted the
+unchanged host fuel on reversed long-prefix labels, even after replacing insertion
+sort. The local module now caps 16 × 64, uses stable merge sort and compiler O2;
+its maximum reversed shared-prefix regression passes within existing fuel. This is
+module-level cost control, not evidence requiring a new language or Core budget.
