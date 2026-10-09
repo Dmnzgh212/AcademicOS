@@ -53,6 +53,12 @@ A persistent **Engine daemon** is not proof of a persistent **guest**. A one-sho
 - Demonstrate M1.1–M1.5 end to end using local/non-Core application modules: install → start → disconnect all clients → observe guest activity → call through approved route → revoke → deny → guest crash/automatic recovery → crash-loop limit → Engine process death/restart/automatic desired-state restoration → uninstall/stop and cleanup. Engineering staff/AI tools prepare and run this evidence; do not require an outside human plugin author.
 - Preserve command/script, git SHA, package SHA256 identities, platform/Python versions, execution IDs, observed timings and raw CI logs so someone else can reproduce the result.
 
+## Clarification after retrospective review: M1 tests are not product requirements
+
+Under the project owner's 2026-10-09 all-history retrospective ([PR #73](https://github.com/Dmnzgh212/AcademicOS/pull/73)), the requirement for two separately packaged Wasm modules and rigorous guest/recovery/route tests belongs to this **Engine technical checkpoint only**. It must **not** be applied to every user-facing function. A simple natural-sort or formatting utility does not need a ported C library, new Zig build chain, two plugin packages or a bespoke Windows installer merely to conform to M1. Engine synthetic demonstrations may remain small and still be valid engineering evidence.
+
+A **technically correct test fixture** is not the same as a **valuable, proportionately engineered user feature**. Keep both judgments separately. CI green does not approve a feature roadmap; missing Engine security/availability mechanisms are not waived by judging a demo unimportant. Windows-first user delivery is distinct from retaining Linux/Windows Engine regression proofs.
+
 ## Out of scope for M1
 
 - PersonIR, LifeLang, compiler productionization, broad WIT/Component Model adoption, full desktop/mobile/Web application or dashboard.
