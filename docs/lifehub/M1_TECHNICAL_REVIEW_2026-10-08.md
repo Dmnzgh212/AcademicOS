@@ -111,3 +111,15 @@ lifecycle/snapshot/lease/evidence/startup suite passed 45 tests; both parametriz
 ledger cases then passed; Ruff passed. Matching full Linux/Windows installed-wheel
 CI is required for this runtime follow-up; prior CI 392 alone does not validate it.
 No new feature, permission, recovery policy, Core domain logic or acceptance decision.
+
+
+Persistent-outage follow-up verifies three consecutive injected execution-ledger
+write failures leave only FAILED/not-ready/handleless in-memory attempts and no
+live workers or durable RUNNING rows. After writes are repaired, a fresh guest
+becomes ready while an ungranted consumer stays denied. No new Core change.
+This is deterministic database-operation fault injection, not real disk-failure
+stress. During an outage durable failed diagnostics cannot be promised; accumulated
+failed in-memory history has no global quota, consistent with the known availability
+limit. The three attempts are a test sample, not a platform retry ceiling.
+CI 393 validated the original fix on Linux/Windows; this additional regression
+requires its own updated CI result. M1 acceptance and main merges remain pending.
