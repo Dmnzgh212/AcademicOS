@@ -1,6 +1,7 @@
 # LifeHub open-platform research — 2026-09-27
 
-> **2026-10-09 历史材料阅读提示：** 本文件保留当时的研究/交接事实，不是现在必须完成的产品任务清单。项目方后来明确采用 **有价值的复杂开源能力本地化、简单功能不强制复制/插件化、普通用户低门槛、工程侧安全验证** 的方法。阅读前参见 [现行与历史文档适用索引](DOCUMENT_PRECEDENCE_AND_ARCHIVE_STATUS.md) 和 [LH-D-LOCAL-002](LOCALIZATION_AND_USER_ACCEPTANCE_DIRECTIVE.md)。旧版“第三方”“独立”“下一步”不得自动恢复外部人类开发者门槛或要求为小函数搭建庞大框架。\n\n
+> **2026-10-09 历史材料阅读提示：** 本文件保留当时的研究/交接事实，不是现在必须完成的产品任务清单。项目方后来明确采用 **有价值的复杂开源能力本地化、简单功能不强制复制/插件化、普通用户低门槛、工程侧安全验证** 的方法。阅读前参见 [现行与历史文档适用索引](DOCUMENT_PRECEDENCE_AND_ARCHIVE_STATUS.md) 和 [LH-D-LOCAL-002](LOCALIZATION_AND_USER_ACCEPTANCE_DIRECTIVE.md)。旧版“第三方”“独立”“下一步”不得自动恢复外部人类开发者门槛或要求为小函数搭建庞大框架。
+
 ## Why v0.1 still feels closed
 
 The current LifeHub prototype proves local plugin discovery and local data retention, but it is still a pluginized dashboard rather than an open platform.
