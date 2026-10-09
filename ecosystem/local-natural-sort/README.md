@@ -72,3 +72,18 @@ unchanged host fuel on reversed long-prefix labels, even after replacing inserti
 sort. The local module now caps 16 × 64, uses stable merge sort and compiler O2;
 its maximum reversed shared-prefix regression passes within existing fuel. This is
 module-level cost control, not evidence requiring a new language or Core budget.
+
+## Windows offline trial kit
+
+CI builds `lifehub-natural-sort-windows.zip` with both precompiled packages, matching
+platform wheel, Wasmtime 36.0.0 and its dependency wheels. Extract completely and
+open Start.cmd; see WINDOWS_README.txt for the Chinese menu walkthrough.
+Python 3.12 x64 on PATH is still a prerequisite; Python itself is not bundled.
+Startup installs only from the supplied wheels, without network or administrator
+privileges. The menu keeps import, explicit grant, revoke and uninstall separate.
+
+The engineering smoke drives the actual Windows launcher from a path containing
+spaces, then checks pregrant denial, natural output, revoke denial and reinstall
+not reviving grants. Bundle hashes catch accidental changes, not publisher identity.
+Only the static ZIP is uploaded; local workspace databases and entered labels are
+excluded. CI compatibility is not acceptance on the user's actual computer or M1.
