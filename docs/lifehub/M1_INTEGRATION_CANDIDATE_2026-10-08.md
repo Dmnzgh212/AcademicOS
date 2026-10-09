@@ -1,3 +1,5 @@
+> **Runtime follow-up:** PR #70 at 86771a2ed4f6e79c165d396925d5b3f9fa0cc07a fixes the recovery-ledger failure found after this candidate. [CI 393](https://github.com/Dmnzgh212/AcademicOS/actions/runs/37863013423) passed Linux 3.11/3.12 (326 tests each, 2 Windows skips) and Windows 3.12 (51 boundary tests), including installed-wheel proofs. Integration must include that fix; CI 392 alone is no longer the recommended runtime head. No acceptance or merge is implied.
+
 # M1 integration candidate — 2026-10-08
 
 Status: **review-ready technical candidate; M1 NOT ACCEPTED; main unchanged**.
