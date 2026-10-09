@@ -1,5 +1,66 @@
-# LifeHub retrospective audit (2026-10-09)
+# LifeHub 全历史倒查：指导歧义、验收声称与工程比例审计
 
-Status: Draft; historical claims and new decisions remain separately attributable. No automatic M1 acceptance or main merge.
+日期：2026-10-09。**状态：Draft 审计，不是新 M1 验收、独立人类审计、安全认证或主干合并授权。**  
+**范围：** 当前 GitHub PR #1–#72 全部纳入逐项台账，#1/#32/#33 的已合并结果与其余未合并草案分开记录。逐项清单见 [RETROSPECTIVE_CLAIM_LEDGER_2026-10-09.md](RETROSPECTIVE_CLAIM_LEDGER_2026-10-09.md)。
 
-This review inventories PR #1–#72, revisits the bounded accepted v0.1 prototype, and distinguishes test correctness from user value and proportional engineering cost. Findings and evidence matrix will be expanded after source/CI review.
+## 审计方法和不能逾越的证据界限
+
+审查了 72 个 PR 的标题、状态和作者提交的验收声称；核对 main 的 v0.1 验收/平台审查文档；阅读过 #34 的实际 CSV/RSS/System 适配器和验证代码、#61/#65 的 ABI/样例与运行证据、#67–#70 的技术审查及故障修复、#71/#72 的模块/构建/Windows 启动代码；核对 CI 328、384、394、397、401 的已有状态和部分详细日志。没有对全部 72 个 PR 的全部源文件逐行人工复审，也没有在用户个人 Windows 设备上复现。不得把**覆盖全部 PR 的声称追溯**描述成**覆盖每行代码的安全认证**。
+
+使用五个**互不替代**的维度：A 需求价值，B 工程比例，C 已实现技术行为，D 已验证安全边界，E 普通 Windows 用户可交付性。**CI 通过只可支持 C 和一定范围的 D，不能推出 A、B、E。** 全局测试数量也不是项目完成率。
+
+## 主要发现与纠正
+
+### F1. 旧指导词汇被逐级放大：高优先级，已发现实际影响
+
+《CORE_VISION》历史措辞“未知第三方开发者须可独立编写”被 M1 改写成“必须寻找外部人类作者”；用户最近明确修订为：工程人员/AI 负责本地化与安全；用户只需导入、运行、权限操作与报错。#56/#62/#66 已修订该范围，**不能再以缺外部程序员阻止 M1**。
+
+《ENGINEERING_REUSE_DIRECTIVE》曾把“直接依赖→薄适配→摘取源码”写成默认 A/B/C 顺序；LH-D-LOCAL-002 修正为业务功能优先寻找成熟开源实现进行选择性、合法本地化，但没有足够突出**先判断功能本身值不值得做**。此歧义促使团队把本来很小的自然排序也作为重大“开源本地化”任务。
+
+《M1_ACCEPTANCE》要求两个独立包、后台运行、故障注入，是 **Engine 机制的验收装置**，不能推导为每个用户功能都必须拆成两个包、使用 Wasm、引入单独授权与复杂 CI。也不能把 M1 合成样例充当生产应用。
+
+### F2. #71、#72 存在明显的范围比例失衡：高优先级
+
+#71 复制 Martin Pool/sourcefrog 的 Zlib 自然排序代码，用 Zig 0.13 转 core Wasm，组合两包、纯 JSON ABI、燃料限制与授权脚本。实际功能只是“对手工输入的至多16个、每个最多64字符的 ASCII 名称排序”。[CI 397](https://github.com/Dmnzgh212/AcademicOS/actions/runs/37879961235) Linux 3.11/3.12 与 Windows 3.12 中，18 个模块测试及安装/授权/撤销/重装测试通过。**代码行为验证通过，不等于该模块有足够用户价值或值得这个技术堆栈。**
+
+#72 继续在排序样例上增加 Windows Python 3.12 离线 wheels、哈希清单、Start.cmd 和中文菜单；[CI 401](https://github.com/Dmnzgh212/AcademicOS/actions/runs/37882757179) 通过。它修复过实际 UTF-8 输出问题，并确实降低了输入命令的门槛，但仍只对英文名称排序、需要用户装 Python 3.12、不是通用文件整理工具。**限定为“Windows 受控试用/交付包装实验”，不得称为第一款重要实用本地化应用**。现有已测代码保留；不再为该低价值功能继续新增大型构建/发布工作。
+
+这不是说安全测试做多了；是**需求选得太小且系统化包装时没有收益—成本检查**。对安全边界必要的验证仍然有效。
+
+### F3. #34 “three real plugins” 名称高于真实使用成熟度：中优先级
+
+源码包含三个不同适配器：格式正确但合成的课程 CSV、格式正确但合成的离线 RSS 2.0，以及最小真实系统信息。域处理发生在由操作员明确启动的可信 Python 伴随程序，而不是自行访问 Brightspace/RSS 的沙箱 guest。Wasm descriptor 主要提供 schema 信息，不是域数据计算服务。PR 自身 README/FRICTION 已诚实声明这些限制；后续陈述不能把它们抹掉。[CI 331](https://github.com/Dmnzgh212/AcademicOS/pull/34) 的绿色验证只支持**三种模型与授权机制的验证**，不支持“3 个真正可交付且可持续更新的生产插件”。
+
+### F4. 正式接受的 v0.1 是否需要推翻？不需要
+
+#32 累积集成、#33 文档接受均已合并 main。main 的 `PROTOTYPE_ACCEPTANCE.md` 和 `INTEGRATION_CANDIDATE.md` 把范围明确限定为 **bounded developer prototype**：Package/Capability/Core-Wasm/service/可替换 Shell 的机制验证；CI 328 通过 228 项 pytest、构建/安装 wheel、示例包及 HTTP/本地生命周期测试。原报告明确排除完整第三方生态、真正外部效果、PersonIR 和安全认证。这一**有限技术基线**仍然成立；但任何“已经是完整个人数字产品／有完整本地插件体验”的延伸说法均应撤回。它不是完整使用价值的验收。
+
+历史安全修复 #28–#31（授权快照、出站重定向、提交时包身份、JSON 共同边界）有可复现缺陷与回归证据。不能因为重审工程方向就反向取消必要安全修复。
+
+### F5. M1 #35–#70 工程证据大体有效，正式结论仍须独立审查
+
+#35–#42 是早期 Engine/接口结构，并未单独证明持续后台 guest；#44–#50 补齐卸载后授权失效、错误请求韧性、真实组件 IPC、只允许一个 Manager、Windows AF_PIPE 测试；#52–#61 后续增加真实后台 Wasm、监控、自动恢复、目标态、包身份与证明留存。#65 的合成“能源”仍是合格的**M1 工程验证样例**，不是传感器应用。#67/#68/#69 对证明范围、旧进程退出和可复现材料追加了检查。
+
+**#70 是关键反证：** 之前 M1 测试已绿，但恢复账本写入失败时仍可能留下无 guest handle 的 RUNNING 状态，关闭时报错。修复后 [CI 394](https://github.com/Dmnzgh212/AcademicOS/actions/runs/37878371202) 全平台通过。这说明“以前全部绿”不是“穷尽故障模型”。修复应进入 M1 候选，不代表剩余资源限制已自动通过。
+
+遗留边界依旧包括：无总 worker 数/总内存上限，缺完整进程级 CPU/RSS 配额、通用 guest 卡死检测和并发控制通道即时中断语义；Wasm 内部限额不能替代这些机制。应先讨论**受限本地 Alpha**的真实风险，不为完美而无限期扩 Core，也不能把欠缺说成已解决。
+
+### F6. 研究与方向文件在流程上的历史错位
+
+#2/#8–#16、#51、#63/#64 的 PersonIR、WIT、授权先例实验部分产生了有用的否定证据；截至本次审查没有依据把新语言/编译器加入生产，保留研究隔离和 No-Go。早期 #5–#7 的 proposal/effect/review UI 是提前实现的传统宿主机制，不能作为 PersonIR 原创优势。这个歧义在 `DIRECTION_AUDIT_2026-10-03.md` 曾明确指出。
+
+部分较早的开放平台研究/交接文件把“第三方可随意扩展”作为远期目标，并提出 UI/SDK/Typed WIT 等大清单；那些属于研究愿景，不构成**当前 M1 或每个实际应用**的必选任务。旧标题与正文如果未同步更新，须以日期/已决议层级解释，不能仅根据一个历史句子增加新项目。
+
+## 处理意见
+
+**保留事实：** v0.1 有限原型已接受；#34 的三域机制验证、#65 的真实 Engine 行为、#70 的安全稳定性修复和 #71/#72 的有限功能/Windows 离线测试都有对应证据。
+
+**降低声称：** #34 不是 3 款生产插件，#65 不是真实能源应用，#71/#72 不是高价值首款用户模块，#69 不是 M1 已获批准，Windows CI 也不等于用户真实设备验收。
+
+**冻结投入：** #71/#72 保留为测试及交付包装经验，暂停扩大排序产品功能。下一个模块必须先做需求/价值/工程比例评估；短小常规排序直接用现成语言库或少量自写代码。复杂业务模块才进行成熟开源移植。
+
+**正式门槛：** M1 Engine 技术验收与产品/用户价值验收分离；Windows 为优先交付平台，Linux 保留 Engine 测试，不强迫每个用户功能开发 Linux 桌面版本。用户只需导入、运行、授权/撤销和反馈错误；工程人员负责许可、安全、测试与适配。
+
+**不可越过：** 不因此擅自合并/关闭旧 Draft，不更改已发生的 CI 历史记录，不宣称完整代码审计或 M1 接受，不在无证据情况下取消必要安全措施。
+
+建议的执行细则见 [ANTI_OVEREXECUTION_DECISION_GATES.md](ANTI_OVEREXECUTION_DECISION_GATES.md)。
