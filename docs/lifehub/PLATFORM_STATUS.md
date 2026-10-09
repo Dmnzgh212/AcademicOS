@@ -1,6 +1,7 @@
 # LifeHub platform status — 2026-10-06
 
-> **2026-10-09 审计标注（保留历史验收）：** 本文件所述 v0.1 **受限开发原型**的已接受结论不撤销；这不是用户产品、安全认证或今天的完整任务清单。旧“下一验收关卡/三款真实插件/外部独立验证”等历史安排已由 [LH-D-LOCAL-002](LOCALIZATION_AND_USER_ACCEPTANCE_DIRECTIVE.md)、[修订的 M1 标准](M1_ACCEPTANCE.md) 和 [全历史倒查](RETROSPECTIVE_AUDIT_2026-10-09.md) 更新解释。现阶段应先评估**真实需求与工程比例**；没有要求为小函数硬搬开源项目或把每项功能做成双 Wasm 包。具体优先级见 [文档索引](DOCUMENT_PRECEDENCE_AND_ARCHIVE_STATUS.md)。\n\n
+> **2026-10-09 审计标注（保留历史验收）：** 本文件所述 v0.1 **受限开发原型**的已接受结论不撤销；这不是用户产品、安全认证或今天的完整任务清单。旧“下一验收关卡/三款真实插件/外部独立验证”等历史安排已由 [LH-D-LOCAL-002](LOCALIZATION_AND_USER_ACCEPTANCE_DIRECTIVE.md)、[修订的 M1 标准](M1_ACCEPTANCE.md) 和 [全历史倒查](RETROSPECTIVE_AUDIT_2026-10-09.md) 更新解释。现阶段应先评估**真实需求与工程比例**；没有要求为小函数硬搬开源项目或把每项功能做成双 Wasm 包。具体优先级见 [文档索引](DOCUMENT_PRECEDENCE_AND_ARCHIVE_STATUS.md)。
+
 LifeHub is an open personal computing platform. The accepted main baseline provides
 Package, Capability, Wasm Runtime, internal contracts and replaceable Shell.
 Calendar planning is the existing AcademicOS application. Proposal and fake-effect
