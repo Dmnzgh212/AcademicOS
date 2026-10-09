@@ -13,7 +13,7 @@ if not exist "%KIT%.venv\Scripts\python.exe" (
   python -m venv "%KIT%.venv"
   if errorlevel 1 goto failed
 )
-"%KIT%.venv\Scripts\python.exe" -m pip install --no-index --only-binary=:all: --find-links "%KIT%wheels" academicos==0.1.0 wasmtime==36.0.0
+"%KIT%.venv\Scripts\python.exe" -m pip --isolated install --force-reinstall --no-index --only-binary=:all: --find-links "%KIT%wheels" academicos==0.1.0 wasmtime==36.0.0
 if errorlevel 1 goto failed
 "%KIT%.venv\Scripts\python.exe" -X utf8 "%KIT%menu.py"
 if errorlevel 1 goto failed

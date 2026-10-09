@@ -87,3 +87,6 @@ spaces, then checks pregrant denial, natural output, revoke denial and reinstall
 not reviving grants. Bundle hashes catch accidental changes, not publisher identity.
 Only the static ZIP is uploaded; local workspace databases and entered labels are
 excluded. CI compatibility is not acceptance on the user's actual computer or M1.
+
+Each launch reinstalls the supplied wheel versions in the kit-local environment,
+so reusing a directory cannot silently retain an older same-version platform wheel.
