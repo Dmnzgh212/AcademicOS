@@ -12,7 +12,7 @@ HERE = Path(__file__).resolve().parent
 def verify(packages):
     with tempfile.TemporaryDirectory() as temp:
         def call(action, *labels, success=True):
-            p = subprocess.run([sys.executable, '-I', str(HERE / 'operator.py'), action,
+            p = subprocess.run([sys.executable, '-I', str(HERE / 'sort_shell.py'), action,
                                 *labels, '--workspace', temp, '--packages', str(packages), '--yes'],
                                text=True, capture_output=True, timeout=40)
             assert (p.returncode == 0) == success, p.stderr

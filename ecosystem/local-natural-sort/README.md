@@ -32,17 +32,17 @@ denial, actual useful output, revoke denial and reinstall not reviving grants.
 
 ## Operator walkthrough
 
-Engineers supply the two reviewed .lhpkg files, operator.py and matching Python/
+Engineers supply the two reviewed .lhpkg files, sort_shell.py and matching Python/
 LifeHub environment. Users do not compile C/Wasm or audit the source. This is still
 a Python CLI prototype, not an installer or a delivered one-click consumer product.
 In that prepared environment (replace package/workspace paths with supplied locations):
 
 ```sh
-python operator.py import --packages packages --workspace my-sort
-python operator.py enable --workspace my-sort
-python operator.py sort "Lecture 10.pdf" "Lecture 2.pdf" "Lecture 1.pdf" --workspace my-sort
-python operator.py disable --workspace my-sort
-python operator.py remove --workspace my-sort
+python sort_shell.py import --packages packages --workspace my-sort
+python sort_shell.py enable --workspace my-sort
+python sort_shell.py sort "Lecture 10.pdf" "Lecture 2.pdf" "Lecture 1.pdf" --workspace my-sort
+python sort_shell.py disable --workspace my-sort
+python sort_shell.py remove --workspace my-sort
 ```
 
 Import and enable are separate confirmations; installation never implies authority.
