@@ -13,6 +13,10 @@ def verify(root, python, launcher=False):
     result = subprocess.run(command, input=commands, text=True, encoding='utf-8',
                             capture_output=True, timeout=180)
     if result.returncode or 'Lecture 1\nLecture 2\nLecture 10\n' not in result.stdout:
+        # Engineering fixture only: contains no operator data or private workspace.
+        print(f'Fixture launcher exit={result.returncode}')
+        print(result.stdout)
+        print(result.stderr)
         raise RuntimeError('kit launch/output smoke failed')
     if result.stdout.count('LHSORT_OPERATION_FAILED') != 3:
         raise RuntimeError('grant/revoke/reinstall denial smoke failed')
