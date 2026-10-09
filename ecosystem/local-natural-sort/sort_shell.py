@@ -12,8 +12,8 @@ PROVIDER = 'local.natural-sort:sort'
 
 
 def cli(*args):
-    result = subprocess.run([sys.executable, '-I', '-m', 'academicos.lifehub.cli',
-                             *map(str, args)], capture_output=True, text=True, timeout=30)
+    result = subprocess.run([sys.executable, '-I', '-X', 'utf8', '-m', 'academicos.lifehub.cli',
+                             *map(str, args)], capture_output=True, text=True, encoding='utf-8', timeout=30)
     if result.returncode:
         # Never copy labels, private paths or raw traceback into diagnostics.
         raise RuntimeError(f'LHSORT_OPERATION_FAILED exit={result.returncode}')
