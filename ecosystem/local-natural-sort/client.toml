@@ -1,0 +1,7 @@
+manifest_version = 1
+api = "lifehub@1"
+id = "local.sort-shell"
+name = "Natural sorting Shell declaration"
+version = "0.1.0"
+[permissions]
+service_call = ["local.natural-sort:sort"]

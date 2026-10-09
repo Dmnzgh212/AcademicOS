@@ -70,6 +70,25 @@ jobs:
         run: |
           $wheel = (Get-ChildItem dist/academicos-*.whl)[0].FullName
           python scripts/check_lifehub_recovery_evidence.py "$env:RUNNER_TEMP/lifehub-recovery-evidence" $wheel "$env:RUNNER_TEMP/lifehub-recovery-proof.log" "$env:GITHUB_SHA" "$env:RUNNER_TEMP/lifehub-recovery-evidence/validation.json"
+      - name: Localized natural-sort module (Windows)
+        shell: pwsh
+        run: |
+          python -m pip install ziglang==0.13.0
+          python -m pytest -q ecosystem/local-natural-sort/test_module.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python ecosystem/local-natural-sort/build.py "$env:RUNNER_TEMP/local-sort-packages"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & "$env:RUNNER_TEMP/lifehub-win-wheel/Scripts/python.exe" -I ecosystem/local-natural-sort/verify.py "$env:RUNNER_TEMP/local-sort-packages"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Preserve localized sort packages (Windows)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: local-natural-sort-windows
+          path: |
+            ${{ runner.temp }}/local-sort-packages/*.lhpkg
+            ${{ runner.temp }}/local-sort-packages/package-hashes.json
+            dist/*.whl
       - name: Preserve Windows recovery evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -169,3 +188,19 @@ jobs:
           cmp "$RUNNER_TEMP/lifehub-examples.zip" "$RUNNER_TEMP/lifehub-examples-repeat.zip"
           python -m zipfile -e "$RUNNER_TEMP/lifehub-examples.zip" "$RUNNER_TEMP/lifehub-examples"
           "$RUNNER_TEMP/lifehub-wheel-venv/bin/python" "$RUNNER_TEMP/lifehub-examples/scripts/lifehub_wheel_smoke.py" "$RUNNER_TEMP/lifehub-examples"
+      - name: Localized natural-sort module (Linux)
+        run: |
+          python -m pip install ziglang==0.13.0
+          python -m ruff check ecosystem/local-natural-sort
+          python -m pytest -q ecosystem/local-natural-sort/test_module.py
+          python ecosystem/local-natural-sort/build.py "$RUNNER_TEMP/local-sort-packages"
+          "$RUNNER_TEMP/lifehub-wheel-venv/bin/python" -I ecosystem/local-natural-sort/verify.py "$RUNNER_TEMP/local-sort-packages"
+      - name: Preserve localized sort packages (Linux)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: local-natural-sort-linux-python-${{ matrix.python-version }}
+          path: |
+            ${{ runner.temp }}/local-sort-packages/*.lhpkg
+            ${{ runner.temp }}/local-sort-packages/package-hashes.json
+            dist/*.whl

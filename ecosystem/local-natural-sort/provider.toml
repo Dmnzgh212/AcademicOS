@@ -1,0 +1,12 @@
+manifest_version = 1
+api = "lifehub@1"
+id = "local.natural-sort"
+name = "Offline natural label sorting"
+version = "0.1.0"
+[[contributes]]
+id = "sort"
+point = "lifehub.service"
+entrypoint = "lifehub.wasm"
+contract = "lifehub.service-json@1"
+[contributes.config]
+module = "sort.wasm"
