@@ -90,3 +90,7 @@ excluded. CI compatibility is not acceptance on the user's actual computer or M1
 
 Each launch reinstalls the supplied wheel versions in the kit-local environment,
 so reusing a directory cannot silently retain an older same-version platform wheel.
+
+Windows delivery friction: UTF-8 menu mode does not propagate through an isolated
+Python subprocess. The Shell explicitly selects UTF-8 for both CLI output and
+its pipe decoder; the launcher smoke includes non-ASCII package review punctuation.
