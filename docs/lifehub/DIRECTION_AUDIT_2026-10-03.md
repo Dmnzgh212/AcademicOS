@@ -1,6 +1,7 @@
 # LifeHub direction audit — 2026-10-03
 
-> **2026-10-09 历史材料阅读提示：** 本文件保留当时的研究/交接事实，不是现在必须完成的产品任务清单。项目方后来明确采用 **有价值的复杂开源能力本地化、简单功能不强制复制/插件化、普通用户低门槛、工程侧安全验证** 的方法。阅读前参见 [现行与历史文档适用索引](DOCUMENT_PRECEDENCE_AND_ARCHIVE_STATUS.md) 和 [LH-D-LOCAL-002](LOCALIZATION_AND_USER_ACCEPTANCE_DIRECTIVE.md)。旧版“第三方”“独立”“下一步”不得自动恢复外部人类开发者门槛或要求为小函数搭建庞大框架。\n\n
+> **2026-10-09 历史材料阅读提示：** 本文件保留当时的研究/交接事实，不是现在必须完成的产品任务清单。项目方后来明确采用 **有价值的复杂开源能力本地化、简单功能不强制复制/插件化、普通用户低门槛、工程侧安全验证** 的方法。阅读前参见 [现行与历史文档适用索引](DOCUMENT_PRECEDENCE_AND_ARCHIVE_STATUS.md) 和 [LH-D-LOCAL-002](LOCALIZATION_AND_USER_ACCEPTANCE_DIRECTIVE.md)。旧版“第三方”“独立”“下一步”不得自动恢复外部人类开发者门槛或要求为小函数搭建庞大框架。
+
 Status: **convergence audit after PersonIR falsification slices and the conventional Wasm baseline**.
 
 This audit checks the current work against the 2026-09-28 handoff. It is intentionally conservative: code volume, passing tests, and conceptual elegance are not evidence that a research hypothesis belongs in the product architecture.
