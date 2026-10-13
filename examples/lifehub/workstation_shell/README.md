@@ -1,8 +1,8 @@
-# LifeHub workstation shell — workbench and schedule
+# LifeHub workstation shell — PPT page components
 
 This is a standalone UI component module proposed in a Draft PR. It repairs the mismatch between the approved workstation presentation and a large three-plane request-form implementation.
 
-The host supplies state and actions. This module renders navigation, simultaneous original/result panes, current-run history, project resources and a time-based schedule. It does not import the Engine, start a process, fetch course data or execute scripts. The existing private Site wires this module to its existing data and browser adapters; backend behavior remains outside the presentation module.
+The host supplies state and actions. This module renders navigation, simultaneous original/result panes, current-run history, project resources, schedule, library, source updates and browser canvas. It does not import the Engine, start a process, fetch course data or execute scripts. The existing private Site wires this module to its existing data and browser adapters; backend behavior remains outside the presentation module.
 
 ## Localized reuse
 
@@ -15,21 +15,35 @@ Selected Lucide SVG source is copied locally with ISC / Feather MIT notices and 
 | `ui/shell.js` | Course/term and project navigation, breadcrumbs |
 | `ui/schedule.js`, `ui/schedule.css` | Duration-aware week grid, agenda, scoped work and source updates |
 | `ui/workbench.js` | Selection, simultaneous source/output, current-run inspector |
+| `ui/library.js` | Course/term/category folders, scoped current/history material selection and provenance/work links |
+| `ui/sources.js` | Scoped source checks, change/failure records and pipeline presentation |
+| `ui/resources.js` | Shared project resource inspector and versioned catalog |
+| `ui/monitor.js` | One browser canvas/inspector, target-scoped frame/work/items and takeover states |
+| `ui/records.js` | Shared read-only labels, safe URLs, reading/check helpers |
+| `ui/collections.css`, `ui/readability.css` | PPT collection/browser layouts and text hierarchy |
 | `ui/document-scope.js` | Read-only material references and latest versions |
 | `ui/markdown.js` | Basic safe text preview |
 | `ui/base.css`, `ui/workspace.css` | Shared primitives and reference proportions |
 | `ui/reference-state.js`, `ui/reference.js`, `index.html` | Isolated visual fixture using the same components |
 
-`createWorkbench(ctx)` receives `getState`, `fileOp`, `asset`, `runId`, `selectAsset`, `selectRun`, `draft`, `render`, `modal`, `change`, `go`, `toast`, escaping/button helpers and an optional existing station view adapter. It does not acquire authority from these record fields; the host owns actions and authorization. Progress updates can refresh the inspector without remounting the source reader or losing PDF position.
+`createWorkbench(ctx)` receives `getState`, `fileOp`, `asset`, `runId`, `selectAsset`, `selectRun`, `draft`, `render`, `modal`, `change`, `go`, `toast`, escaping/button helpers and an existing station view adapter. It does not acquire authority from these record fields; the host owns actions and authorization. The host returns the complete `renderMonitor` workspace for the browser route; it is never nested in another workbench. Progress updates can refresh the inspector without remounting the source reader or losing PDF position.
 
 `renderSchedule(state, options, {esc, btn})` is a pure renderer. `scheduleModel` accepts `offset`, `scope`, `weekend` and an optional explicit `{date,time}` clock for reproducibility. The host owns `station-week`, `station-schedule-mode`, `station-schedule-weekend`, `station-edit-event`, `station-add-event`, `station-open-request`, context and source-update actions. `schedule-scope` inputs select the course/project. It imports no Engine and mutates no records. Its clock follows the existing workspace's Toronto timezone. The fixture route is `#schedule`; default fixture remains the workbench.
+
+`renderLibrary`, `renderSources`, `renderUpdates`, `renderCatalog`, `renderMonitor` and `renderProjectResources` are pure presentation functions. The host supplies escaped text/button helpers, transient frame/connection state, original-file availability and local folder paths. Components do not acquire authority from records, invoke services or persist changes. Existing host adapters own save/edit, source checking, folder sync, browser control and resource selection.
+
+Library selection is scoped by material family; filtering cannot leave another course's selected document visible. `resourceModel` distinguishes next-run references from the provided run's immutable snapshot. `monitorModel` drops another target's frame and associates a run only with the selected target/source. A frozen image remains explicitly frozen. The host must validate frame encoding before passing it to the renderer and should never persist frames.
 
 ## Developer validation
 
 Run `node --test tests/*.test.mjs` from this directory. No dependency installation is required. Serve this directory through an ordinary static host to open the isolated fixture. The normal user opens the private deployed Site and does not need to build or run a local developer server.
 
-The fixture is explicitly labeled sample data. It does not write personal records, run analysis, connect a browser or create genuine execution evidence. The analytical curves only inspect the report layout.
+The fixture is explicitly labeled sample data. It does not write personal records, run analysis, connect a browser or create genuine execution evidence. The analytical curves only inspect the report layout. The sample portal is visibly labeled HTML, never a fake screenshot or an assertion of live browser control.
 
 ## Acceptance scope
 
-See `DESIGN_CONTRACT.md` for the approved PPT mapping and staged work. Data/handler/preview and schedule time/scope/overlap checks passed in Node. Actual browser screenshot comparison, real PDF viewer sizing and Windows UI verification are **unverified**, because the current development environment lacks the supported browser-control capability. This Draft is not full PPT visual acceptance, an Engine integration, M1 acceptance or a product release. Keep it independent of the active M1 runtime stack and do not merge automatically.
+See `DESIGN_CONTRACT.md` for the approved PPT mapping and staged work. Data/handler/preview, schedule, collection/version scope and fixture navigation checks pass in Node. Actual browser screenshot comparison, real PDF viewer sizing and Windows UI verification are **unverified**, because the current development environment lacks the supported browser-control capability. This Draft is not full PPT visual acceptance, an Engine integration, M1 acceptance or a product release. Keep it independent of the active M1 runtime stack and do not merge automatically.
+
+## Host and browser adapter
+
+`adapters/browser-bridge/` retains the existing standalone Chrome/Edge extension, including the target-bound `focus` operation. It uses the same private Site origin and existing optional host/debugger permissions; no new permission is requested. The UI does not call that extension directly. Its host supplies the bridge callbacks. `adapters/HOST_INTEGRATION.patch` records the exact host changes against Site source commit `b700879114c5958e318df551898f00e2c35be948` for engineering review; apply it only to that matching host after copying the UI components. It is not a Core/Engine or M1 runtime patch. The user opens the private Site and the supplied extension bundle; engineering owns integration.

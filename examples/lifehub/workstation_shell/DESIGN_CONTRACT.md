@@ -1,50 +1,35 @@
-# Workstation Shell — workbench and schedule
+# LifeHub PPT implementation contract
 
-The approved visual source is `LifeHub_platform_design_v2.pptx`, slides 1 (schedule) and 2 (course/project workbench). Later suggestions are ideas for evaluation, not automatic scope changes. The previous implementation failed by exposing the discussion labels “需求面 / 工作面 / 执行面” as three product planes and making a large request editor the workspace.
+The approved source is `LifeHub_platform_design_v2.pptx` (8 slides). Its page structure is the implementation target. Later informal suggestions are evaluated without replacing that target. This is a private workstation with course/project navigation, material/work continuity, source polling, versioned lib and browser feedback. It is not three product planes named after the discussion labels.
 
-This correction changes presentation components and routes, not the LifeHub Engine or the local browser protocol.
+## Per-slide audit
 
-| PPT element | Phase 1 implementation | Remaining verification |
-| --- | --- | --- |
-| Quiet off-white shell, pine-green active project | `ui/shell.js`, `ui/workspace.css`, selected Lucide SVGs | Actual browser visual comparison |
-| Left course/term and project folders | Shared navigation with contextual folder links | Long real course/project names |
-| Source / report / browser / run-history bar | Workspace tabs; request form moves into an explicit dialog | Desktop keyboard and pointer QA |
-| Original beside a report | Two independent panes, native PDF or safe text, report preview/raw switch | Real PDF viewer sizing |
-| Right current-run timeline | Actual steps, waiting, pause/resume and saved-result count | Real Windows/browser transitions |
-| Current run / project resources | Contextual inspector tabs; centralized resource versions and source checks | Panel visual QA |
-| Old input survives source updates | Current run opens its pinned source version | Covered by model tests |
-| Work can be reopened | Existing request/run IDs open the workbench | Covered by handler tests |
+| Slide | Required structure / behavior | Current implementation | Unverified or outstanding |
+| --- | --- | --- | --- |
+| 1 — Schedule | Time grid, Week / Agenda, context filter, work table and upcoming/source rail | `schedule.js`; real duration positioning and overlap lanes; filter applies to all panels; weekends and early/late events visible | Actual desktop/narrow-screen visual comparison |
+| 2 — Workbench | Original beside result, current-run timeline and saved files | `workbench.js`; source/output panes; safe text/native PDF; pinned input; request form is a dialog | Real PDF sizing and browser screenshots; no fabricated analysis or ChatGPT reply |
+| 3 — Poll / crawl / lib | Checks → changes → valid original/text → versions/references; no-change skip; errors preserve old data | Existing browser/station/lib adapters; `sources.js` and `updates.js` expose actual records and a scoped check action | Only selected loaded page range; course traversal, attachments and actual source end-to-end validation outstanding |
+| 4 — Library | Course/term/category folders, table, text preview, provenance/work links, versions and recent check | `library.js`; material-version and project-reference scope; real IndexedDB original availability checked by host | Native Windows folder opening is not available in this hosted shell; the existing user-picked export/sync action is exposed instead |
+| 5 — Browser monitor | One browser canvas, address/live/history bar, one run/resource inspector, recent actions | `monitor.js`; the old nested workbench + monitor double inspector removed; actual frame/event data; original-tab focus action | Requires user's local extension and monitor permission; Windows/browser visual acceptance outstanding |
+| 6 — Take over / return | User-control banner, pause/stop, return with page check; preserve archived data | Worker control acknowledgments drive the host; user mode replaces controls; frozen frames labeled; existing resume validates page | Real Windows takeover/resume not verified here; no claim of live connection from a fixture |
+| 7 — Project resources | Scoped source checks, Skill/method/script versions, newer versions and next-run policy | Shared `resources.js` in workbench and monitor; catalog preview/history; next selection and current-run frozen version shown separately | Arbitrary script execution and automatic habit distillation are not introduced |
+| 8 — Windows local execution | UI + executor + source adapter + lib + frozen resource chain in one real work | Existing extension/data path preserved; no Core/Engine/M1 change | PowerShell/background executor and whole-course adapter are not wired by this UI module; a real source→lib→work→saved result run is not claimed |
 
-`reference.html` uses the same components with explicitly labeled isolated fixture data. It never saves fixture records to the user's workspace. Its curves are analytical layout examples, not user measurements or evidence of completed scripts.
+## Concrete corrections in this revision
 
-## Schedule: slide 1
+- Library no longer leaves an out-of-scope selected document visible after a course/filter switch. Historical versions remain accessible only within the selected material family. Work links include pinned historical inputs.
+- Original-file presence is checked from the actual IndexedDB file record rather than inferred from metadata alone.
+- Browser is its own full workspace route. Its canvas and inspector no longer sit inside another workspace's canvas and inspector.
+- A frame from another target is discarded; saved items and associated work are scoped to the selected bound page. Failed/frozen frames do not imply live progress.
+- Opening the original browser is a validated, target-bound focus operation, separate from takeover and resume. It uses existing extension permissions.
+- Shared typography uses readable contrast and a consistent hierarchy. These CSS changes still require browser visual comparison.
 
-| PPT element | Implementation | Remaining verification |
-| --- | --- | --- |
-| Week / Agenda and course/project selector | `ui/schedule.js`, shared host actions | Pointer / keyboard QA |
-| Time axis, course green and personal blue | Real start/end geometry; overlap lanes; 10–18 default window expands to all events | Actual browser density and collision review |
-| Five weekdays | Weekend toggle; weekend automatically visible when any filtered event exists | Narrow and seven-day layouts |
-| Work to continue | Scoped requests, latest run status, existing work IDs; completed work omitted | Real resume workflow |
-| Upcoming / Open work / Source | Ongoing and future events, actual request and safe source URL | Browser links |
-| Source updates and last check | Scoped actual checks; failures remain failures | Real local source updates |
+## Isolated reference
 
-`reference.html#schedule` shows the same schedule component with fixed, explicitly labeled sample dates. It is independent of personal records. Week movement, mode and scope switches work; editing sample events directs the user to personal arrangements. The host keeps the existing save/edit/delete validation, updates available work/source links when project changes, and preserves unplanned tasks in an expandable section.
+`reference.html` uses the same components with clearly labeled fixture data. It has links for schedule, workbench, library, sources, browser, takeover and project resources; catalog is reached from resources. `#takeover` and `#resources` demonstrate slide-6/7 states. The sample portal is HTML labeled “示例页面 · 非真实浏览器画面”; it is not a screenshot, an external connection, or proof of executed collection. The fixture does not write personal records or invoke services. Its curves are analytical layout examples, not user measurements.
 
-## Modules
+## Verification boundary
 
-- `ui/base.css`: shared primitives and native dialogs.
-- `ui/shell.js`: navigation and breadcrumbs.
-- `ui/schedule.js`, `ui/schedule.css`: read-only schedule model and time-grid presentation.
-- `ui/workbench.js`: document selection, simultaneous panes, right inspector.
-- `ui/markdown.js`: minimal safe reader. Advanced math/tables defer to a mature renderer module.
-- `ui/icons.js` and `vendor/lucide-LICENSE.txt`: selected localized Lucide SVGs with required licenses.
-- Existing workflow, station and browser components remain data/execution adapters. Runtime tests do not prove visual fidelity.
+Node checks cover host handlers/persistence, domain rules, module scope/version behavior, frame/control models, fixture navigation and the extension's target-bound actions. They do not check pixels. The supported `$control-browser` capability is unavailable in the managed environment; no substitute browser or preview server was used. Browser screenshots, native PDF sizing, visual collision/scroll review and Windows acceptance remain unverified.
 
-## Next stages
-
-1. Visually verify the workbench against slide 2, including text, PDF, waiting reply and saved report.
-2. Visually verify schedule against slide 1; refine lib against slide 4 separately.
-3. Refine browser canvas and takeover against slides 5 and 6. Existing protocol tests do not imply visual acceptance.
-4. Check the resources panel against slide 7 with real resources. No automatic habit distillation.
-
-Node tests verify handlers, data scope, pinned versions and safe preview. They do **not** verify pixels. The supported `$control-browser` capability is unavailable in this environment; no substitute browser was installed or used. Browser screenshots, visual collision checks and Windows acceptance remain unverified. Overlap lane calculations and scope/time behavior are covered by Node tests. This is a reviewable staged UI implementation, not full PPT acceptance, M1 acceptance or a finished platform.
+This revision completes additional presentation components and host wiring; it is not full PPT visual acceptance, a finished Windows workstation or M1 acceptance. Keep the GitHub change Draft and independent of the active runtime stack.

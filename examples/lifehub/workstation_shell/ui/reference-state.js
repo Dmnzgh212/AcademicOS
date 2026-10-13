@@ -23,3 +23,22 @@ export function scheduleReferenceState(){
  s.checks=[{id:'c1',sourceId:'csi-source',time:'2026-10-12T12:00:00Z',status:'changed',added:1,updated:0},{id:'c2',sourceId:'elg-source',time:'2026-10-12T10:00:00Z',status:'changed',added:0,updated:1}];
  s.tasks=[];return s;
 }
+
+export function platformReferenceState(){
+ const s=scheduleReferenceState(),doc=s.docs[0],text=s.documentTexts[doc.id];
+ const old={...doc,id:'sample-brief-v1',projectId:'ELG2138',sourceId:'elg-source',supersededBy:'sample-brief',created:'2026-10-10T10:00:00Z'};
+ s.docs=[{...doc,projectId:'ELG2138',sourceId:'elg-source',version:2,change:'updated',date:'2026-10-12',created:'2026-10-12T10:00:00Z',url:'https://example.com/elg2138'},old];s.documentTexts[old.id]=text;
+ s.requests.find(r=>r.id==='sample-work').docIds=[old.id];s.runs.find(r=>r.id==='sample-run').docs=[{id:old.id}];
+ s.libraryRefs=[{materialId:doc.materialId,projectId:'signals'}];
+ for(const [id,name,body,change,category] of [['measure','measurements.csv','frequency_hz,gain_db\n100,-0.4\n1000,-12.3','', 'labs'],['script','filter_design.py','# Layout fixture only. No script was run.\ncutoff_hz = 350','', 'labs'],['announcement','Announcement_Lab03.md','# Lab 03 announcement\n\nThis is sample content, not a real course announcement.','new','announcements'],['recording','recording_week04.vtt','WEBVTT\n\n00:00.000 --> 00:02.000\nIllustrative lecture caption.','','labs']]){
+  s.docs.push({id,materialId:id,name,projectId:'ELG2138',sourceId:'elg-source',category,version:1,type:'text/plain',size:new Blob([body]).size,date:'2026-10-12',change});s.documentTexts[id]=body;
+ }
+ s.resourceCatalog=[{id:'explain',kind:'skill',name:'Explain lab results',versions:[{version:'1',body:'主要用中文解释实验目标、推导与结果。只根据提供的材料陈述课程要求。',created:'2026-10-10T12:00:00Z'},{version:'2',body:'主要用中文解释，保留英文关键词。\n\n先说明障碍，再展示推导；区分实测结果、理论预测与未知。',created:'2026-10-12T12:00:00Z'}]},{id:'collect-method',kind:'method',name:'Collect lab materials',versions:[{version:'2',body:'1. 读取明确指定的页面范围。\n2. 比较上次有效正文指纹。\n3. 只有变化项建立新版本。\n4. 保留原件、正文和来源记录。',created:'2026-10-10T12:00:00Z'}]},{id:'fetch-script',kind:'script',name:'fetch_course.py',versions:[{version:'3',body:'示例脚本约定。当前实际采集由浏览器扩展适配器承担。',created:'2026-10-10T12:00:00Z'},{version:'4',body:'示例新版约定：检查失败时保留有效版本，记录失败原因。这里没有执行 Python。',created:'2026-10-12T12:00:00Z'}]}];
+ s.projectResources.signals=[{resourceId:'explain',version:'1'},{resourceId:'collect-method',version:'2'},{resourceId:'fetch-script',version:'3'}];
+ s.runs.find(r=>r.id==='sample-run').resources=s.projectResources.signals.map(ref=>{const r=s.resourceCatalog.find(x=>x.id===ref.resourceId);return {id:r.id,name:r.name,kind:r.kind,...r.versions.find(v=>v.version===ref.version)};});
+ s.sources.find(x=>x.id==='elg-source').targetId='sample-target';s.sources.find(x=>x.id==='elg-source').pollMinutes=15;
+ s.requests.push({id:'collect-work',projectId:'ELG2138',title:'Collect Lab 03 materials',goal:'Illustrative source collection.',mode:'collect',docIds:[],sourceIds:['elg-source'],created:'2026-10-12T12:00:00Z'});
+ s.projectResources.ELG2138=structuredClone(s.projectResources.signals);
+ s.runs.push({id:'collect-run',requestId:'collect-work',projectId:'ELG2138',title:'Collect Lab 03 materials',status:'paused',cursor:2,steps:[{label:'打开指定页面',status:'done'},{label:'找到 Lab 03',status:'done'},{label:'读取选定范围',status:'paused'},{label:'比较正文变化',status:'pending'},{label:'保存材料',status:'pending'}],sources:[{id:'elg-source'}],docs:[],artifactIds:[],events:[],resources:s.runs.find(r=>r.id==='sample-run').resources,message:'示例暂停状态，不是真实执行证据。',created:'2026-10-12T12:00:00Z'});
+ return s;
+}
