@@ -1,8 +1,8 @@
-# LifeHub workstation shell — phase 1
+# LifeHub workstation shell — workbench and schedule
 
 This is a standalone UI component module proposed in a Draft PR. It repairs the mismatch between the approved workstation presentation and a large three-plane request-form implementation.
 
-The host supplies state and actions. This module renders navigation, simultaneous original/result panes, current-run history and project resources. It does not import the Engine, start a process, fetch course data or execute scripts. The existing private Site wires this module to its existing data and browser adapters; backend behavior remains outside the presentation module.
+The host supplies state and actions. This module renders navigation, simultaneous original/result panes, current-run history, project resources and a time-based schedule. It does not import the Engine, start a process, fetch course data or execute scripts. The existing private Site wires this module to its existing data and browser adapters; backend behavior remains outside the presentation module.
 
 ## Localized reuse
 
@@ -13,6 +13,7 @@ Selected Lucide SVG source is copied locally with ISC / Feather MIT notices and 
 | Module | Responsibility |
 | --- | --- |
 | `ui/shell.js` | Course/term and project navigation, breadcrumbs |
+| `ui/schedule.js`, `ui/schedule.css` | Duration-aware week grid, agenda, scoped work and source updates |
 | `ui/workbench.js` | Selection, simultaneous source/output, current-run inspector |
 | `ui/document-scope.js` | Read-only material references and latest versions |
 | `ui/markdown.js` | Basic safe text preview |
@@ -21,12 +22,14 @@ Selected Lucide SVG source is copied locally with ISC / Feather MIT notices and 
 
 `createWorkbench(ctx)` receives `getState`, `fileOp`, `asset`, `runId`, `selectAsset`, `selectRun`, `draft`, `render`, `modal`, `change`, `go`, `toast`, escaping/button helpers and an optional existing station view adapter. It does not acquire authority from these record fields; the host owns actions and authorization. Progress updates can refresh the inspector without remounting the source reader or losing PDF position.
 
+`renderSchedule(state, options, {esc, btn})` is a pure renderer. `scheduleModel` accepts `offset`, `scope`, `weekend` and an optional explicit `{date,time}` clock for reproducibility. The host owns `station-week`, `station-schedule-mode`, `station-schedule-weekend`, `station-edit-event`, `station-add-event`, `station-open-request`, context and source-update actions. `schedule-scope` inputs select the course/project. It imports no Engine and mutates no records. Its clock follows the existing workspace's Toronto timezone. The fixture route is `#schedule`; default fixture remains the workbench.
+
 ## Developer validation
 
-Run `node --test tests/workbench.test.mjs` from this directory. No dependency installation is required. Serve this directory through an ordinary static host to open the isolated fixture. The normal user opens the private deployed Site and does not need to build or run a local developer server.
+Run `node --test tests/*.test.mjs` from this directory. No dependency installation is required. Serve this directory through an ordinary static host to open the isolated fixture. The normal user opens the private deployed Site and does not need to build or run a local developer server.
 
 The fixture is explicitly labeled sample data. It does not write personal records, run analysis, connect a browser or create genuine execution evidence. The analytical curves only inspect the report layout.
 
 ## Acceptance scope
 
-See `DESIGN_CONTRACT.md` for the approved PPT mapping and staged work. Data/handler/preview checks passed in Node. Actual browser screenshot comparison, real PDF viewer sizing and Windows UI verification are **unverified**, because the current development environment lacks the supported browser-control capability. This Draft is not full PPT visual acceptance, an Engine integration, M1 acceptance or a product release. Keep it independent of the active M1 runtime stack and do not merge automatically.
+See `DESIGN_CONTRACT.md` for the approved PPT mapping and staged work. Data/handler/preview and schedule time/scope/overlap checks passed in Node. Actual browser screenshot comparison, real PDF viewer sizing and Windows UI verification are **unverified**, because the current development environment lacks the supported browser-control capability. This Draft is not full PPT visual acceptance, an Engine integration, M1 acceptance or a product release. Keep it independent of the active M1 runtime stack and do not merge automatically.
