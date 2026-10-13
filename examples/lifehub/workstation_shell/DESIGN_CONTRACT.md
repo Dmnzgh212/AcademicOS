@@ -2,9 +2,11 @@
 
 The approved source is `LifeHub_platform_design_v2.pptx` (8 slides). Its page structure is the implementation target. Later informal suggestions are evaluated without replacing that target. This is a private workstation with course/project navigation, material/work continuity, source polling, versioned lib and browser feedback. It is not three product planes named after the discussion labels.
 
+> **Current status — 2026-10-13:** The user reports that the page structure still does not reproduce the approved PPT. The table below is an inventory of existing code, not UI acceptance. Follow [01 · Workspace structure and staged reconstruction](docs/01-workspace-structure.md). The next implementation scope is only the slide-2 static skeleton; do not expand into the remaining panels/pages in that same step.
+
 ## Per-slide audit
 
-| Slide | Required structure / behavior | Current implementation | Unverified or outstanding |
+| Slide | Required structure / behavior | Existing code inventory (not accepted UI) | Unverified or outstanding |
 | --- | --- | --- | --- |
 | 1 — Schedule | Time grid, Week / Agenda, context filter, work table and upcoming/source rail | `schedule.js`; real duration positioning and overlap lanes; filter applies to all panels; weekends and early/late events visible | Actual desktop/narrow-screen visual comparison |
 | 2 — Workbench | Original beside result, current-run timeline and saved files | `workbench.js`; source/output panes; safe text/native PDF; pinned input; request form is a dialog | Real PDF sizing and browser screenshots; no fabricated analysis or ChatGPT reply |
@@ -32,4 +34,4 @@ The approved source is `LifeHub_platform_design_v2.pptx` (8 slides). Its page st
 
 Node checks cover host handlers/persistence, domain rules, module scope/version behavior, frame/control models, fixture navigation and the extension's target-bound actions. They do not check pixels. The supported `$control-browser` capability is unavailable in the managed environment; no substitute browser or preview server was used. Browser screenshots, native PDF sizing, visual collision/scroll review and Windows acceptance remain unverified.
 
-This revision completes additional presentation components and host wiring; it is not full PPT visual acceptance, a finished Windows workstation or M1 acceptance. Keep the GitHub change Draft and independent of the active runtime stack.
+Existing presentation components and host wiring remain provisional. The workstation structure and visuals are not accepted as a reproduction of the PPT. Continue in small module commits using the staged document; assemble the website from verified modules later. This is not a finished Windows workstation or M1 acceptance. Keep the GitHub change Draft and independent of the active runtime stack.
