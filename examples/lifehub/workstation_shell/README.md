@@ -4,6 +4,10 @@ This is a standalone UI component module proposed in a Draft PR. It repairs the 
 
 The host supplies state and actions. This module renders navigation, simultaneous original/result panes, current-run history, project resources, schedule, library, source updates and browser canvas. It does not import the Engine, start a process, fetch course data or execute scripts. The existing private Site wires this module to its existing data and browser adapters; backend behavior remains outside the presentation module.
 
+## Staged reconstruction
+
+The existing integrated UI is not accepted as a PPT reproduction. Begin with [the structural contract](docs/01-workspace-structure.md), then [the stage-02 static skeleton](stages/02-workspace-skeleton/README.md) and [its checkpoint](docs/02-workspace-skeleton.md). Stage 02 can be viewed by opening its self-contained `index.html`; it has no runtime services or personal state. Reading, report and execution panels are separate later steps. This stage does not update the live Site.
+
 ## Localized reuse
 
 Selected Lucide SVG source is copied locally with ISC / Feather MIT notices and exact source blob identifiers in `vendor/lucide-source.json`. No remote icon loader is required. Native browser PDF viewing is reused. Basic safe text preview is small local code; advanced math/document rendering is a later module, not a fresh general renderer.

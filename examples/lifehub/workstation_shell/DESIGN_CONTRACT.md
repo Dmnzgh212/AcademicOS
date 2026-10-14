@@ -2,7 +2,7 @@
 
 The approved source is `LifeHub_platform_design_v2.pptx` (8 slides). Its page structure is the implementation target. Later informal suggestions are evaluated without replacing that target. This is a private workstation with course/project navigation, material/work continuity, source polling, versioned lib and browser feedback. It is not three product planes named after the discussion labels.
 
-> **Current status — 2026-10-13:** The user reports that the page structure still does not reproduce the approved PPT. The table below is an inventory of existing code, not UI acceptance. Follow [01 · Workspace structure and staged reconstruction](docs/01-workspace-structure.md). The next implementation scope is only the slide-2 static skeleton; do not expand into the remaining panels/pages in that same step.
+> **Current status — 2026-10-13:** The user reports that the page structure still does not reproduce the approved PPT. The table below is an inventory of existing code, not UI acceptance. Follow [01 · Workspace structure and staged reconstruction](docs/01-workspace-structure.md). [Stage 02](docs/02-workspace-skeleton.md) now adds only the independent slide-2 static skeleton. Its source/HTML checks pass, while browser visual comparison remains pending. Resolve skeleton differences before integrating the reading panel in its own subsequent step; do not expand multiple panels/pages at once.
 
 ## Per-slide audit
 
