@@ -8,6 +8,8 @@ The host supplies state and actions. This module renders navigation, simultaneou
 
 Read the complete [8-slide implementation plan](docs/IMPLEMENTATION_PLAN.md) and [reuse research](docs/REUSE_RESEARCH.md) first. The plan maps every slide to modules, proposed application contracts, dependencies, small commits and separate acceptance gates. Its next bounded task is W0: compare and correct the existing slide-2 skeleton in a real browser. The current planning update changes documents only; it does not deploy the Site or integrate the runtime.
 
+The [2026-10-15 audit](docs/DESIGN_PLAN_AUDIT_2026-10-15.md) corrects dependencies and explicit delivery gaps: monitoring before browser actions, persisted work/run records, PDF text, report assets, navigation and migration gates. Static skeleton regeneration is reproducible; W0 visual acceptance remains pending.
+
 The existing integrated UI is not accepted as a PPT reproduction. Begin with [the structural contract](docs/01-workspace-structure.md), then [the stage-02 static skeleton](stages/02-workspace-skeleton/README.md) and [its checkpoint](docs/02-workspace-skeleton.md). Stage 02 can be viewed by opening its self-contained `index.html`; it has no runtime services or personal state. Reading, report and execution panels are separate later steps. This stage does not update the live Site.
 
 ## Localized reuse

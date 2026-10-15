@@ -6,6 +6,8 @@ The approved source is `LifeHub_platform_design_v2.pptx` (8 slides). Its page st
 
 ## Per-slide audit
 
+The [design/plan audit](docs/DESIGN_PLAN_AUDIT_2026-10-15.md) records corrected implementation dependencies and the reproducible static skeleton check. It does not establish browser visual acceptance. Browser automation is gated by working monitoring and takeover; native PDF readability alone is not acceptance of the PPT reader controls.
+
 | Slide | Required structure / behavior | Existing code inventory (not accepted UI) | Unverified or outstanding |
 | --- | --- | --- | --- |
 | 1 — Schedule | Time grid, Week / Agenda, context filter, work table and upcoming/source rail | `schedule.js`; real duration positioning and overlap lanes; filter applies to all panels; weekends and early/late events visible | Actual desktop/narrow-screen visual comparison |
