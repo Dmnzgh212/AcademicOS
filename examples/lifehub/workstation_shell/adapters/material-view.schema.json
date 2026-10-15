@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LifeHub workstation material view v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["api", "materialId", "versionId", "versionNumber", "contextId", "name", "previousVersionId", "sourceId", "contentHash", "integrity", "original", "text"],
+  "properties": {
+    "api": {"const": "lifehub.workstation.material@1"},
+    "materialId": {"$ref": "#/$defs/id"},
+    "versionId": {"$ref": "#/$defs/id"},
+    "versionNumber": {"type": "integer", "minimum": 1},
+    "contextId": {"$ref": "#/$defs/id"},
+    "name": {"type": "string", "minLength": 1, "maxLength": 512},
+    "previousVersionId": {"anyOf": [{"$ref": "#/$defs/id"}, {"type": "null"}]},
+    "sourceId": {"anyOf": [{"$ref": "#/$defs/id"}, {"type": "null"}]},
+    "contentHash": {"type": ["string", "null"], "pattern": "^[a-fA-F0-9]{64}$"},
+    "integrity": {"const": "not_checked"},
+    "original": {
+      "type": "object", "additionalProperties": false,
+      "required": ["artifactId", "status", "bytes", "mimeType"],
+      "properties": {
+        "artifactId": {"type": "string", "pattern": "^original:.+", "maxLength": 169},
+        "status": {"enum": ["available", "missing", "too_large"]},
+        "bytes": {"type": ["integer", "null"], "minimum": 0},
+        "mimeType": {"type": "string"}
+      }
+    },
+    "text": {
+      "type": "object", "additionalProperties": false,
+      "required": ["artifactId", "status", "origin"],
+      "properties": {
+        "artifactId": {"type": "string", "pattern": "^text:.+", "maxLength": 165},
+        "status": {"enum": ["available", "pending_read", "missing", "too_large", "not_extracted"]},
+        "origin": {"enum": ["saved", "original", null]}
+      }
+    }
+  },
+  "$defs": {"id": {"type": "string", "minLength": 1, "maxLength": 160, "pattern": "^[^\\s/\\\\\\u0000]+$"}}
+}

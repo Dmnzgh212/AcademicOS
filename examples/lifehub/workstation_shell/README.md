@@ -6,9 +6,11 @@ The host supplies state and actions. This module renders navigation, simultaneou
 
 ## Staged reconstruction
 
-Read the complete [8-slide implementation plan](docs/IMPLEMENTATION_PLAN.md) and [reuse research](docs/REUSE_RESEARCH.md) first. The plan maps every slide to modules, proposed application contracts, dependencies, small commits and separate acceptance gates. Its next bounded task is W0: compare and correct the existing slide-2 skeleton in a real browser. The current planning update changes documents only; it does not deploy the Site or integrate the runtime.
+Read the complete [8-slide implementation plan](docs/IMPLEMENTATION_PLAN.md) and [reuse research](docs/REUSE_RESEARCH.md) first. The plan maps every slide to modules, proposed application contracts, dependencies, small commits and separate acceptance gates. Its next UI task remains W0: compare and correct the existing slide-2 skeleton in a real browser. The planning baseline changed documents only; later implementations are recorded in their own checkpoints.
 
 The [2026-10-15 audit](docs/DESIGN_PLAN_AUDIT_2026-10-15.md) corrects dependencies and explicit delivery gaps: monitoring before browser actions, persisted work/run records, PDF text, report assets, navigation and migration gates. Static skeleton regeneration is reproducible; W0 visual acceptance remains pending.
+
+The independent [D0 material-reader checkpoint](docs/D0-material-reader.md) adds a bounded read-only adapter and metadata schema over existing host records. It reads an exact historical version, checks context/reference scope and actual original availability, and withholds results invalidated during async IO. It does not change the skeleton, access personal storage, connect a browser, integrate the local service or deploy the Site. Schema parsing and eight Node boundary checks are recorded separately from pending browser/Windows validation.
 
 The existing integrated UI is not accepted as a PPT reproduction. Begin with [the structural contract](docs/01-workspace-structure.md), then [the stage-02 static skeleton](stages/02-workspace-skeleton/README.md) and [its checkpoint](docs/02-workspace-skeleton.md). Stage 02 can be viewed by opening its self-contained `index.html`; it has no runtime services or personal state. Reading, report and execution panels are separate later steps. This stage does not update the live Site.
 
@@ -55,4 +57,5 @@ See `DESIGN_CONTRACT.md` for the approved PPT mapping and staged work. Data/hand
 ## Host and browser adapter
 
 `adapters/browser-bridge/` retains the existing standalone Chrome/Edge extension, including the target-bound `focus` operation. It uses the same private Site origin and existing optional host/debugger permissions; no new permission is requested. The UI does not call that extension directly. Its host supplies the bridge callbacks. `adapters/HOST_INTEGRATION.patch` records the exact host changes against Site source commit `b700879114c5958e318df551898f00e2c35be948` for engineering review; apply it only to that matching host after copying the UI components. It is not a Core/Engine or M1 runtime patch. The user opens the private Site and the supplied extension bundle; engineering owns integration.
+
 
