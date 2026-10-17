@@ -1,0 +1,71 @@
+/* Isolated slide-2 structure. No imports from the old global-page layout. */
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:#f7f8f5}
+body{font:14px/1.5 "Segoe UI","Microsoft YaHei",sans-serif;color:#303833}
+button{font:inherit;color:inherit}
+button:disabled{cursor:default}
+button:disabled:not(.s02-export){opacity:.7}
+.lh-icon{flex:none;stroke-width:1.7}
+.s02-workspace{
+ --s02-nav:clamp(190px,14.4vw,260px);
+ --s02-run:clamp(280px,20vw,360px);
+ --s02-line:#dfe4df;
+ --s02-green:#246e59;
+ display:grid;grid-template-columns:var(--s02-nav) minmax(0,1fr);
+ height:100dvh;min-height:580px;min-width:1120px;
+}
+.s02-sidebar{display:flex;flex-direction:column;min-height:0;padding:20px 12px 20px 10px;border-right:1px solid var(--s02-line);background:#f6f7f4}
+.s02-brand{font-size:25px;font-weight:650;letter-spacing:-.5px;color:var(--s02-green);padding:0 15px 27px}
+.s02-project-tree summary{display:flex;align-items:center;gap:11px;padding:12px 13px;list-style:none;color:#586259;font-size:13px;cursor:pointer}
+.s02-project-tree summary::-webkit-details-marker{display:none}
+.s02-project-tree summary>span{flex:1}
+.s02-project-tree:not([open]) summary>svg:last-child{transform:rotate(-90deg)}
+.s02-project{display:flex;align-items:center;gap:13px;padding:12px 18px 12px 34px;margin:4px 0;border-radius:4px;font-size:14px;color:#4e5850}
+.s02-project.selected{position:relative;background:#e6eee7;color:var(--s02-green);font-weight:600}
+.s02-project.selected:before{position:absolute;content:"";left:0;top:0;bottom:0;width:3px;background:var(--s02-green);border-radius:3px 0 0 3px}
+.s02-sidebar-bottom{display:flex;align-items:center;gap:11px;margin-top:auto;padding:20px 14px 0;border-top:1px solid var(--s02-line);font-size:13px;color:#667269}
+.s02-main{display:flex;flex-direction:column;min-width:0;min-height:0}
+.s02-topbar{display:flex;align-items:center;justify-content:space-between;gap:18px;height:50px;padding:0 20px;flex:none}
+.s02-breadcrumb{display:flex;align-items:center;gap:12px;min-width:0;font-size:12px;white-space:nowrap}
+.s02-breadcrumb>span{color:#677367}
+.s02-breadcrumb i{font-style:normal;color:#95a090;font-size:17px}
+.s02-breadcrumb strong{font-weight:600;overflow:hidden;text-overflow:ellipsis}
+.s02-connection{display:flex;align-items:center;gap:7px;font-size:11px;color:#8b9486;white-space:nowrap}
+.s02-connection i{width:7px;height:7px;border-radius:50%;background:#aab3a4}
+.s02-workbar{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:0 14px;height:48px;border-bottom:1px solid var(--s02-line);flex:none}
+.s02-work-tabs{display:flex;align-self:stretch;gap:27px}
+.s02-work-tabs>span{display:flex;align-items:center;gap:8px;border-bottom:2px solid transparent;color:#798377;font-size:13px;white-space:nowrap}
+.s02-work-tabs>.selected{border-bottom-color:var(--s02-green);color:var(--s02-green);font-weight:600}
+.s02-work-actions{display:flex;align-items:center;gap:14px}
+.s02-export{display:flex;align-items:center;gap:8px;padding:7px 15px;border:1px solid #246e59;border-radius:3px;color:#fff;background:#246e59;font-size:12px}
+.s02-icon-button{display:inline-flex;align-items:center;justify-content:center;padding:4px;border:0;background:transparent;line-height:1;color:#83917d}
+.s02-panels{display:grid;grid-template-columns:minmax(0,44fr) minmax(0,56fr) var(--s02-run);align-items:stretch;gap:6px;padding:12px 10px 8px;min-height:0;flex:1}
+.s02-pane{display:flex;flex-direction:column;min-width:0;min-height:0;border:1px solid var(--s02-line);border-radius:3px;background:#fff;overflow:hidden}
+.s02-filebar{display:flex;align-items:center;justify-content:space-between;height:35px;flex:none;background:#f2f4ee;border-bottom:1px solid var(--s02-line)}
+.s02-filetab{height:100%;display:flex;align-items:center;gap:8px;min-width:0;padding:0 8px 0 12px;background:#fbfcf9;border-right:1px solid var(--s02-line);font-size:12px}
+.s02-filetab>span:not(.s02-pdf-icon){min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.s02-filetab .s02-icon-button{margin-left:2px}
+.s02-pdf-icon{display:flex;align-items:center;color:#d66e60}
+.s02-document-tools{display:flex;align-items:center;gap:9px;min-height:43px;flex:none;padding:0 9px;border-bottom:1px solid var(--s02-line);background:#fafbf7}
+.s02-page-controls{display:flex;align-items:center;gap:7px;margin-right:auto}
+.s02-page-field{display:block;padding:4px 13px;border:1px solid var(--s02-line);border-radius:3px;font-size:11px;color:#7e8878}
+.s02-zoom{display:flex;align-items:center;gap:12px;padding:5px 9px;margin-right:8px;border:1px solid var(--s02-line);border-radius:3px;font-size:11px;color:#707e68}
+.s02-report-tools{display:flex;align-items:stretch;gap:22px;min-height:43px;flex:none;padding:0 12px;border-bottom:1px solid var(--s02-line);background:#fafbf7}
+.s02-report-tools>span{display:flex;align-items:center;gap:7px;border-bottom:2px solid transparent;color:#8b9880;font-size:11px}
+.s02-report-tools>.selected{border-bottom-color:var(--s02-green);color:#527b60;font-weight:600}
+.s02-report-tools>small{margin-left:auto;align-self:center;font-size:10px;color:#a1ad95}
+.s02-pane-body{flex:1;min-height:0;overflow:auto}
+.s02-reader{display:flex;padding:10px 8px;background:#f3f5ef}
+.s02-paper{display:flex;align-items:center;justify-content:center;min-height:100%;width:100%;padding:20px;background:#fff;border:1px solid #e9ede4}
+.s02-report-body{display:flex;align-items:center;justify-content:center;padding:26px}
+.s02-placeholder{font-size:13px;text-align:center;color:#8c9e7f;margin:0;line-height:1.8}
+.s02-placeholder small{display:block;margin-top:5px;font-size:11px;color:#a5b298}
+.s02-run{margin-left:4px;padding:20px 18px 18px;background:#fcfdf9}
+.s02-run h1{font-size:18px;font-weight:600;letter-spacing:-.2px;margin:0 0 25px}
+.s02-run-slot{flex:1;min-height:150px;display:flex;align-items:center;justify-content:center}
+.s02-current-slot{padding:15px 12px;margin:18px 0 26px;background:#f4f6f0;border:1px solid #e4eadf;border-radius:3px;font-size:12px;color:#8c9c7e}
+.s02-current-slot small,.s02-preserved-slot small{display:block;margin-top:4px;font-size:10px;color:#a1af92}
+.s02-preserved-slot{display:flex;align-items:center;gap:11px;padding-top:20px;border-top:1px solid var(--s02-line);font-size:12px;color:#7e9271;flex:none}
+.s02-statusbar{display:flex;align-items:center;justify-content:space-between;gap:20px;height:24px;flex:none;padding:0 14px 0 20px;color:#9aaa8b;font-size:9px}
+/* Keep the desktop reference intact on smaller screens; scroll the canvas. */
+@media(max-width:1119px){.s02-workspace{--s02-nav:190px;--s02-run:280px}}

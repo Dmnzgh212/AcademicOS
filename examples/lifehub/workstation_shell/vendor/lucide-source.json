@@ -1,0 +1,133 @@
+{
+  "upstream": "https://github.com/lucide-icons/lucide",
+  "retrieved": "2026-10-12",
+  "license": "ISC plus Feather MIT; see lucide-LICENSE.txt",
+  "adaptation": "Selected SVGs; CSS class, aria-hidden and adjustable size; no runtime network loader",
+  "icons": [
+    {
+      "name": "folder",
+      "upstream_path": "icons/folder.svg",
+      "source_blob_sha": "ef69b345f200f1542ad9a2dfca7d41d036910f4b"
+    },
+    {
+      "name": "file-text",
+      "upstream_path": "icons/file-text.svg",
+      "source_blob_sha": "67dc5b9d1a07a1b501ba87d62563b914c059096e"
+    },
+    {
+      "name": "calendar",
+      "upstream_path": "icons/calendar.svg",
+      "source_blob_sha": "4679497031a9540a311f6223da003ce26f638e24"
+    },
+    {
+      "name": "house",
+      "upstream_path": "icons/house.svg",
+      "source_blob_sha": "10e4097e290fdb2f1f919b264bf4e3095348de7c"
+    },
+    {
+      "name": "bell",
+      "upstream_path": "icons/bell.svg",
+      "source_blob_sha": "0345ca35bc8cead87cf05857545e24de031e7779"
+    },
+    {
+      "name": "link",
+      "upstream_path": "icons/link.svg",
+      "source_blob_sha": "645e746a888689bb7b37e35b39873037d6b9f6be"
+    },
+    {
+      "name": "download",
+      "upstream_path": "icons/download.svg",
+      "source_blob_sha": "5c75527bde1fe8259efb72c5b590bedfae28c05e"
+    },
+    {
+      "name": "search",
+      "upstream_path": "icons/search.svg",
+      "source_blob_sha": "03e442a5440cff92c219fe3a3c1f2b0788d30701"
+    },
+    {
+      "name": "pause",
+      "upstream_path": "icons/pause.svg",
+      "source_blob_sha": "ea5762fdbcccbf1f73bb2b46178bb1bafd1e373f"
+    },
+    {
+      "name": "globe",
+      "upstream_path": "icons/globe.svg",
+      "source_blob_sha": "53c80ee35dd294b0193642f0731010e033ba0618"
+    },
+    {
+      "name": "external-link",
+      "upstream_path": "icons/external-link.svg",
+      "source_blob_sha": "a73a9ba286ebaac4c7fc65bf9303a2fb9624ae76"
+    },
+    {
+      "name": "plus",
+      "upstream_path": "icons/plus.svg",
+      "source_blob_sha": "41f92bb93eb6626368d71c9884127bbcf7d3ccdf"
+    },
+    {
+      "name": "chevron-down",
+      "upstream_path": "icons/chevron-down.svg",
+      "source_blob_sha": "e70d30b88399a721cd5d20d0d26756608cf8c42b"
+    },
+    {
+      "name": "settings-2",
+      "upstream_path": "icons/settings-2.svg",
+      "source_blob_sha": "0a9d29d77781e7d2f7f6db6a8fe4371ae6ff4f84"
+    },
+    {
+      "name": "book-open",
+      "upstream_path": "icons/book-open.svg",
+      "source_blob_sha": "9e0ace59b788e2b45fc35d9fbf68c2a80bd518bc"
+    },
+    {
+      "name": "maximize-2",
+      "upstream_path": "icons/maximize-2.svg",
+      "source_blob_sha": "790d25383b0f59620553f01c06c472be343257f7"
+    },
+    {
+      "name": "x",
+      "upstream_path": "icons/x.svg",
+      "source_blob_sha": "e31794349d3eecea1b3ae8e974b68bb8f4becda7"
+    },
+    {
+      "name": "check",
+      "upstream_path": "icons/check.svg",
+      "source_blob_sha": "5abe1527434e7b251bde0661f99af96178976d8c"
+    },
+    {
+      "name": "square",
+      "upstream_path": "icons/square.svg",
+      "source_blob_sha": "7862733557b3a069a22721196e0bd6c5c92b9339"
+    },
+    {
+      "name": "code",
+      "upstream_path": "icons/code.svg",
+      "source_blob_sha": "fe2378380d5d57637278b515cd15e9312a053833"
+    },
+    {
+      "name": "play",
+      "upstream_path": "icons/play.svg",
+      "source_blob_sha": "199743ed2e546fdcef48f9ebbe4030e8f75c59c1"
+    },
+    {
+      "name": "arrow-left",
+      "upstream_path": "icons/arrow-left.svg",
+      "source_blob_sha": "b40bff851c85eff44f678eb7984fc6070d7ea721"
+    },
+    {
+      "name": "arrow-right",
+      "upstream_path": "icons/arrow-right.svg",
+      "source_blob_sha": "433ded3fcc5f7bd2b6a59356c6ffe8eceac6b7e3"
+    },
+    {
+      "name": "ellipsis-vertical",
+      "upstream_path": "icons/ellipsis-vertical.svg",
+      "source_blob_sha": "1de61600dd58dae78ff16549ce7ab62b54afba5c"
+    },
+    {
+      "name": "history",
+      "upstream_path": "icons/clock.svg",
+      "source_blob_sha": "b6ae2834e60fc09547007a89067994e8b5ea55b5"
+    }
+  ]
+}

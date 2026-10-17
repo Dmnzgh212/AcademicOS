@@ -1,0 +1,510 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LifeHub · 第 02 步工作区骨架</title>
+<!-- Selected Lucide icons; original notices retained below.
+ISC License
+
+Copyright (c) 2026 Lucide Icons and Contributors
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+—-
+
+The following Lucide icons are derived from the Feather project:
+
+airplay, alert-circle, alert-octagon, alert-triangle, aperture, arrow-down-circle, arrow-down-left, arrow-down-right, arrow-down, arrow-left-circle, arrow-left, arrow-right-circle, arrow-right, arrow-up-circle, arrow-up-left, arrow-up-right, arrow-up, at-sign, calendar, cast, check, chevron-down, chevron-left, chevron-right, chevron-up, chevrons-down, chevrons-left, chevrons-right, chevrons-up, circle, clipboard, clock, code, columns, command, compass, corner-down-left, corner-down-right, corner-left-down, corner-left-up, corner-right-down, corner-right-up, corner-up-left, corner-up-right, crosshair, database, divide-circle, divide-square, dollar-sign, download, external-link, feather, frown, hash, headphones, help-circle, info, italic, key, layout, life-buoy, link-2, link, loader, lock, log-in, log-out, maximize, meh, minimize, minimize-2, minus-circle, minus-square, minus, monitor, moon, more-horizontal, more-vertical, move, music, navigation-2, navigation, octagon, pause-circle, percent, plus-circle, plus-square, plus, power, radio, rss, search, server, share, shopping-bag, sidebar, smartphone, smile, square, table-2, tablet, target, terminal, trash-2, trash, triangle, tv, type, upload, x-circle, x-octagon, x-square, x, zoom-in, zoom-out
+
+The MIT License (MIT) (for the icons listed above)
+
+Copyright (c) 2013-present Cole Bemis
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+-->
+<style>/* Isolated slide-2 structure. No imports from the old global-page layout. */
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:#f7f8f5}
+body{font:14px/1.5 "Segoe UI","Microsoft YaHei",sans-serif;color:#303833}
+button{font:inherit;color:inherit}
+button:disabled{cursor:default}
+button:disabled:not(.s02-export){opacity:.7}
+.lh-icon{flex:none;stroke-width:1.7}
+.s02-workspace{
+ --s02-nav:clamp(190px,14.4vw,260px);
+ --s02-run:clamp(280px,20vw,360px);
+ --s02-line:#dfe4df;
+ --s02-green:#246e59;
+ display:grid;grid-template-columns:var(--s02-nav) minmax(0,1fr);
+ height:100dvh;min-height:580px;min-width:1120px;
+}
+.s02-sidebar{display:flex;flex-direction:column;min-height:0;padding:20px 12px 20px 10px;border-right:1px solid var(--s02-line);background:#f6f7f4}
+.s02-brand{font-size:25px;font-weight:650;letter-spacing:-.5px;color:var(--s02-green);padding:0 15px 27px}
+.s02-project-tree summary{display:flex;align-items:center;gap:11px;padding:12px 13px;list-style:none;color:#586259;font-size:13px;cursor:pointer}
+.s02-project-tree summary::-webkit-details-marker{display:none}
+.s02-project-tree summary>span{flex:1}
+.s02-project-tree:not([open]) summary>svg:last-child{transform:rotate(-90deg)}
+.s02-project{display:flex;align-items:center;gap:13px;padding:12px 18px 12px 34px;margin:4px 0;border-radius:4px;font-size:14px;color:#4e5850}
+.s02-project.selected{position:relative;background:#e6eee7;color:var(--s02-green);font-weight:600}
+.s02-project.selected:before{position:absolute;content:"";left:0;top:0;bottom:0;width:3px;background:var(--s02-green);border-radius:3px 0 0 3px}
+.s02-sidebar-bottom{display:flex;align-items:center;gap:11px;margin-top:auto;padding:20px 14px 0;border-top:1px solid var(--s02-line);font-size:13px;color:#667269}
+.s02-main{display:flex;flex-direction:column;min-width:0;min-height:0}
+.s02-topbar{display:flex;align-items:center;justify-content:space-between;gap:18px;height:50px;padding:0 20px;flex:none}
+.s02-breadcrumb{display:flex;align-items:center;gap:12px;min-width:0;font-size:12px;white-space:nowrap}
+.s02-breadcrumb>span{color:#677367}
+.s02-breadcrumb i{font-style:normal;color:#95a090;font-size:17px}
+.s02-breadcrumb strong{font-weight:600;overflow:hidden;text-overflow:ellipsis}
+.s02-connection{display:flex;align-items:center;gap:7px;font-size:11px;color:#8b9486;white-space:nowrap}
+.s02-connection i{width:7px;height:7px;border-radius:50%;background:#aab3a4}
+.s02-workbar{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:0 14px;height:48px;border-bottom:1px solid var(--s02-line);flex:none}
+.s02-work-tabs{display:flex;align-self:stretch;gap:27px}
+.s02-work-tabs>span{display:flex;align-items:center;gap:8px;border-bottom:2px solid transparent;color:#798377;font-size:13px;white-space:nowrap}
+.s02-work-tabs>.selected{border-bottom-color:var(--s02-green);color:var(--s02-green);font-weight:600}
+.s02-work-actions{display:flex;align-items:center;gap:14px}
+.s02-export{display:flex;align-items:center;gap:8px;padding:7px 15px;border:1px solid #246e59;border-radius:3px;color:#fff;background:#246e59;font-size:12px}
+.s02-icon-button{display:inline-flex;align-items:center;justify-content:center;padding:4px;border:0;background:transparent;line-height:1;color:#83917d}
+.s02-panels{display:grid;grid-template-columns:minmax(0,44fr) minmax(0,56fr) var(--s02-run);align-items:stretch;gap:6px;padding:12px 10px 8px;min-height:0;flex:1}
+.s02-pane{display:flex;flex-direction:column;min-width:0;min-height:0;border:1px solid var(--s02-line);border-radius:3px;background:#fff;overflow:hidden}
+.s02-filebar{display:flex;align-items:center;justify-content:space-between;height:35px;flex:none;background:#f2f4ee;border-bottom:1px solid var(--s02-line)}
+.s02-filetab{height:100%;display:flex;align-items:center;gap:8px;min-width:0;padding:0 8px 0 12px;background:#fbfcf9;border-right:1px solid var(--s02-line);font-size:12px}
+.s02-filetab>span:not(.s02-pdf-icon){min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.s02-filetab .s02-icon-button{margin-left:2px}
+.s02-pdf-icon{display:flex;align-items:center;color:#d66e60}
+.s02-document-tools{display:flex;align-items:center;gap:9px;min-height:43px;flex:none;padding:0 9px;border-bottom:1px solid var(--s02-line);background:#fafbf7}
+.s02-page-controls{display:flex;align-items:center;gap:7px;margin-right:auto}
+.s02-page-field{display:block;padding:4px 13px;border:1px solid var(--s02-line);border-radius:3px;font-size:11px;color:#7e8878}
+.s02-zoom{display:flex;align-items:center;gap:12px;padding:5px 9px;margin-right:8px;border:1px solid var(--s02-line);border-radius:3px;font-size:11px;color:#707e68}
+.s02-report-tools{display:flex;align-items:stretch;gap:22px;min-height:43px;flex:none;padding:0 12px;border-bottom:1px solid var(--s02-line);background:#fafbf7}
+.s02-report-tools>span{display:flex;align-items:center;gap:7px;border-bottom:2px solid transparent;color:#8b9880;font-size:11px}
+.s02-report-tools>.selected{border-bottom-color:var(--s02-green);color:#527b60;font-weight:600}
+.s02-report-tools>small{margin-left:auto;align-self:center;font-size:10px;color:#a1ad95}
+.s02-pane-body{flex:1;min-height:0;overflow:auto}
+.s02-reader{display:flex;padding:10px 8px;background:#f3f5ef}
+.s02-paper{display:flex;align-items:center;justify-content:center;min-height:100%;width:100%;padding:20px;background:#fff;border:1px solid #e9ede4}
+.s02-report-body{display:flex;align-items:center;justify-content:center;padding:26px}
+.s02-placeholder{font-size:13px;text-align:center;color:#8c9e7f;margin:0;line-height:1.8}
+.s02-placeholder small{display:block;margin-top:5px;font-size:11px;color:#a5b298}
+.s02-run{margin-left:4px;padding:20px 18px 18px;background:#fcfdf9}
+.s02-run h1{font-size:18px;font-weight:600;letter-spacing:-.2px;margin:0 0 25px}
+.s02-run-slot{flex:1;min-height:150px;display:flex;align-items:center;justify-content:center}
+.s02-current-slot{padding:15px 12px;margin:18px 0 26px;background:#f4f6f0;border:1px solid #e4eadf;border-radius:3px;font-size:12px;color:#8c9c7e}
+.s02-current-slot small,.s02-preserved-slot small{display:block;margin-top:4px;font-size:10px;color:#a1af92}
+.s02-preserved-slot{display:flex;align-items:center;gap:11px;padding-top:20px;border-top:1px solid var(--s02-line);font-size:12px;color:#7e9271;flex:none}
+.s02-statusbar{display:flex;align-items:center;justify-content:space-between;gap:20px;height:24px;flex:none;padding:0 14px 0 20px;color:#9aaa8b;font-size:9px}
+/* Keep the desktop reference intact on smaller screens; scroll the canvas. */
+@media(max-width:1119px){.s02-workspace{--s02-nav:190px;--s02-run:280px}}
+</style></head><body><div class="s02-workspace" data-stage="02">
+  <aside class="s02-sidebar" aria-label="项目导航">
+   <div class="s02-brand">LifeHub</div>
+   <details class="s02-project-tree" open>
+    <summary><svg class="lh-icon" aria-hidden="true"
+  xmlns="http://www.w3.org/2000/svg"
+  width="20"
+  height="20"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
+</svg>
+<span>Engineering / Fall</span><svg class="lh-icon" aria-hidden="true"
+  xmlns="http://www.w3.org/2000/svg"
+  width="16"
+  height="16"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="m6 9 6 6 6-6" />
+</svg>
+</summary>
+    <div class="s02-project selected" aria-current="page"><svg class="lh-icon" aria-hidden="true"
+  xmlns="http://www.w3.org/2000/svg"
+  width="19"
+  height="19"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
+</svg>
+<span>Signals Lab</span></div>
+    <div class="s02-project"><svg class="lh-icon" aria-hidden="true"
+  xmlns="http://www.w3.org/2000/svg"
+  width="19"
+  height="19"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
+</svg>
+<span>Robotics</span></div>
+    <div class="s02-project"><svg class="lh-icon" aria-hidden="true"
+  xmlns="http://www.w3.org/2000/svg"
+  width="19"
+  height="19"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
+</svg>
+<span>Algorithms</span></div>
+   </details>
+   <div class="s02-sidebar-bottom"><svg class="lh-icon" aria-hidden="true"
+  xmlns="http://www.w3.org/2000/svg"
+  width="18"
+  height="18"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+  <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+</svg>
+<span>Connections</span></div>
+  </aside>
+  <div class="s02-main">
+   <header class="s02-topbar">
+    <nav class="s02-breadcrumb" aria-label="当前工作"><span>Engineering / Fall</span><i>›</i><span>Signals Lab</span><i>›</i><strong>Filter response</strong></nav>
+    <span class="s02-connection"><i></i>未连接 · 静态骨架</span>
+   </header>
+   <div class="s02-workbar">
+    <nav class="s02-work-tabs" aria-label="工作区页签">
+     <span class="selected" aria-current="page"><svg class="lh-icon" aria-hidden="true"
+  xmlns="http://www.w3.org/2000/svg"
+  width="18"
+  height="18"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" />
+  <path d="M14 2v5a1 1 0 0 0 1 1h5" />
+  <path d="M10 9H8" />
+  <path d="M16 13H8" />
+  <path d="M16 17H8" />
+</svg>
+Source</span>
+     <span><svg class="lh-icon" aria-hidden="true"
+  xmlns="http://www.w3.org/2000/svg"
+  width="18"
+  height="18"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" />
+  <path d="M14 2v5a1 1 0 0 0 1 1h5" />
+  <path d="M10 9H8" />
+  <path d="M16 13H8" />
+  <path d="M16 17H8" />
+</svg>
+Report</span>
+     <span><svg class="lh-icon" aria-hidden="true"
+  xmlns="http://www.w3.org/2000/svg"
+  width="18"
+  height="18"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <circle cx="12" cy="12" r="10" />
+  <path d="M12 6v6l4 2" />
+</svg>
+Run history</span>
+    </nav>
+    <div class="s02-work-actions"><button class="s02-export" disabled title="骨架阶段：导出尚未接入"><svg class="lh-icon" aria-hidden="true"
+  xmlns="http://www.w3.org/2000/svg"
+  width="17"
+  height="17"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M12 15V3" />
+  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+  <path d="m7 10 5 5 5-5" />
+</svg>
+Export report</button><button class="s02-icon-button" type="button" disabled aria-label="更多操作" title="骨架阶段：更多操作尚未接入"><svg class="lh-icon" aria-hidden="true"
+  xmlns="http://www.w3.org/2000/svg"
+  width="17"
+  height="17"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <circle cx="12" cy="12" r="1" />
+  <circle cx="12" cy="5" r="1" />
+  <circle cx="12" cy="19" r="1" />
+</svg>
+</button></div>
+   </div>
+   <main class="s02-panels" aria-label="原材料、报告与运行三栏">
+    <section class="s02-pane s02-source" aria-labelledby="s02-source-title">
+     <header class="s02-filebar"><span class="s02-filetab"><span class="s02-pdf-icon"><svg class="lh-icon" aria-hidden="true"
+  xmlns="http://www.w3.org/2000/svg"
+  width="17"
+  height="17"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" />
+  <path d="M14 2v5a1 1 0 0 0 1 1h5" />
+  <path d="M10 9H8" />
+  <path d="M16 13H8" />
+  <path d="M16 17H8" />
+</svg>
+</span><span id="s02-source-title">Lab03_brief.pdf</span><button class="s02-icon-button" type="button" disabled aria-label="关闭原材料" title="骨架阶段：关闭原材料尚未接入"><svg class="lh-icon" aria-hidden="true"
+  xmlns="http://www.w3.org/2000/svg"
+  width="17"
+  height="17"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M18 6 6 18" />
+  <path d="m6 6 12 12" />
+</svg>
+</button></span><button class="s02-icon-button" type="button" disabled aria-label="关闭阅读面板" title="骨架阶段：关闭阅读面板尚未接入"><svg class="lh-icon" aria-hidden="true"
+  xmlns="http://www.w3.org/2000/svg"
+  width="17"
+  height="17"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M18 6 6 18" />
+  <path d="m6 6 12 12" />
+</svg>
+</button></header>
+     <div class="s02-document-tools"><div class="s02-page-controls"><button class="s02-icon-button" type="button" disabled aria-label="上一页" title="骨架阶段：上一页尚未接入"><svg class="lh-icon" aria-hidden="true"
+  xmlns="http://www.w3.org/2000/svg"
+  width="17"
+  height="17"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="m12 19-7-7 7-7" />
+  <path d="M19 12H5" />
+</svg>
+</button><span class="s02-page-field">— / —</span><button class="s02-icon-button" type="button" disabled aria-label="下一页" title="骨架阶段：下一页尚未接入"><svg class="lh-icon" aria-hidden="true"
+  xmlns="http://www.w3.org/2000/svg"
+  width="17"
+  height="17"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M5 12h14" />
+  <path d="m12 5 7 7-7 7" />
+</svg>
+</button></div><span class="s02-zoom">100% <svg class="lh-icon" aria-hidden="true"
+  xmlns="http://www.w3.org/2000/svg"
+  width="13"
+  height="13"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="m6 9 6 6 6-6" />
+</svg>
+</span><button class="s02-icon-button" type="button" disabled aria-label="搜索原材料" title="骨架阶段：搜索原材料尚未接入"><svg class="lh-icon" aria-hidden="true"
+  xmlns="http://www.w3.org/2000/svg"
+  width="17"
+  height="17"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="m21 21-4.34-4.34" />
+  <circle cx="11" cy="11" r="8" />
+</svg>
+</button><button class="s02-icon-button" type="button" disabled aria-label="展开原材料" title="骨架阶段：展开原材料尚未接入"><svg class="lh-icon" aria-hidden="true"
+  xmlns="http://www.w3.org/2000/svg"
+  width="17"
+  height="17"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M15 3h6v6" />
+  <path d="m21 3-7 7" />
+  <path d="m3 21 7-7" />
+  <path d="M9 21H3v-6" />
+</svg>
+</button></div>
+     <div class="s02-pane-body s02-reader"><div class="s02-paper" id="s02-source-slot"><p class="s02-placeholder">原材料阅读区域<small>第 03 步接入正文 / PDF</small></p></div></div>
+    </section>
+    <section class="s02-pane s02-report" aria-labelledby="s02-report-title">
+     <header class="s02-filebar"><span class="s02-filetab"><svg class="lh-icon" aria-hidden="true"
+  xmlns="http://www.w3.org/2000/svg"
+  width="17"
+  height="17"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" />
+  <path d="M14 2v5a1 1 0 0 0 1 1h5" />
+  <path d="M10 9H8" />
+  <path d="M16 13H8" />
+  <path d="M16 17H8" />
+</svg>
+<span id="s02-report-title">report.md</span><button class="s02-icon-button" type="button" disabled aria-label="关闭报告" title="骨架阶段：关闭报告尚未接入"><svg class="lh-icon" aria-hidden="true"
+  xmlns="http://www.w3.org/2000/svg"
+  width="17"
+  height="17"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M18 6 6 18" />
+  <path d="m6 6 12 12" />
+</svg>
+</button></span></header>
+     <div class="s02-report-tools"><span class="selected"><svg class="lh-icon" aria-hidden="true"
+  xmlns="http://www.w3.org/2000/svg"
+  width="15"
+  height="15"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M12 5v16" />
+  <path d="M20.001 19A2 2 0 0022 17V5a2 2 0 00-1.999-2L16 3.002A5 5 0 0012 5a5 5 0 00-4-2H4a2 2 0 00-2 2v12a2 2 0 001.999 2H8a5 5 0 014 2 5 5 0 014-2z" />
+</svg>
+Preview</span><span><svg class="lh-icon" aria-hidden="true"
+  xmlns="http://www.w3.org/2000/svg"
+  width="15"
+  height="15"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="m16 18 6-6-6-6" />
+  <path d="m8 6-6 6 6 6" />
+</svg>
+Raw</span><small>尚未生成报告</small></div>
+     <div class="s02-pane-body s02-report-body" id="s02-report-slot"><p class="s02-placeholder">报告内容区域<small>第 04 步接入预览 / 原文 / 导出</small></p></div>
+    </section>
+    <aside class="s02-pane s02-run" aria-labelledby="s02-run-title">
+     <h1 id="s02-run-title">This run</h1>
+     <div class="s02-run-slot" id="s02-run-slot"><p class="s02-placeholder">步骤时间线区域<small>第 05 步接入真实运行状态</small></p></div>
+     <div class="s02-current-slot">当前步骤与动作<small>尚未接入执行器</small></div>
+     <div class="s02-preserved-slot"><svg class="lh-icon" aria-hidden="true"
+  xmlns="http://www.w3.org/2000/svg"
+  width="20"
+  height="20"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
+</svg>
+<div>文件保留状态<small>尚未核对文件</small></div></div>
+    </aside>
+   </main>
+   <footer class="s02-statusbar"><span>第 02 步 · 结构预览 · 示例文件名</span><span>阅读、报告和执行功能均未接入</span></footer>
+  </div>
+ </div></body></html>
