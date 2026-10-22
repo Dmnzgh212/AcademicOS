@@ -6,6 +6,8 @@ The host supplies state and actions. This module renders navigation, simultaneou
 
 ## Staged reconstruction
 
+The [goal-alignment review](docs/GOAL_ALIGNMENT_REVIEW_2026-10-17.md) distinguishes the approved visual framework from incomplete product behavior and unverified implementation. The [single-course workflow](docs/SINGLE_COURSE_WORKFLOW.md) now defines context assignment, existing-method selection, actual results and evidence-based progress updates. It keeps the approved layout; W0 is still pending. W1's first slice includes a minimal context/material entry and one real text reader, with PDF verified separately. These are design requirements, not newly connected features.
+
 Read the complete [8-slide implementation plan](docs/IMPLEMENTATION_PLAN.md) and [reuse research](docs/REUSE_RESEARCH.md) first. The plan maps every slide to modules, proposed application contracts, dependencies, small commits and separate acceptance gates. Its next UI task remains W0: compare and correct the existing slide-2 skeleton in a real browser. The planning baseline changed documents only; later implementations are recorded in their own checkpoints.
 
 The [2026-10-15 audit](docs/DESIGN_PLAN_AUDIT_2026-10-15.md) corrects dependencies and explicit delivery gaps: monitoring before browser actions, persisted work/run records, PDF text, report assets, navigation and migration gates. Static skeleton regeneration is reproducible; W0 visual acceptance remains pending.
