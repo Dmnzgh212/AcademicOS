@@ -6,6 +6,9 @@ The host supplies state and actions. This module renders navigation, simultaneou
 
 ## Staged reconstruction
 
+Current UI checkpoint: [W0 browser check](docs/W0-browser-check.md) now records actual fixed-viewport layout measurements and scaled browser captures. It fixes navigation wrapping, sidebar spacing, pane proportions and placeholder contrast. This is structural QA, not final visual or product acceptance. Next is only W1’s minimal context/material entry and one real text reader. Earlier pending-W0 statements below describe prior checkpoints.
+
+
 The [goal-alignment review](docs/GOAL_ALIGNMENT_REVIEW_2026-10-17.md) distinguishes the approved visual framework from incomplete product behavior and unverified implementation. The [single-course workflow](docs/SINGLE_COURSE_WORKFLOW.md) now defines context assignment, existing-method selection, actual results and evidence-based progress updates. It keeps the approved layout; W0 is still pending. W1's first slice includes a minimal context/material entry and one real text reader, with PDF verified separately. These are design requirements, not newly connected features.
 
 Read the complete [8-slide implementation plan](docs/IMPLEMENTATION_PLAN.md) and [reuse research](docs/REUSE_RESEARCH.md) first. The plan maps every slide to modules, proposed application contracts, dependencies, small commits and separate acceptance gates. Its next UI task remains W0: compare and correct the existing slide-2 skeleton in a real browser. The planning baseline changed documents only; later implementations are recorded in their own checkpoints.
@@ -63,6 +66,7 @@ See `DESIGN_CONTRACT.md` for the approved PPT mapping and staged work. Data/hand
 ## Host and browser adapter
 
 `adapters/browser-bridge/` retains the existing standalone Chrome/Edge extension, including the target-bound `focus` operation. It uses the same private Site origin and existing optional host/debugger permissions; no new permission is requested. The UI does not call that extension directly. Its host supplies the bridge callbacks. `adapters/HOST_INTEGRATION.patch` records the exact host changes against Site source commit `b700879114c5958e318df551898f00e2c35be948` for engineering review; apply it only to that matching host after copying the UI components. It is not a Core/Engine or M1 runtime patch. The user opens the private Site and the supplied extension bundle; engineering owns integration.
+
 
 
 

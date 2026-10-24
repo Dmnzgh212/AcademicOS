@@ -23,4 +23,7 @@ GitHub 的文件页展示源码；可下载 `index.html` 后直接打开。尚�
 
 第 03 步只接 `#s02-source-slot`，第 04 步才接 `#s02-report-slot`，第 05 步再接 `#s02-run-slot` 及状态区域。这些 ID 只是位置约定，当前没有保存或执行行为。
 
-实现与验证记录见 [02 阶段文档](../../docs/02-workspace-skeleton.md)。骨架已落地；真实浏览器截图与 PPT 比例对照仍未完成。维持 Draft，不标记 PPT 或 M1 验收。
+实现与验证记录见 [02 阶段文档](../../docs/02-workspace-skeleton.md)。骨架已落地；W0 已完成三个固定内容视口的真实浏览器结构检查，详见 [W0 记录](../../docs/W0-browser-check.md) 和缩放截图限制。维持 Draft，不标记 PPT 或 M1 验收。
+
+
+工程侧可执行 `node build-qa.mjs` 生成 `qa/1600.html`、`qa/1440.html`、`qa/1280.html`，供同源静态预览检查。它们分别固定内部视口，按 0.8/0.9/1.0 显示，不是改变应用自身布局。

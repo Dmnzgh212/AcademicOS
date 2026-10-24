@@ -1,0 +1,181 @@
+{
+  "captureViewport": [
+    1363,
+    936
+  ],
+  "contentViewports": [
+    {
+      "bars": [
+        {
+          "name": "s02-topbar",
+          "overflow": false
+        },
+        {
+          "name": "s02-workbar",
+          "overflow": false
+        },
+        {
+          "name": "s02-document-tools",
+          "overflow": false
+        },
+        {
+          "name": "s02-report-tools",
+          "overflow": false
+        }
+      ],
+      "bodyOverflow": false,
+      "frame": [
+        1600,
+        900
+      ],
+      "panes": [
+        {
+          "height": 900,
+          "name": "s02-sidebar",
+          "width": 232,
+          "x": 0,
+          "y": 0
+        },
+        {
+          "height": 758,
+          "name": "s02-pane s02-source",
+          "width": 443.3125,
+          "x": 246,
+          "y": 110
+        },
+        {
+          "height": 758,
+          "name": "s02-pane s02-report",
+          "width": 550.671875,
+          "x": 693.3125,
+          "y": 110
+        },
+        {
+          "height": 758,
+          "name": "s02-pane s02-run",
+          "width": 340,
+          "x": 1251.984375,
+          "y": 110
+        }
+      ],
+      "summaryClipped": false
+    },
+    {
+      "bars": [
+        {
+          "name": "s02-topbar",
+          "overflow": false
+        },
+        {
+          "name": "s02-workbar",
+          "overflow": false
+        },
+        {
+          "name": "s02-document-tools",
+          "overflow": false
+        },
+        {
+          "name": "s02-report-tools",
+          "overflow": false
+        }
+      ],
+      "bodyOverflow": false,
+      "frame": [
+        1440,
+        900
+      ],
+      "panes": [
+        {
+          "height": 900,
+          "name": "s02-sidebar",
+          "width": 208.796875,
+          "x": 0,
+          "y": 0
+        },
+        {
+          "height": 758,
+          "name": "s02-pane s02-source",
+          "width": 397.65625,
+          "x": 222.796875,
+          "y": 110
+        },
+        {
+          "height": 758,
+          "name": "s02-pane s02-report",
+          "width": 493.953125,
+          "x": 624.453125,
+          "y": 110
+        },
+        {
+          "height": 758,
+          "name": "s02-pane s02-run",
+          "width": 305.59375,
+          "x": 1126.40625,
+          "y": 110
+        }
+      ],
+      "summaryClipped": false
+    },
+    {
+      "bars": [
+        {
+          "name": "s02-topbar",
+          "overflow": false
+        },
+        {
+          "name": "s02-workbar",
+          "overflow": false
+        },
+        {
+          "name": "s02-document-tools",
+          "overflow": false
+        },
+        {
+          "name": "s02-report-tools",
+          "overflow": false
+        }
+      ],
+      "bodyOverflow": false,
+      "frame": [
+        1280,
+        800
+      ],
+      "panes": [
+        {
+          "height": 800,
+          "name": "s02-sidebar",
+          "width": 190,
+          "x": 0,
+          "y": 0
+        },
+        {
+          "height": 658,
+          "name": "s02-pane s02-source",
+          "width": 347.875,
+          "x": 204,
+          "y": 110
+        },
+        {
+          "height": 658,
+          "name": "s02-pane s02-report",
+          "width": 432.125,
+          "x": 555.875,
+          "y": 110
+        },
+        {
+          "height": 658,
+          "name": "s02-pane s02-run",
+          "width": 276,
+          "x": 996,
+          "y": 110
+        }
+      ],
+      "summaryClipped": false
+    }
+  ],
+  "displayScales": [
+    0.8,
+    0.9,
+    1
+  ]
+}
